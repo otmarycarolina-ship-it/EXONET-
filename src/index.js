@@ -218,7 +218,7 @@ function ClientesView({ clientes, nodos, db }) {
             <div className="col-span-3 w-full">
               <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
               <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
-              {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">🎁 EQUIPO A PRÉSTAMO</p>}
+              {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
             </div>
             <div className="col-span-2 w-full text-center">
               <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
@@ -381,9 +381,12 @@ function SoporteView({ clientes, db }) {
   const handleSend = async (e) => {
     e.preventDefault();
     const cli = clientes.find(c => c.id === report.clienteId);
-    const text = `🚨 *REPORTE EXONET*\n👤 *CLIENTE:* ${cli?.nombre} ${cli?.apellido}\n⚠️ *FALLA:* ${report.falla}\n💬 *NOTA:* ${report.comentario}`;
+    // Mensaje de Telegram sin asteriscos
+    const text = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
     window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
     await addDoc(collection(db, 'soporte'), { ...report, timestamp: new Date().toLocaleString(), clienteNombre: `${cli?.nombre} ${cli?.apellido}` });
+    // Reiniciar formulario
+    setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
   };
 
   const handlePrint = () => {
@@ -409,6 +412,8 @@ function SoporteView({ clientes, db }) {
     `);
     printWindow.document.close();
     printWindow.print();
+    // Reiniciar formulario
+    setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
   };
 
   return (
