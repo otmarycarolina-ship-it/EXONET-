@@ -34,7 +34,8 @@ import {
   Printer,
   Wifi,
   CheckSquare,
-  Square
+  Square,
+  ExternalLink
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -221,7 +222,14 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
             <div className="col-span-2 w-full text-center">
               <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
-              <p className="font-mono text-xs font-bold text-green-700">{c.ip}</p>
+              <a 
+                href={`http://${c.ip}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="font-mono text-xs font-bold text-green-700 hover:underline flex items-center justify-center gap-1"
+              >
+                {c.ip} <ExternalLink size={10} />
+              </a>
             </div>
             <div className="col-span-2 w-full flex flex-col items-center">
               <span style={{ color: colors.primary }} className="font-black italic">{c.plan} Mbps</span>
@@ -307,7 +315,14 @@ function NodosView({ nodos, clientes, db }) {
                     <h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
                     <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{n.frecuencia} MHz</span>
                   </div>
-                  <p className="font-mono text-xs text-gray-400 mt-1">{n.ip}</p>
+                  <a 
+                    href={`http://${n.ip}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="font-mono text-xs text-gray-400 mt-1 hover:text-green-600 flex items-center gap-1"
+                  >
+                    {n.ip} <ExternalLink size={10} />
+                  </a>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
@@ -323,7 +338,14 @@ function NodosView({ nodos, clientes, db }) {
                   <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-2xl gap-3 border border-transparent hover:border-green-200 transition-all">
                     <div className="flex-1">
                       <p className="font-black text-gray-800 uppercase text-sm">{c.nombre} {c.apellido}</p>
-                      <p className="font-mono text-[11px] text-green-700 font-bold">{c.ip}</p>
+                      <a 
+                        href={`http://${c.ip}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="font-mono text-[11px] text-green-700 font-bold hover:underline flex items-center gap-1"
+                      >
+                        {c.ip} <ExternalLink size={9} />
+                      </a>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
                        <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
