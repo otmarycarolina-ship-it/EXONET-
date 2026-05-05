@@ -30,10 +30,12 @@ import {
   Save,
   X,
   Loader2,
-  Send
+  Send,
+  Printer,
+  Wifi
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE FIREBASE (Tus datos reales) ---
+// --- CONFIGURACIÓN DE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyDnHE7OUOpDuvJ6ULgN9pokklos41LF57w",
   authDomain: "exonet-16b9b.firebaseapp.com",
@@ -48,7 +50,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Paleta de Colores Exonet
 const colors = {
   bg: '#E8F5E9',
   sidebar: '#2E7D32',
@@ -60,7 +61,6 @@ const colors = {
   border: '#C5E1A5'
 };
 
-// Componente Logo "X"
 const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M25 25L75 75M75 25L25 75" stroke={color} strokeWidth="12" strokeLinecap="round"/>
@@ -148,7 +148,7 @@ export default function App() {
 
       <main className="p-4 md:p-10 max-w-[1400px] mx-auto">
         {activeTab === 'CLIENTES' && <ClientesView clientes={clientes} nodos={nodos} db={db} />}
-        {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} soporteList={soporteList} db={db} />}
+        {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
       </main>
 
@@ -184,7 +184,10 @@ function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '' });
+  const [formData, setFormData] = useState({ 
+    nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
+    costo: '', ip: '10.10.', señal: '', señalRemota: '', ap: '', prestamo: '' 
+  });
 
   const filtered = clientes.filter(c => `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase()));
 
@@ -193,6 +196,7 @@ function ClientesView({ clientes, nodos, db }) {
     if (editingId) await setDoc(doc(db, 'clientes', editingId), formData);
     else await addDoc(collection(db, 'clientes'), { ...formData, createdAt: Date.now() });
     setShowForm(false); setEditingId(null);
+    setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '10.10.', señal: '', señalRemota: '', ap: '', prestamo: '' });
   };
 
   return (
@@ -208,10 +212,28 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="space-y-3">
         {filtered.map(c => (
           <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
-            <div className="col-span-3 w-full"><h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3><p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p></div>
-            <div className="col-span-2 w-full text-center"><span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span><p className="font-mono text-xs font-bold text-green-700">{c.ip}</p></div>
-            <div className="col-span-2 w-full flex flex-col items-center"><span style={{ color: colors.primary }} className="font-black italic">{c.plan} Mbps</span><p className="font-bold text-gray-800 text-sm">${c.costo}</p></div>
-            <div className="col-span-2 w-full text-center"><div className="flex items-baseline justify-center gap-1 font-black text-gray-700"><span>{c.señal}</span><span className="text-gray-300 text-xs">/</span><span>{c.señalRemota}</span><span className="text-[10px] text-gray-400 ml-1">dBm</span></div></div>
+            <div className="col-span-3 w-full">
+              <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
+              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
+              {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1">🎁 Préstamo: {c.prestamo}</p>}
+            </div>
+            <div className="col-span-2 w-full text-center">
+              <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
+              <p className="font-mono text-xs font-bold text-green-700">{c.ip}</p>
+            </div>
+            <div className="col-span-2 w-full flex flex-col items-center">
+              <span style={{ color: colors.primary }} className="font-black italic">{c.plan} Mbps</span>
+              <p className="font-bold text-gray-800 text-sm">${c.costo}</p>
+            </div>
+            <div className="col-span-2 w-full text-center">
+              <div className="flex flex-col items-center">
+                 <div className="flex gap-2 text-[10px] font-bold text-gray-400 uppercase"><span>Local</span><span>Remota</span></div>
+                 <div className="flex items-baseline justify-center gap-1 font-black text-gray-700">
+                   <span>{c.señal}</span><span className="text-gray-300 text-xs">/</span><span>{c.señalRemota}</span>
+                   <span className="text-[10px] text-gray-400 ml-1">dBm</span>
+                 </div>
+              </div>
+            </div>
             <div className="col-span-2 w-full flex justify-center"><a href={`tel:${c.telefono}`} className="text-gray-600 font-bold text-sm flex items-center gap-2"><Phone size={14} /> {c.telefono}</a></div>
             <div className="col-span-1 flex justify-center gap-2">
               <button onClick={() => { setFormData(c); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
@@ -230,7 +252,7 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="Dirección" className="md:col-span-2 bg-gray-50 p-4 rounded-xl border" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
               <input placeholder="Plan (Mbps)" type="number" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
               <input placeholder="Costo ($)" type="number" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
-              <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
+              <input placeholder="IP (Ej: 10.10.x.x)" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
               <select className="bg-gray-50 p-4 rounded-xl border" value={formData.ap} onChange={e => setFormData({...formData, ap: e.target.value})}>
                 <option value="">Seleccionar Nodo</option>
                 {nodos.map(n => <option key={n.id} value={n.nombre}>{n.nombre}</option>)}
@@ -240,6 +262,8 @@ function ClientesView({ clientes, nodos, db }) {
                 <input placeholder="Señal Local" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señal} onChange={e => setFormData({...formData, señal: e.target.value})} />
                 <input placeholder="Señal Remota" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señalRemota} onChange={e => setFormData({...formData, señalRemota: e.target.value})} />
               </div>
+              <input placeholder="Equipo a préstamo (Opcional)" className="md:col-span-2 bg-orange-50/50 p-4 rounded-xl border border-orange-100" value={formData.prestamo} onChange={e => setFormData({...formData, prestamo: e.target.value})} />
+              
               <button type="submit" style={{ backgroundColor: colors.sidebar }} className="md:col-span-2 py-5 rounded-2xl text-white font-black shadow-lg">GUARDAR CLIENTE</button>
               <button type="button" onClick={() => {setShowForm(false); setEditingId(null);}} className="md:col-span-2 text-gray-400 font-bold">CANCELAR</button>
             </form>
@@ -251,25 +275,68 @@ function ClientesView({ clientes, nodos, db }) {
 }
 
 function NodosView({ nodos, clientes, db }) {
-  const [nuevo, setNuevo] = useState({ nombre: '', ip: '' });
+  const [nuevo, setNuevo] = useState({ nombre: '', ip: '10.10.', frecuencia: '' });
+  
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
       <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
         <input placeholder="Nombre Nodo" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
-        <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl flex-1 border font-mono" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
-        <button onClick={() => addDoc(collection(db, 'nodos'), nuevo)} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold">AÑADIR</button>
+        <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
+        <input placeholder="Frecuencia (MHz)" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
+        <button onClick={() => { addDoc(collection(db, 'nodos'), nuevo); setNuevo({nombre:'', ip:'10.10.', frecuencia:''}); }} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold">AÑADIR</button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {nodos.map(n => (
-          <div key={n.id} className="bg-white p-8 rounded-[2.5rem] border shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-2 h-full bg-green-600"></div>
-            <button onClick={() => deleteDoc(doc(db, 'nodos', n.id))} className="absolute top-6 right-6 text-gray-200 hover:text-red-500"><Trash2 size={20} /></button>
-            <h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
-            <p className="font-mono text-xs text-gray-400 mb-6">{n.ip}</p>
-            <div style={{ backgroundColor: colors.bg }} className="p-4 rounded-2xl flex justify-between items-center"><span className="text-[10px] font-black text-green-800 opacity-60 uppercase">Abonados</span><span style={{ color: colors.sidebar }} className="text-2xl font-black italic">{clientes.filter(c => c.ap === n.nombre).length}</span></div>
-          </div>
-        ))}
+      
+      <div className="grid grid-cols-1 gap-8">
+        {nodos.map(n => {
+          const clientesNodo = clientes.filter(c => c.ap === n.nombre);
+          return (
+            <div key={n.id} className="bg-white rounded-[2.5rem] border shadow-sm overflow-hidden">
+              <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/30">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
+                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{n.frecuencia} MHz</span>
+                  </div>
+                  <p className="font-mono text-xs text-gray-400 mt-1">{n.ip}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-green-800 opacity-60 uppercase">Total Clientes</p>
+                    <p style={{ color: colors.sidebar }} className="text-2xl font-black">{clientesNodo.length}</p>
+                  </div>
+                  <button onClick={() => deleteDoc(doc(db, 'nodos', n.id))} className="text-gray-300 hover:text-red-500"><Trash2 size={20} /></button>
+                </div>
+              </div>
+              
+              <div className="p-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-[10px] font-black text-gray-400 uppercase tracking-wider">
+                      <th className="px-4 py-2">Cliente</th>
+                      <th className="px-4 py-2">IP</th>
+                      <th className="px-4 py-2">Señal Local</th>
+                      <th className="px-4 py-2 text-center">Plan</th>
+                      <th className="px-4 py-2">Equipo Préstamo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {clientesNodo.map(c => (
+                      <tr key={c.id} className="hover:bg-green-50/30 transition-colors">
+                        <td className="px-4 py-3 font-bold text-gray-700">{c.nombre} {c.apellido}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-green-700">{c.ip}</td>
+                        <td className="px-4 py-3 font-black text-gray-600">{c.señal} <span className="text-[10px] font-normal">dBm</span></td>
+                        <td className="px-4 py-3 text-center"><span className="bg-white border px-2 py-1 rounded-lg font-bold text-green-800">{c.plan}M</span></td>
+                        <td className="px-4 py-3 text-orange-600 font-medium italic text-xs">{c.prestamo || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {clientesNodo.length === 0 && <p className="text-center py-8 text-gray-400 font-bold italic">Sin clientes vinculados</p>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -277,6 +344,7 @@ function NodosView({ nodos, clientes, db }) {
 
 function SoporteView({ clientes, db }) {
   const [report, setReport] = useState({ clienteId: '', falla: 'Sin internet', comentario: '' });
+  
   const handleSend = async (e) => {
     e.preventDefault();
     const cli = clientes.find(c => c.id === report.clienteId);
@@ -284,24 +352,59 @@ function SoporteView({ clientes, db }) {
     window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
     await addDoc(collection(db, 'soporte'), { ...report, timestamp: new Date().toLocaleString(), clienteNombre: `${cli?.nombre} ${cli?.apellido}` });
   };
+
+  const handlePrint = () => {
+    const cli = clientes.find(c => c.id === report.clienteId);
+    if(!cli) return alert("Selecciona un cliente primero");
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head><title>Reporte Exonet</title></head>
+        <body style="font-family:sans-serif; padding:40px;">
+          <h1 style="color:#2E7D32">EXONET - REPORTE TÉCNICO</h1>
+          <hr/>
+          <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+          <p><strong>Cliente:</strong> ${cli.nombre} ${cli.apellido}</p>
+          <p><strong>IP:</strong> ${cli.ip}</p>
+          <p><strong>Falla Reportada:</strong> ${report.falla}</p>
+          <p><strong>Observaciones:</strong> ${report.comentario}</p>
+          <br/><br/>
+          <div style="border-top:1px solid #000; width:200px; text-align:center">Firma Técnico</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
-    <div className="max-w-2xl mx-auto"><h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
+    <div className="max-w-2xl mx-auto">
+      <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
       <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
         <select required className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.clienteId} onChange={e => setReport({...report, clienteId: e.target.value})}>
           <option value="">-- SELECCIONAR CLIENTE --</option>
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
         </select>
         <select className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.falla} onChange={e => setReport({...report, falla: e.target.value})}>
-          <option>Sin internet</option><option>Lentitud extrema</option><option>Antena apagada</option><option>Router</option>
+          <option>Sin internet</option>
+          <option>Lentitud</option>
+          <option>Antena apagada</option>
+          <option>LAN0: 10Mbps</option>
+          <option>Problema con el CPE</option>
+          <option>Actualización</option>
         </select>
         <textarea placeholder="Observaciones..." className="w-full bg-gray-50 p-5 rounded-2xl border h-32" value={report.comentario} onChange={e => setReport({...report, comentario: e.target.value})} />
-        <button style={{ backgroundColor: colors.sidebar }} className="w-full py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3"><Send size={24}/> ENVIAR A TELEGRAM</button>
+        
+        <div className="flex flex-col md:flex-row gap-4">
+          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3"><Send size={24}/> ENVIAR TELEGRAM</button>
+          <button type="button" onClick={handlePrint} className="bg-gray-100 text-gray-700 py-5 px-8 rounded-2xl font-black shadow-md flex items-center justify-center gap-3 hover:bg-gray-200"><Printer size={24}/> IMPRIMIR</button>
+        </div>
       </form>
     </div>
   );
 }
 
-// --- RENDERIZADO FINAL (ESTO EVITA PANTALLA EN BLANCO) ---
 const container = document.getElementById('root');
 if (container) {
   const root = createRoot(container);
