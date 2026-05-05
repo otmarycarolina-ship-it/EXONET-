@@ -64,10 +64,23 @@ const colors = {
   border: '#C5E1A5'
 };
 
+// --- NUEVO LOGO DE REGISTRO SIMPLE Y BONITO ---
 const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M25 25L75 75M75 25L25 75" stroke={color} strokeWidth="12" strokeLinecap="round"/>
-    <path d="M60 40C75 30 85 35 90 45M60 40C75 20 85 25 90 30M60 40C75 10 85 15 90 20" stroke={color} strokeWidth="4" strokeLinecap="round"/>
+    <circle cx="50" cy="50" r="12" fill={color} />
+    <path 
+      d="M50 20C66.5685 20 80 33.4315 80 50C80 66.5685 66.5685 80 50 80C33.4315 80 20 66.5685 20 50" 
+      stroke={color} 
+      strokeWidth="8" 
+      strokeLinecap="round" 
+    />
+    <path 
+      d="M50 5C74.8528 5 95 25.1472 95 50" 
+      stroke={color} 
+      strokeWidth="6" 
+      strokeLinecap="round" 
+    />
+    <circle cx="50" cy="5" r="5" fill={color} />
   </svg>
 );
 
