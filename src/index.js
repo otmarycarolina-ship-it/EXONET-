@@ -274,20 +274,44 @@ function ClientesView({ clientes, nodos, db }) {
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '' });
 
-  const handleAddNodo = async () => {
-    if(!nuevo.nombre || !nuevo.ip) return alert("Completa nombre e IP");
-    await addDoc(collection(db, 'nodos'), nuevo);
-    setNuevo({ nombre: '', ip: '' });
+  const handleAddNodo = async (e) => {
+    e.preventDefault();
+    if(!nuevo.nombre.trim() || !nuevo.ip.trim()) {
+      alert("Por favor ingresa nombre e IP del repartidor");
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'nodos'), {
+        nombre: nuevo.nombre.toUpperCase(),
+        ip: nuevo.ip.trim()
+      });
+      setNuevo({ nombre: '', ip: '' });
+    } catch (error) {
+      console.error("Error al añadir repartidor:", error);
+      alert("Error al conectar con la base de datos");
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
-      <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
-        <input placeholder="Nombre Nodo" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
-        <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl flex-1 border font-mono" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
-        <button onClick={handleAddNodo} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold uppercase">Añadir</button>
-      </div>
+      <form onSubmit={handleAddNodo} className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
+        <input 
+          placeholder="Nombre Nodo" 
+          className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" 
+          value={nuevo.nombre} 
+          onChange={e => setNuevo({...nuevo, nombre: e.target.value})} 
+        />
+        <input 
+          placeholder="IP" 
+          className="bg-gray-50 p-4 rounded-xl flex-1 border font-mono" 
+          value={nuevo.ip} 
+          onChange={e => setNuevo({...nuevo, ip: e.target.value})} 
+        />
+        <button type="submit" style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold uppercase shadow-md active:scale-95 transition-transform">
+          Añadir
+        </button>
+      </form>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {nodos.map(n => (
           <div key={n.id} className="bg-white p-8 rounded-[2.5rem] border shadow-sm relative overflow-hidden">
