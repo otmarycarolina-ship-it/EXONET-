@@ -233,7 +233,7 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
-// --- VISTAS HIJAS (Sin cambios en lógica ni diseño) ---
+// --- VISTAS HIJAS ---
 
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
@@ -337,12 +337,68 @@ function ClientesView({ clientes, nodos, db }) {
 
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
+  
   const handleAdd = async () => {
     try {
       await addDoc(collection(db, 'nodos'), nuevo);
       setNuevo({nombre:'', ip:'', frecuencia:''});
     } catch (e) { alert("Sin permisos"); }
-  }
+  };
+
+  const handlePrintNodo = (nodo, clientesNodo) => {
+    const printWindow = window.open('', '_blank');
+    const html = `
+      <html>
+        <head>
+          <title>Exonet - Lista de Clientes - ${nodo.nombre}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; }
+            .info { margin-bottom: 20px; font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
+            td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
+            .prestamo { color: #e67e22; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>EXONET - REPARTO: ${nodo.nombre}</h1>
+          <div class="info">
+            <p>IP NODO: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
+            <p>TOTAL CLIENTES: ${clientesNodo.length}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>CLIENTE</th>
+                <th>IP</th>
+                <th>PLAN</th>
+                <th>SEÑAL</th>
+                <th>TELÉFONO</th>
+                <th>OBS.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${clientesNodo.map(c => `
+                <tr>
+                  <td>${c.nombre} ${c.apellido}</td>
+                  <td>${c.ip}</td>
+                  <td>${c.plan} Mbps</td>
+                  <td>${c.señal} dBm</td>
+                  <td>${c.telefono}</td>
+                  <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
@@ -366,11 +422,18 @@ function NodosView({ nodos, clientes, db }) {
                   <a href={`http://${n.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-gray-400 mt-1 hover:text-green-600 flex items-center gap-1">{n.ip} <ExternalLink size={10} /></a>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="text-right">
+                  <div className="text-right mr-4">
                     <p className="text-[10px] font-black text-green-800 opacity-60 uppercase">Total Clientes</p>
                     <p style={{ color: colors.sidebar }} className="text-2xl font-black">{clientesNodo.length}</p>
                   </div>
-                  <button onClick={() => deleteDoc(doc(db, 'nodos', n.id))} className="text-gray-300 hover:text-red-500"><Trash2 size={20} /></button>
+                  <div className="flex gap-2">
+                    <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600 transition-colors">
+                      <Printer size={22} />
+                    </button>
+                    <button onClick={() => deleteDoc(doc(db, 'nodos', n.id))} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                      <Trash2 size={22} />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="p-6 space-y-3">
