@@ -664,7 +664,10 @@ function SoporteView({ clientes, db }) {
     if(!cli) return alert("Selecciona un cliente primero");
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`<html><body style="font-family:sans-serif; padding:40px;"><h1>EXONET - REPORTE</h1><p>Cliente: ${cli.nombre} ${cli.apellido}</p><p>Falla: ${report.falla}</p><p>Nota: ${report.comentario}</p></body></html>`);
-    printWindow.document.close(); printWindow.print();
+    printWindow.document.close(); 
+    printWindow.print();
+    // Limpiar el reporte después de imprimir
+    setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
   };
 
   return (
