@@ -117,7 +117,6 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const unsubClientes = onSnapshot(collection(db, 'clientes'), (snap) => {
-      // Ordenar clientes alfabéticamente por nombre
       const sorted = snap.docs
         .map(d => ({ ...d.data(), id: d.id }))
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -125,7 +124,6 @@ export default function App() {
     }, (err) => console.log("Error Firestore:", err));
 
     const unsubNodos = onSnapshot(collection(db, 'nodos'), (snap) => {
-      // Ordenar nodos alfabéticamente por nombre
       const sorted = snap.docs
         .map(d => ({ ...d.data(), id: d.id }))
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -321,7 +319,6 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
               <select className="bg-gray-50 p-4 rounded-xl border" value={formData.ap} onChange={e => setFormData({...formData, ap: e.target.value})}>
                 <option value="">Seleccionar Nodo</option>
-                {/* Los nodos ya vienen ordenados del useEffect */}
                 {nodos.map(n => <option key={n.id} value={n.nombre}>{n.nombre}</option>)}
               </select>
               <input placeholder="Teléfono" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
@@ -387,7 +384,7 @@ function NodosView({ nodos, clientes, db }) {
                 <th>PLAN</th>
                 <th>SEÑAL</th>
                 <th>TELÉFONO</th>
-                <th>OBS.</th>
+                <th>ESTADO</th>
               </tr>
             </thead>
             <tbody>
@@ -517,7 +514,6 @@ function SoporteView({ clientes, db }) {
       <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
         <select required className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.clienteId} onChange={e => setReport({...report, clienteId: e.target.value})}>
           <option value="">-- SELECCIONAR CLIENTE --</option>
-          {/* Los clientes ya vienen ordenados del useEffect */}
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
         </select>
         <select className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.falla} onChange={e => setReport({...report, falla: e.target.value})}>
@@ -527,10 +523,11 @@ function SoporteView({ clientes, db }) {
           <option>LAN0: 10Mbps</option>
           <option>Problema con el CPE</option>
           <option>Actualización</option>
+          <option>Otro</option>
         </select>
         <textarea placeholder="Observaciones..." className="w-full bg-gray-50 p-5 rounded-2xl border h-32" value={report.comentario} onChange={e => setReport({...report, comentario: e.target.value})} />
         <div className="flex flex-col md:flex-row gap-4">
-          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3"><Send size={24}/> ENVIAR TELEGRAM</button>
+          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3"><Send size={24}/> ENVIAR POR TELEGRAM</button>
           <button type="button" onClick={handlePrint} className="bg-gray-100 text-gray-700 py-5 px-8 rounded-2xl font-black shadow-md flex items-center justify-center gap-3 hover:bg-gray-200"><Printer size={24}/> IMPRIMIR</button>
         </div>
       </form>
