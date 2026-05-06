@@ -37,7 +37,8 @@ import {
   Wifi,
   CheckSquare,
   Square,
-  ExternalLink
+  ExternalLink,
+  Laptop // Icono para la nueva pestaña
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -195,6 +196,7 @@ export default function App() {
           <NavItem active={activeTab === 'CLIENTES'} onClick={() => setActiveTab('CLIENTES')} icon={<Users />} label="CLIENTES" />
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
           <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
+          <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
           <p className="text-[10px] text-white/40 font-bold mb-2 truncate">{user.email}</p>
@@ -206,6 +208,7 @@ export default function App() {
         {activeTab === 'CLIENTES' && <ClientesView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
+        {activeTab === 'PRESTAMOS' && <PrestamosView clientes={clientes} />}
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-4 z-50 shadow-lg">
@@ -220,6 +223,10 @@ export default function App() {
         <button onClick={() => setActiveTab('NODOS')} className="p-2 flex flex-col items-center">
           <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>NODOS</span>
+        </button>
+        <button onClick={() => setActiveTab('PRESTAMOS')} className="p-2 flex flex-col items-center">
+          <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
         </button>
         <button onClick={handleLogout} className="p-2 flex flex-col items-center text-red-300">
           <LogOut size={20} />
@@ -239,6 +246,58 @@ function NavItem({ active, onClick, icon, label }) {
 }
 
 // --- VISTAS HIJAS ---
+
+function PrestamosView({ clientes }) {
+  // Filtrar clientes que tienen equipos a préstamo y ordenar alfabéticamente
+  const enPrestamo = clientes
+    .filter(c => c.prestamo === true)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  return (
+    <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
+      <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Equipos a Préstamo</h2>
+      
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
+        <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
+           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Lista Oficial de Comodatos</span>
+           <span className="bg-orange-100 text-orange-700 px-4 py-1 rounded-full text-xs font-bold">{enPrestamo.length} EQUIPOS</span>
+        </div>
+        
+        <div className="divide-y divide-gray-50">
+          {enPrestamo.map((c, index) => (
+            <div key={c.id} className="p-6 flex items-center justify-between hover:bg-green-50/30 transition-colors">
+              <div className="flex items-center gap-5">
+                <span className="text-gray-300 font-black text-xl">{index + 1}</span>
+                <div>
+                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
+                    <MapPin size={10}/> {c.direccion}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl border border-orange-100 flex items-center gap-2">
+                  <CheckSquare size={14} />
+                  <span className="text-[10px] font-black">ACTIVO</span>
+                </div>
+                <div className="hidden sm:block text-right">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase">Nodo Origen</p>
+                  <p className="text-xs font-black text-green-700 uppercase">{c.ap}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+          {enPrestamo.length === 0 && (
+            <div className="p-20 text-center">
+              <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
+              <p className="text-gray-400 font-bold italic">No hay equipos registrados bajo la modalidad de préstamo.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
