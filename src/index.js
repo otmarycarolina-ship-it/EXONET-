@@ -322,7 +322,6 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="Plan (Mbps)" type="text" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
               <input placeholder="Costo ($)" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
               
-              {/* CAMPO IP CON TECLADO NUMÉRICO Y PUNTO */}
               <input 
                 placeholder="IP" 
                 type="text"
@@ -344,7 +343,6 @@ function ClientesView({ clientes, nodos, db }) {
 
               <input placeholder="Teléfono" type="text" inputMode="tel" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
               <div className="flex gap-2">
-                {/* CAMPOS DE SEÑAL CON TECLADO NUMÉRICO Y PUNTO */}
                 <input 
                   placeholder="Señal Local" 
                   type="text"
@@ -527,16 +525,25 @@ function NodosView({ nodos, clientes, db }) {
 
 function SoporteView({ clientes, db }) {
   const [report, setReport] = useState({ clienteId: '', falla: 'Sin internet', comentario: '' });
+  
   const handleSend = async (e) => {
     e.preventDefault();
     const cli = clientes.find(c => c.id === report.clienteId);
+    if(!cli) return alert("Selecciona un cliente");
+    
     const text = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
     window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+    
     try {
-      await addDoc(collection(db, 'soporte'), { ...report, timestamp: new Date().toLocaleString(), clienteNombre: `${cli?.nombre} ${cli?.apellido}` });
+      await addDoc(collection(db, 'soporte'), { 
+        ...report, 
+        timestamp: new Date().toLocaleString(), 
+        clienteNombre: `${cli?.nombre} ${cli?.apellido}` 
+      });
       setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
     } catch (e) { alert("Sin permisos"); }
   };
+
   const handlePrint = () => {
     const cli = clientes.find(c => c.id === report.clienteId);
     if(!cli) return alert("Selecciona un cliente primero");
@@ -544,15 +551,25 @@ function SoporteView({ clientes, db }) {
     printWindow.document.write(`<html><body style="font-family:sans-serif; padding:40px;"><h1>EXONET - REPORTE</h1><p>Cliente: ${cli.nombre} ${cli.apellido}</p><p>Falla: ${report.falla}</p><p>Nota: ${report.comentario}</p></body></html>`);
     printWindow.document.close(); printWindow.print();
   };
+
   return (
     <div className="max-w-2xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
       <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
-        <select required className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.clienteId} onChange={e => setValue({...report, clienteId: e.target.value})}>
+        <select 
+          required 
+          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
+          value={report.clienteId} 
+          onChange={e => setReport({...report, clienteId: e.target.value})}
+        >
           <option value="">-- SELECCIONAR CLIENTE --</option>
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
         </select>
-        <select className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.falla} onChange={e => setReport({...report, falla: e.target.value})}>
+        <select 
+          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
+          value={report.falla} 
+          onChange={e => setReport({...report, falla: e.target.value})}
+        >
           <option>Sin internet</option>
           <option>Lentitud</option>
           <option>Antena apagada</option>
@@ -561,10 +578,15 @@ function SoporteView({ clientes, db }) {
           <option>Actualización</option>
           <option>Otro</option>
         </select>
-        <textarea placeholder="Observaciones..." className="w-full bg-gray-50 p-5 rounded-2xl border h-32" value={report.comentario} onChange={e => setReport({...report, comentario: e.target.value})} />
+        <textarea 
+          placeholder="Observaciones..." 
+          className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none focus:border-green-500" 
+          value={report.comentario} 
+          onChange={e => setReport({...report, comentario: e.target.value})} 
+        />
         <div className="flex flex-col md:flex-row gap-4">
-          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3"><Send size={24}/> ENVIAR POR TELEGRAM</button>
-          <button type="button" onClick={handlePrint} className="bg-gray-100 text-gray-700 py-5 px-8 rounded-2xl font-black shadow-md flex items-center justify-center gap-3 hover:bg-gray-200"><Printer size={24}/> IMPRIMIR</button>
+          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"><Send size={24}/> ENVIAR POR TELEGRAM</button>
+          <button type="button" onClick={handlePrint} className="bg-gray-100 text-gray-700 py-5 px-8 rounded-2xl font-black shadow-md flex items-center justify-center gap-3 hover:bg-gray-200 active:scale-95 transition-transform"><Printer size={24}/> IMPRIMIR</button>
         </div>
       </form>
     </div>
