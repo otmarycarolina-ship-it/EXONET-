@@ -117,11 +117,19 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const unsubClientes = onSnapshot(collection(db, 'clientes'), (snap) => {
-      setClientes(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+      // Ordenar clientes alfabéticamente por nombre
+      const sorted = snap.docs
+        .map(d => ({ ...d.data(), id: d.id }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      setClientes(sorted);
     }, (err) => console.log("Error Firestore:", err));
 
     const unsubNodos = onSnapshot(collection(db, 'nodos'), (snap) => {
-      setNodos(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+      // Ordenar nodos alfabéticamente por nombre
+      const sorted = snap.docs
+        .map(d => ({ ...d.data(), id: d.id }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      setNodos(sorted);
     });
 
     const unsubSoporte = onSnapshot(collection(db, 'soporte'), (snap) => {
@@ -285,10 +293,10 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
             <div className="col-span-2 w-full text-center">
               <div className="flex flex-col items-center">
-                 <div className="flex gap-2 text-[10px] font-bold text-gray-400 uppercase"><span>Local</span><span>Remota</span></div>
-                 <div className="flex items-baseline justify-center gap-1 font-black text-gray-700">
-                   <span>{c.señal}</span><span className="text-gray-300 text-xs">/</span><span>{c.señalRemota}</span>
-                   <span className="text-[10px] text-gray-400 ml-1">dBm</span>
+                 <div className="flex gap-4 text-[9px] font-black text-gray-400 uppercase tracking-tighter"><span>LOCAL</span><span>REMOTA</span></div>
+                 <div className="flex items-baseline justify-center gap-1 font-black text-gray-700 text-lg tracking-tighter">
+                   <span>{c.señal}</span><span className="text-gray-300 mx-0.5">/</span><span>{c.señalRemota}</span>
+                   <span className="text-[10px] text-gray-400 ml-1 font-bold">dBm</span>
                  </div>
               </div>
             </div>
@@ -313,6 +321,7 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
               <select className="bg-gray-50 p-4 rounded-xl border" value={formData.ap} onChange={e => setFormData({...formData, ap: e.target.value})}>
                 <option value="">Seleccionar Nodo</option>
+                {/* Los nodos ya vienen ordenados del useEffect */}
                 {nodos.map(n => <option key={n.id} value={n.nombre}>{n.nombre}</option>)}
               </select>
               <input placeholder="Teléfono" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
@@ -358,8 +367,10 @@ function NodosView({ nodos, clientes, db }) {
             th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
             td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
             .prestamo { color: #e67e22; font-weight: bold; }
-            .signal { font-weight: bold; }
-            .remote { color: #666; font-size: 12px; }
+            .sig-container { display: flex; flex-direction: column; align-items: center; }
+            .sig-labels { font-size: 8px; color: #999; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; }
+            .sig-values { font-weight: 900; font-size: 16px; letter-spacing: -1px; }
+            .sig-values span { color: #ddd; margin: 0 4px; font-weight: normal; }
           </style>
         </head>
         <body>
@@ -374,9 +385,9 @@ function NodosView({ nodos, clientes, db }) {
                 <th>CLIENTE</th>
                 <th>IP</th>
                 <th>PLAN</th>
-                <th>SEÑAL (L/R)</th>
+                <th>SEÑAL</th>
                 <th>TELÉFONO</th>
-                <th>ESTADO</th>
+                <th>OBS.</th>
               </tr>
             </thead>
             <tbody>
@@ -385,7 +396,12 @@ function NodosView({ nodos, clientes, db }) {
                   <td>${c.nombre} ${c.apellido}</td>
                   <td>${c.ip}</td>
                   <td>${c.plan} Mbps</td>
-                  <td class="signal">${c.señal} <span class="remote">/ ${c.señalRemota}</span> dBm</td>
+                  <td>
+                    <div class="sig-container">
+                      <div class="sig-labels">LOCAL REMOTA</div>
+                      <div class="sig-values">${c.señal}<span>/</span>${c.señalRemota} <small style="font-size: 10px; color: #999;">dBm</small></div>
+                    </div>
+                  </td>
                   <td>${c.telefono}</td>
                   <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : ''}</td>
                 </tr>
@@ -445,9 +461,13 @@ function NodosView({ nodos, clientes, db }) {
                       <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-green-700 font-bold hover:underline flex items-center gap-1">{c.ip} <ExternalLink size={9} /></a>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
-                       <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
-                          <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Señal (L/R)</span>
-                          <span className="text-gray-700">{c.señal} <span className="text-gray-300">/</span> {c.señalRemota}</span>
+                       <div className="bg-white px-4 py-2 rounded-xl border flex flex-col items-center">
+                          <div className="flex gap-4 text-[8px] text-gray-400 font-black uppercase tracking-widest leading-none mb-1">
+                            <span>LOCAL</span><span>REMOTA</span>
+                          </div>
+                          <div className="text-gray-700 text-base font-black tracking-tighter">
+                            {c.señal} <span className="text-gray-200 mx-0.5">/</span> {c.señalRemota} <small className="text-[10px] text-gray-400 ml-1">dBm</small>
+                          </div>
                        </div>
                        <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
                           <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Plan</span>
@@ -497,6 +517,7 @@ function SoporteView({ clientes, db }) {
       <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
         <select required className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.clienteId} onChange={e => setReport({...report, clienteId: e.target.value})}>
           <option value="">-- SELECCIONAR CLIENTE --</option>
+          {/* Los clientes ya vienen ordenados del useEffect */}
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
         </select>
         <select className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.falla} onChange={e => setReport({...report, falla: e.target.value})}>
