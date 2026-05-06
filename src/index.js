@@ -96,7 +96,6 @@ export default function App() {
   const [nodos, setNodos] = useState([]);
   const [soporteList, setSoporteList] = useState([]);
 
-  // LISTA BLANCA DE CORREOS AUTORIZADOS
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
 
   useEffect(() => {
@@ -359,10 +358,12 @@ function NodosView({ nodos, clientes, db }) {
             th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
             td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
             .prestamo { color: #e67e22; font-weight: bold; }
+            .signal { font-weight: bold; }
+            .remote { color: #666; font-size: 12px; }
           </style>
         </head>
         <body>
-          <h1>EXONET - REPARTO: ${nodo.nombre}</h1>
+          <h1>EXONET - ${nodo.nombre}</h1>
           <div class="info">
             <p>IP NODO: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
             <p>TOTAL CLIENTES: ${clientesNodo.length}</p>
@@ -373,7 +374,7 @@ function NodosView({ nodos, clientes, db }) {
                 <th>CLIENTE</th>
                 <th>IP</th>
                 <th>PLAN</th>
-                <th>SEÑAL</th>
+                <th>SEÑAL (L/R)</th>
                 <th>TELÉFONO</th>
                 <th>ESTADO</th>
               </tr>
@@ -384,7 +385,7 @@ function NodosView({ nodos, clientes, db }) {
                   <td>${c.nombre} ${c.apellido}</td>
                   <td>${c.ip}</td>
                   <td>${c.plan} Mbps</td>
-                  <td>${c.señal} dBm</td>
+                  <td class="signal">${c.señal} <span class="remote">/ ${c.señalRemota}</span> dBm</td>
                   <td>${c.telefono}</td>
                   <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : ''}</td>
                 </tr>
@@ -445,8 +446,8 @@ function NodosView({ nodos, clientes, db }) {
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
                        <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
-                          <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Señal</span>
-                          <span className="text-gray-700">{c.señal} dBm</span>
+                          <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Señal (L/R)</span>
+                          <span className="text-gray-700">{c.señal} <span className="text-gray-300">/</span> {c.señalRemota}</span>
                        </div>
                        <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
                           <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Plan</span>
