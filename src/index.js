@@ -375,7 +375,7 @@ function NodosView({ nodos, clientes, db }) {
                 <th>PLAN</th>
                 <th>SEÑAL</th>
                 <th>TELÉFONO</th>
-                <th>OBS.</th>
+                <th>ESTADO</th>
               </tr>
             </thead>
             <tbody>
