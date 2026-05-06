@@ -9,7 +9,7 @@ import {
   onSnapshot, 
   deleteDoc, 
   addDoc,
-  updateDoc // Añadido para actualizar estado
+  updateDoc 
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -40,7 +40,7 @@ import {
   Square,
   ExternalLink,
   Laptop,
-  MessageCircle // Icono para WhatsApp
+  MessageCircle 
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -252,7 +252,6 @@ function NavItem({ active, onClick, icon, label }) {
 function PrestamosView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
-  // Filtrar clientes que tienen equipos a préstamo y aplicar buscador por nombre
   const enPrestamo = clientes
     .filter(c => c.prestamo === true)
     .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
@@ -291,11 +290,10 @@ function PrestamosView({ clientes, db }) {
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Equipos a Préstamo</h2>
       
-      {/* 2. Buscador y Filtros Rápidos */}
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
         <input 
-          placeholder="Buscar cliente en comodato..." 
+          placeholder="Buscar cliente con equipo prestado..." 
           className="bg-transparent w-full p-4 outline-none font-medium" 
           value={search} 
           onChange={e => setSearch(e.target.value)} 
@@ -304,7 +302,7 @@ function PrestamosView({ clientes, db }) {
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
         <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
-           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Lista Oficial de Comodatos</span>
+           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Lista Oficial de Préstamos</span>
            <span className="bg-orange-100 text-orange-700 px-4 py-1 rounded-full text-xs font-bold">{enPrestamo.length} EQUIPOS</span>
         </div>
         
@@ -321,7 +319,6 @@ function PrestamosView({ clientes, db }) {
                 </div>
               </div>
               <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                {/* 3. Botón de WhatsApp */}
                 <button 
                   onClick={() => handleWhatsApp(c)}
                   className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
@@ -330,7 +327,6 @@ function PrestamosView({ clientes, db }) {
                   <MessageCircle size={20} />
                 </button>
 
-                {/* 1. Sistema de "Estado de Retorno" */}
                 <div 
                   onClick={() => handleCycleStatus(c)}
                   className={`cursor-pointer px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all active:scale-95 ${getStatusStyles(c.estadoPrestamo || 'ACTIVO')}`}
@@ -433,7 +429,7 @@ function ClientesView({ clientes, nodos, db }) {
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[95vh]">
-            <h2 style={{ color: colors.textMain }} className="text-2xl font-black uppercase mb-8">Datos Cliente</h2>
+            <h2 style={{ color: colors.textMain }} className="text-2xl font-black uppercase mb-8">Datos del cliente</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <input placeholder="Nombre" className="bg-gray-50 p-4 rounded-xl border" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value.toUpperCase()})} />
               <input placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
