@@ -8,7 +8,8 @@ import {
   setDoc, 
   onSnapshot, 
   deleteDoc, 
-  addDoc
+  addDoc,
+  updateDoc // Añadido para actualizar estado
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -38,7 +39,8 @@ import {
   CheckSquare,
   Square,
   ExternalLink,
-  Laptop // Icono para la nueva pestaña
+  Laptop,
+  MessageCircle // Icono para WhatsApp
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -208,7 +210,7 @@ export default function App() {
         {activeTab === 'CLIENTES' && <ClientesView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
-        {activeTab === 'PRESTAMOS' && <PrestamosView clientes={clientes} />}
+        {activeTab === 'PRESTAMOS' && <PrestamosView clientes={clientes} db={db} />}
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-4 z-50 shadow-lg">
@@ -247,16 +249,59 @@ function NavItem({ active, onClick, icon, label }) {
 
 // --- VISTAS HIJAS ---
 
-function PrestamosView({ clientes }) {
-  // Filtrar clientes que tienen equipos a préstamo y ordenar alfabéticamente
+function PrestamosView({ clientes, db }) {
+  const [search, setSearch] = useState('');
+
+  // Filtrar clientes que tienen equipos a préstamo y aplicar buscador por nombre
   const enPrestamo = clientes
     .filter(c => c.prestamo === true)
+    .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  const handleWhatsApp = (cliente) => {
+    const mensaje = `*Hola*, ${cliente.nombre} 😊. Te saludamos de parte de *EXONET*, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n*¡Gracias por tu preferencia!* 🌐`;
+    const url = `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleCycleStatus = async (cliente) => {
+    const estados = ['ACTIVO', 'REVISIÓN', 'PENDIENTE DE RETIRAR'];
+    const currentIdx = estados.indexOf(cliente.estadoPrestamo || 'ACTIVO');
+    const nextStatus = estados[(currentIdx + 1) % estados.length];
+    
+    try {
+      await updateDoc(doc(db, 'clientes', cliente.id), { estadoPrestamo: nextStatus });
+    } catch (err) {
+      console.error("Error al actualizar estado:", err);
+    }
+  };
+
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case 'PENDIENTE DE RETIRAR':
+        return 'bg-red-50 text-red-600 border-red-100';
+      case 'REVISIÓN':
+        return 'bg-orange-50 text-orange-600 border-orange-100';
+      default:
+        return 'bg-green-50 text-green-600 border-green-100';
+    }
+  };
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Equipos a Préstamo</h2>
       
+      {/* 2. Buscador y Filtros Rápidos */}
+      <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
+        <Search size={20} className="text-gray-400" />
+        <input 
+          placeholder="Buscar cliente en comodato..." 
+          className="bg-transparent w-full p-4 outline-none font-medium" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
         <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
            <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Lista Oficial de Comodatos</span>
@@ -265,7 +310,7 @@ function PrestamosView({ clientes }) {
         
         <div className="divide-y divide-gray-50">
           {enPrestamo.map((c, index) => (
-            <div key={c.id} className="p-6 flex items-center justify-between hover:bg-green-50/30 transition-colors">
+            <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
               <div className="flex items-center gap-5">
                 <span className="text-gray-300 font-black text-xl">{index + 1}</span>
                 <div>
@@ -275,12 +320,26 @@ function PrestamosView({ clientes }) {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl border border-orange-100 flex items-center gap-2">
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                {/* 3. Botón de WhatsApp */}
+                <button 
+                  onClick={() => handleWhatsApp(c)}
+                  className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
+                  title="Enviar recordatorio"
+                >
+                  <MessageCircle size={20} />
+                </button>
+
+                {/* 1. Sistema de "Estado de Retorno" */}
+                <div 
+                  onClick={() => handleCycleStatus(c)}
+                  className={`cursor-pointer px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all active:scale-95 ${getStatusStyles(c.estadoPrestamo || 'ACTIVO')}`}
+                >
                   <CheckSquare size={14} />
-                  <span className="text-[10px] font-black">ACTIVO</span>
+                  <span className="text-[10px] font-black">{c.estadoPrestamo || 'ACTIVO'}</span>
                 </div>
-                <div className="hidden sm:block text-right">
+                
+                <div className="hidden sm:block text-right ml-2">
                   <p className="text-[9px] font-bold text-gray-400 uppercase">Nodo Origen</p>
                   <p className="text-xs font-black text-green-700 uppercase">{c.ap}</p>
                 </div>
@@ -290,7 +349,7 @@ function PrestamosView({ clientes }) {
           {enPrestamo.length === 0 && (
             <div className="p-20 text-center">
               <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
-              <p className="text-gray-400 font-bold italic">No hay equipos registrados bajo la modalidad de préstamo.</p>
+              <p className="text-gray-400 font-bold italic">No hay resultados que coincidan con la búsqueda.</p>
             </div>
           )}
         </div>
@@ -305,7 +364,8 @@ function ClientesView({ clientes, nodos, db }) {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
-    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false 
+    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false,
+    estadoPrestamo: 'ACTIVO'
   });
 
   const filtered = clientes.filter(c => `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase()));
@@ -321,7 +381,7 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), formData);
       else await addDoc(collection(db, 'clientes'), { ...formData, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO' });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
