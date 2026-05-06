@@ -253,6 +253,11 @@ function ClientesView({ clientes, nodos, db }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.ap) {
+      alert("Por favor, selecciona un Nodo antes de guardar.");
+      return;
+    }
+    
     try {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), formData);
       else await addDoc(collection(db, 'clientes'), { ...formData, createdAt: Date.now() });
@@ -314,17 +319,48 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="Nombre" className="bg-gray-50 p-4 rounded-xl border" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value.toUpperCase()})} />
               <input placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
               <input placeholder="Dirección" className="md:col-span-2 bg-gray-50 p-4 rounded-xl border" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
-              <input placeholder="Plan (Mbps)" type="number" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
-              <input placeholder="Costo ($)" type="number" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
-              <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
-              <select className="bg-gray-50 p-4 rounded-xl border" value={formData.ap} onChange={e => setFormData({...formData, ap: e.target.value})}>
-                <option value="">Seleccionar Nodo</option>
+              <input placeholder="Plan (Mbps)" type="text" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
+              <input placeholder="Costo ($)" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
+              
+              {/* CAMPO IP CON TECLADO NUMÉRICO Y PUNTO */}
+              <input 
+                placeholder="IP" 
+                type="text"
+                inputMode="decimal"
+                className="bg-gray-50 p-4 rounded-xl border font-mono" 
+                value={formData.ip} 
+                onChange={e => setFormData({...formData, ip: e.target.value})} 
+              />
+              
+              <select 
+                required 
+                className="bg-gray-50 p-4 rounded-xl border focus:border-green-500 outline-none" 
+                value={formData.ap} 
+                onChange={e => setFormData({...formData, ap: e.target.value})}
+              >
+                <option value="">-- SELECCIONAR NODO (OBLIGATORIO) --</option>
                 {nodos.map(n => <option key={n.id} value={n.nombre}>{n.nombre}</option>)}
               </select>
-              <input placeholder="Teléfono" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
+
+              <input placeholder="Teléfono" type="text" inputMode="tel" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
               <div className="flex gap-2">
-                <input placeholder="Señal Local" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señal} onChange={e => setFormData({...formData, señal: e.target.value})} />
-                <input placeholder="Señal Remota" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señalRemota} onChange={e => setFormData({...formData, señalRemota: e.target.value})} />
+                {/* CAMPOS DE SEÑAL CON TECLADO NUMÉRICO Y PUNTO */}
+                <input 
+                  placeholder="Señal Local" 
+                  type="text"
+                  inputMode="decimal"
+                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
+                  value={formData.señal} 
+                  onChange={e => setFormData({...formData, señal: e.target.value})} 
+                />
+                <input 
+                  placeholder="Señal Remota" 
+                  type="text"
+                  inputMode="decimal"
+                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
+                  value={formData.señalRemota} 
+                  onChange={e => setFormData({...formData, señalRemota: e.target.value})} 
+                />
               </div>
               <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} className="md:col-span-2 flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none">
                 {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
@@ -418,8 +454,8 @@ function NodosView({ nodos, clientes, db }) {
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
       <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
         <input placeholder="Nombre Nodo" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
-        <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
-        <input placeholder="Frecuencia (MHz)" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
+        <input placeholder="IP" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
+        <input placeholder="Frecuencia (MHz)" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
         <button onClick={handleAdd} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold">AÑADIR</button>
       </div>
       <div className="grid grid-cols-1 gap-8">
@@ -512,7 +548,7 @@ function SoporteView({ clientes, db }) {
     <div className="max-w-2xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
       <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
-        <select required className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.clienteId} onChange={e => setReport({...report, clienteId: e.target.value})}>
+        <select required className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.clienteId} onChange={e => setValue({...report, clienteId: e.target.value})}>
           <option value="">-- SELECCIONAR CLIENTE --</option>
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
         </select>
