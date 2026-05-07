@@ -70,13 +70,11 @@ const colors = {
   border: '#C5E1A5'
 };
 
-// --- LOGO ACTUALIZADO ---
-const ExonetLogo = ({ size = 48 }) => (
-  <img 
-    src="https://raw.githubusercontent.com/otmarox/exonet/main/104797.png" 
-    alt="Exonet Logo" 
-    style={{ width: size, height: size, objectFit: 'contain', borderRadius: '20%' }} 
-  />
+const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="2" fill={color}/>
+    <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+  </svg>
 );
 
 export default function App() {
@@ -156,7 +154,7 @@ export default function App() {
     <div style={{ backgroundColor: colors.bg }} className="min-h-screen flex items-center justify-center p-4 font-sans text-gray-800">
       <div className="bg-white p-10 rounded-[2.5rem] shadow-xl w-full max-w-md border border-green-100">
         <div className="flex flex-col items-center mb-10">
-          <div className="mb-4 shadow-lg rounded-3xl overflow-hidden"><ExonetLogo size={100} /></div>
+          <div style={{ backgroundColor: colors.sidebar }} className="p-5 rounded-3xl mb-4 shadow-lg"><ExonetLogo size={60} color="#FFF" /></div>
           <h1 style={{ color: colors.textMain }} className="text-4xl font-black tracking-tighter uppercase text-center">EXONET</h1>
           <p style={{ color: colors.primary }} className="font-bold tracking-widest text-[10px] uppercase mt-1">Acceso Restringido</p>
         </div>
@@ -183,11 +181,11 @@ export default function App() {
   return (
     <div style={{ backgroundColor: colors.bg }} className="min-h-screen pb-24 md:pb-0 md:pl-64 text-gray-800 font-sans">
       <aside style={{ backgroundColor: colors.sidebar }} className="hidden md:flex flex-col w-64 h-full fixed left-0 top-0 p-8 shadow-2xl z-50">
-        <div className="flex items-center gap-3 mb-12"><ExonetLogo size={40} /><span className="text-2xl font-black text-white">EXONET</span></div>
+        <div className="flex items-center gap-3 mb-12"><ExonetLogo size={32} color="#FFF" /><span className="text-2xl font-black text-white">EXONET</span></div>
         <nav className="flex-1 space-y-4">
           <NavItem active={activeTab === 'CLIENTES'} onClick={() => setActiveTab('CLIENTES')} icon={<Users />} label="CLIENTES" />
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
-          <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<div className="scale-75"><ExonetLogo size={24} /></div>} label="REPARTIDORES" />
+          <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
@@ -213,7 +211,7 @@ export default function App() {
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'SOPORTE' ? colors.sidebar : '#CCC' }}>SOPORTE</span>
         </button>
         <button onClick={() => setActiveTab('NODOS')} className="p-2 flex flex-col items-center">
-          <div className={activeTab === 'NODOS' ? '' : 'grayscale opacity-50'}><ExonetLogo size={24} /></div>
+          <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>NODOS</span>
         </button>
         <button onClick={() => setActiveTab('PRESTAMOS')} className="p-2 flex flex-col items-center">
@@ -378,7 +376,9 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
-          <span className="bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-black shadow-sm">{clientes.length} TOTAL</span>
+          <span className="bg-green-700 text-white px-3 py-1 rounded-full text-sm font-black shadow-sm">
+            {clientes.length} ABONADOS
+          </span>
         </div>
         <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
       </div>
