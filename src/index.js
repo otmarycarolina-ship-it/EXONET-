@@ -74,7 +74,7 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="50" cy="50" r="12" fill={color} />
     <path 
-      d="M50 20C66.5685 20 80 33.4315 80 50C80 66.5685 66.5685 80 50 80C33.4315 80 20 66.5685 20 50" 
+      d="M50 20C66.5685 20 80 33.4315 80 50C80 66.5685 66.5685 80 50 80C33.4315 80 20 50" 
       stroke={color} 
       strokeWidth="8" 
       strokeLinecap="round" 
@@ -336,7 +336,7 @@ function PrestamosView({ clientes, db }) {
                 </div>
                 
                 <div className="hidden sm:block text-right ml-2">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase">Nodo Origen</p>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase">Nodo</p>
                   <p className="text-xs font-black text-green-700 uppercase">{c.ap}</p>
                 </div>
               </div>
