@@ -411,15 +411,24 @@ function ClientesView({ clientes, nodos, db }) {
                  </div>
               </div>
             </div>
-            {/* OPCIONES DE CONTACTO */}
-            <div className="col-span-2 w-full flex justify-center gap-4">
-              <a href={`tel:${c.telefono}`} className="text-blue-600 hover:scale-110 transition-transform flex items-center gap-2 font-bold text-sm" title="Llamada normal">
-                <Phone size={18} />
-              </a>
-              <a href={`https://wa.me/${c.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-green-600 hover:scale-110 transition-transform flex items-center gap-2 font-bold text-sm" title="WhatsApp">
-                <MessageCircle size={18} />
-              </a>
-              <span className="text-gray-600 font-bold text-sm border-l pl-2">{c.telefono}</span>
+            {/* OPCIONES DE CONTACTO CORREGIDAS */}
+            <div className="col-span-2 w-full flex justify-center items-center gap-3">
+              <div className="flex gap-2">
+                <a href={`tel:${c.telefono.split(/[\s,]+/)[0]}`} className="text-blue-600 hover:scale-110 transition-transform" title="Llamada">
+                  <Phone size={18} />
+                </a>
+                <a href={`https://wa.me/${c.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-green-600 hover:scale-110 transition-transform" title="WhatsApp">
+                  <MessageCircle size={18} />
+                </a>
+              </div>
+              <div className="flex flex-wrap items-center gap-1 border-l pl-3 min-w-fit">
+                {c.telefono.split(/[\s,]+/).map((num, idx) => (
+                  <React.Fragment key={idx}>
+                    {idx > 0 && <span className="text-gray-300 mx-0.5">|</span>}
+                    <span className="text-gray-600 font-bold text-sm whitespace-nowrap">{num}</span>
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
             <div className="col-span-1 flex justify-center gap-2">
               <button onClick={() => { setFormData(c); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
