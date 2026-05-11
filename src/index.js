@@ -407,19 +407,19 @@ function ClientesView({ clientes, nodos, db }) {
               </div>
             </div>
             
-            {/* SECCIÓN DE CONTACTO CORREGIDA Y ESTÉTICA */}
+            {/* SECCIÓN DE CONTACTO CON ICONOS MÁS GRANDES */}
             <div className="col-span-2 w-full flex flex-col items-center gap-1.5 min-w-[160px]">
               {c.telefono.split(/[\s,]+/).map((num, idx) => {
                 const cleanNum = num.replace(/[^\d+]/g, '');
                 return (
-                  <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-1.5 rounded-xl border border-transparent hover:border-green-200 transition-all group">
+                  <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
                     <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
-                    <div className="flex gap-2 border-l border-gray-200 pl-2 ml-2">
+                    <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
                       <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
-                        <Phone size={14} />
+                        <Phone size={18} strokeWidth={2.5} />
                       </a>
                       <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp">
-                        <MessageCircle size={14} />
+                        <MessageCircle size={18} strokeWidth={2.5} />
                       </a>
                     </div>
                   </div>
