@@ -245,9 +245,11 @@ function PrestamosView({ clientes, db }) {
     .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-  const handleWhatsApp = (cliente) => {
+  // Función de WhatsApp mejorada para Préstamos
+  const handleWhatsApp = (cliente, numeroEspecifico) => {
     const mensaje = `*Hola*, ${cliente.nombre} 😊. Te saludamos de parte de *EXONET*, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n*¡Gracias por tu preferencia!* 🌐`;
-    const url = `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`;
+    const cleanNum = numeroEspecifico.replace(/\D/g, '');
+    const url = `https://wa.me/${cleanNum}?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
   };
 
@@ -306,14 +308,19 @@ function PrestamosView({ clientes, db }) {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                <button 
-                  onClick={() => handleWhatsApp(c)}
-                  className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
-                  title="Enviar recordatorio"
-                >
-                  <MessageCircle size={20} />
-                </button>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                {/* SOPORTE PARA MULTIPLES NÚMEROS EN PRÉSTAMOS */}
+                {c.telefono.split(/[\s,+/]+/).filter(n => n.trim() !== "").map((num, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => handleWhatsApp(c, num)}
+                    className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors flex items-center gap-1"
+                    title={`Enviar a ${num}`}
+                  >
+                    <MessageCircle size={18} />
+                    <span className="text-[9px] font-black hidden lg:inline">ENVIAR</span>
+                  </button>
+                ))}
 
                 <div 
                   onClick={() => handleCycleStatus(c)}
@@ -330,12 +337,6 @@ function PrestamosView({ clientes, db }) {
               </div>
             </div>
           ))}
-          {enPrestamo.length === 0 && (
-            <div className="p-20 text-center">
-              <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
-              <p className="text-gray-400 font-bold italic">No hay resultados que coincidan con la búsqueda.</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -367,7 +368,7 @@ function ClientesView({ clientes, nodos, db }) {
       setShowForm(false); setEditingId(null);
       setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO' });
     } catch (err) {
-      alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
+      alert("Error al procesar la solicitud.");
     }
   };
 
@@ -382,10 +383,12 @@ function ClientesView({ clientes, nodos, db }) {
         </div>
         <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
       </div>
+
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
         <input placeholder="Buscar abonado..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
+
       <div className="space-y-3">
         {filtered.map(c => (
           <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
@@ -394,14 +397,17 @@ function ClientesView({ clientes, nodos, db }) {
               <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
               {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
             </div>
+
             <div className="col-span-2 w-full text-center">
               <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
               <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs font-bold text-green-700 hover:underline flex items-center justify-center gap-1">{c.ip} <ExternalLink size={10} /></a>
             </div>
+
             <div className="col-span-2 w-full flex flex-col items-center">
               <span style={{ color: colors.primary }} className="font-black italic">{c.plan} Mbps</span>
               <p className="font-bold text-gray-800 text-sm">${c.costo}</p>
             </div>
+
             <div className="col-span-2 w-full text-center">
               <div className="flex flex-col items-center">
                  <div className="flex gap-4 text-[9px] font-black text-gray-400 uppercase tracking-tighter"><span>LOCAL</span><span>REMOTA</span></div>
@@ -411,25 +417,37 @@ function ClientesView({ clientes, nodos, db }) {
                  </div>
               </div>
             </div>
-            {/* OPCIONES DE CONTACTO CORREGIDAS */}
-            <div className="col-span-2 w-full flex justify-center items-center gap-3">
-              <div className="flex gap-2">
-                <a href={`tel:${c.telefono.split(/[\s,]+/)[0]}`} className="text-blue-600 hover:scale-110 transition-transform" title="Llamada">
-                  <Phone size={18} />
-                </a>
-                <a href={`https://wa.me/${c.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-green-600 hover:scale-110 transition-transform" title="WhatsApp">
-                  <MessageCircle size={18} />
-                </a>
-              </div>
-              <div className="flex flex-wrap items-center gap-1 border-l pl-3 min-w-fit">
-                {c.telefono.split(/[\s,]+/).map((num, idx) => (
-                  <React.Fragment key={idx}>
-                    {idx > 0 && <span className="text-gray-300 mx-0.5">|</span>}
-                    <span className="text-gray-600 font-bold text-sm whitespace-nowrap">{num}</span>
-                  </React.Fragment>
-                ))}
-              </div>
+
+            {/* SECCIÓN DE CONTACTO PARA MÚLTIPLES NÚMEROS */}
+            <div className="col-span-2 w-full flex flex-col gap-2 border-l pl-4">
+              {c.telefono.split(/[\s,+/]+/).filter(num => num.trim() !== "").map((num, idx) => {
+                const cleanNum = num.replace(/[^\d+]/g, '');
+                return (
+                  <div key={idx} className="flex items-center justify-between bg-gray-50/50 p-2 rounded-xl border border-gray-100 hover:bg-gray-100 transition-colors">
+                    <span className="text-[10px] font-black text-gray-600">{num.trim()}</span>
+                    <div className="flex gap-2">
+                      <a 
+                        href={`tel:${cleanNum}`} 
+                        className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                        title="Llamar"
+                      >
+                        <Phone size={14} />
+                      </a>
+                      <a 
+                        href={`https://wa.me/${cleanNum.replace('+', '')}`} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-600 hover:text-white transition-all"
+                        title="WhatsApp"
+                      >
+                        <MessageCircle size={14} />
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
             <div className="col-span-1 flex justify-center gap-2">
               <button onClick={() => { setFormData(c); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
               <button onClick={() => deleteDoc(doc(db, 'clientes', c.id))} className="p-2 bg-red-50 text-red-500 rounded-xl"><Trash2 size={18} /></button>
@@ -437,25 +455,18 @@ function ClientesView({ clientes, nodos, db }) {
           </div>
         ))}
       </div>
+
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[95vh]">
             <h2 style={{ color: colors.textMain }} className="text-2xl font-black uppercase mb-8">Datos del cliente</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input placeholder="Nombre" className="bg-gray-50 p-4 rounded-xl border" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value.toUpperCase()})} />
-              <input placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
+              <input required placeholder="Nombre" className="bg-gray-50 p-4 rounded-xl border" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value.toUpperCase()})} />
+              <input required placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
               <input placeholder="Dirección" className="md:col-span-2 bg-gray-50 p-4 rounded-xl border" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
               <input placeholder="Plan (Mbps)" type="text" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
               <input placeholder="Costo ($)" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
-              
-              <input 
-                placeholder="IP" 
-                type="text"
-                inputMode="decimal"
-                className="bg-gray-50 p-4 rounded-xl border font-mono" 
-                value={formData.ip} 
-                onChange={e => setFormData({...formData, ip: e.target.value})} 
-              />
+              <input placeholder="IP" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
               
               <select 
                 required 
@@ -463,33 +474,22 @@ function ClientesView({ clientes, nodos, db }) {
                 value={formData.ap} 
                 onChange={e => setFormData({...formData, ap: e.target.value})}
               >
-                <option value="">-- SELECCIONAR NODO (OBLIGATORIO) --</option>
+                <option value="">-- SELECCIONAR NODO --</option>
                 {nodos.map(n => <option key={n.id} value={n.nombre}>{n.nombre}</option>)}
               </select>
 
-              <input placeholder="Teléfono" type="text" inputMode="tel" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
+              <input required placeholder="Teléfonos (sepáralos con coma)" type="text" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
+              
               <div className="flex gap-2">
-                <input 
-                  placeholder="Señal Local" 
-                  type="text"
-                  inputMode="decimal"
-                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
-                  value={formData.señal} 
-                  onChange={e => setFormData({...formData, señal: e.target.value})} 
-                />
-                <input 
-                  placeholder="Señal Remota" 
-                  type="text"
-                  inputMode="decimal"
-                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
-                  value={formData.señalRemota} 
-                  onChange={e => setFormData({...formData, señalRemota: e.target.value})} 
-                />
+                <input placeholder="Señal Local" type="text" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señal} onChange={e => setFormData({...formData, señal: e.target.value})} />
+                <input placeholder="Señal Remota" type="text" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señalRemota} onChange={e => setFormData({...formData, señalRemota: e.target.value})} />
               </div>
+
               <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} className="md:col-span-2 flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none">
                 {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
                 <span className="font-bold text-gray-700">Equipos a préstamo</span>
               </div>
+
               <button type="submit" style={{ backgroundColor: colors.sidebar }} className="md:col-span-2 py-5 rounded-2xl text-white font-black shadow-lg">GUARDAR CLIENTE</button>
               <button type="button" onClick={() => {setShowForm(false); setEditingId(null);}} className="md:col-span-2 text-gray-400 font-bold">CANCELAR</button>
             </form>
@@ -500,6 +500,7 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
+// --- VISTAS DE NODOS Y SOPORTE ---
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
@@ -515,54 +516,24 @@ function NodosView({ nodos, clientes, db }) {
     const html = `
       <html>
         <head>
-          <title>Exonet - Lista de Clientes - ${nodo.nombre}</title>
+          <title>Exonet - ${nodo.nombre}</title>
           <style>
             body { font-family: sans-serif; padding: 40px; color: #333; }
-            h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; }
-            .info { margin-bottom: 20px; font-weight: bold; }
+            h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
-            td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
-            .prestamo { color: #e67e22; font-weight: bold; }
-            .sig-container { display: flex; flex-direction: column; align-items: center; }
-            .sig-labels { font-size: 8px; color: #999; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; }
-            .sig-values { font-weight: 900; font-size: 16px; letter-spacing: -1px; }
-            .sig-values span { color: #ddd; margin: 0 4px; font-weight: normal; }
+            th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+            th { background: #f4f4f4; }
           </style>
         </head>
         <body>
-          <h1>EXONET - ${nodo.nombre}</h1>
-          <div class="info">
-            <p>IP NODO: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
-            <p>TOTAL CLIENTES: ${clientesNodo.length}</p>
-          </div>
+          <h1>NODO: ${nodo.nombre}</h1>
+          <p>IP: ${nodo.ip} | Frecuencia: ${nodo.frecuencia} MHz</p>
           <table>
             <thead>
-              <tr>
-                <th>CLIENTE</th>
-                <th>IP</th>
-                <th>PLAN</th>
-                <th>SEÑAL</th>
-                <th>TELÉFONO</th>
-                <th>ESTADO</th>
-              </tr>
+              <tr><th>CLIENTE</th><th>IP</th><th>PLAN</th><th>TELÉFONOS</th></tr>
             </thead>
             <tbody>
-              ${clientesNodo.map(c => `
-                <tr>
-                  <td>${c.nombre} ${c.apellido}</td>
-                  <td>${c.ip}</td>
-                  <td>${c.plan} Mbps</td>
-                  <td>
-                    <div class="sig-container">
-                      <div class="sig-labels">LOCAL REMOTA</div>
-                      <div class="sig-values">${c.señal}<span>/</span>${c.señalRemota} <small style="font-size: 10px; color: #999;">dBm</small></div>
-                    </div>
-                  </td>
-                  <td>${c.telefono}</td>
-                  <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : ''}</td>
-                </tr>
-              `).join('')}
+              ${clientesNodo.map(c => `<tr><td>${c.nombre} ${c.apellido}</td><td>${c.ip}</td><td>${c.plan} Mbps</td><td>${c.telefono}</td></tr>`).join('')}
             </tbody>
           </table>
         </body>
@@ -578,68 +549,32 @@ function NodosView({ nodos, clientes, db }) {
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
       <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
         <input placeholder="Nombre Nodo" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
-        <input placeholder="IP" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
-        <input placeholder="Frecuencia (MHz)" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
+        <input placeholder="IP" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
+        <input placeholder="MHz" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
         <button onClick={handleAdd} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold">AÑADIR</button>
       </div>
       <div className="grid grid-cols-1 gap-8">
         {nodos.map(n => {
           const clientesNodo = clientes.filter(c => c.ap === n.nombre);
           return (
-            <div key={n.id} className="bg-white rounded-[2.5rem] border shadow-sm overflow-hidden flex flex-col">
-              <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/30">
+            <div key={n.id} className="bg-white rounded-[2.5rem] border shadow-sm overflow-hidden">
+              <div className="p-8 border-b flex justify-between items-center bg-gray-50/30">
                 <div>
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
-                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{n.frecuencia} MHz</span>
-                  </div>
-                  <a href={`http://${n.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-gray-400 mt-1 hover:text-green-600 flex items-center gap-1">{n.ip} <ExternalLink size={10} /></a>
+                  <h3 className="text-2xl font-black text-gray-800">{n.nombre}</h3>
+                  <p className="font-mono text-xs text-gray-400">{n.ip} | {n.frecuencia} MHz</p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right mr-4">
-                    <p className="text-[10px] font-black text-green-800 opacity-60 uppercase">Total Clientes</p>
-                    <p style={{ color: colors.sidebar }} className="text-2xl font-black">{clientesNodo.length}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600 transition-colors">
-                      <Printer size={22} />
-                    </button>
-                    <button onClick={() => deleteDoc(doc(db, 'nodos', n.id))} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
-                      <Trash2 size={22} />
-                    </button>
-                  </div>
+                <div className="flex gap-4">
+                    <button onClick={() => handlePrintNodo(n, clientesNodo)} className="text-gray-400 hover:text-green-600"><Printer /></button>
+                    <button onClick={() => deleteDoc(doc(db, 'nodos', n.id))} className="text-gray-300 hover:text-red-500"><Trash2 /></button>
                 </div>
               </div>
-              <div className="p-6 space-y-3">
+              <div className="p-6 space-y-2">
                 {clientesNodo.map(c => (
-                  <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-2xl gap-3 border border-transparent hover:border-green-200 transition-all">
-                    <div className="flex-1">
-                      <p className="font-black text-gray-800 uppercase text-sm">{c.nombre} {c.apellido}</p>
-                      <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-green-700 font-bold hover:underline flex items-center gap-1">{c.ip} <ExternalLink size={9} /></a>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
-                       <div className="bg-white px-4 py-2 rounded-xl border flex flex-col items-center">
-                          <div className="flex gap-4 text-[8px] text-gray-400 font-black uppercase tracking-widest leading-none mb-1">
-                            <span>LOCAL</span><span>REMOTA</span>
-                          </div>
-                          <div className="text-gray-700 text-base font-black tracking-tighter">
-                            {c.señal} <span className="text-gray-200 mx-0.5">/</span> {c.señalRemota} <small className="text-[10px] text-gray-400 ml-1">dBm</small>
-                          </div>
-                       </div>
-                       <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
-                          <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Plan</span>
-                          <span className="text-green-700">{c.plan}M</span>
-                       </div>
-                       {c.prestamo && (
-                         <div className="bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
-                           <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
-                           <span>PRÉSTAMO</span>
-                         </div>
-                       )}
-                    </div>
+                  <div key={c.id} className="flex justify-between p-3 bg-gray-50 rounded-xl text-sm font-bold">
+                    <span>{c.nombre} {c.apellido}</span>
+                    <span className="text-green-700">{c.ip}</span>
                   </div>
                 ))}
-                {clientesNodo.length === 0 && <p className="text-center py-4 text-gray-400 font-bold italic text-sm">Sin clientes vinculados</p>}
               </div>
             </div>
           );
@@ -667,56 +602,26 @@ function SoporteView({ clientes, db }) {
         clienteNombre: `${cli?.nombre} ${cli?.apellido}` 
       });
       setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
-    } catch (e) { alert("Sin permisos"); }
-  };
-
-  const handlePrint = () => {
-    const cli = clientes.find(c => c.id === report.clienteId);
-    if(!cli) return alert("Selecciona un cliente primero");
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<html><body style="font-family:sans-serif; padding:40px;"><h1>EXONET - REPORTE</h1><p>Cliente: ${cli.nombre} ${cli.apellido}</p><p>Falla: ${report.falla}</p><p>Nota: ${report.comentario}</p></body></html>`);
-    printWindow.document.close(); 
-    printWindow.print();
-    // Limpiar el reporte después de imprimir
-    setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
+    } catch (e) { console.log(e); }
   };
 
   return (
     <div className="max-w-2xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
       <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
-        <select 
-          required 
-          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
-          value={report.clienteId} 
-          onChange={e => setReport({...report, clienteId: e.target.value})}
-        >
+        <select required className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.clienteId} onChange={e => setReport({...report, clienteId: e.target.value})}>
           <option value="">-- SELECCIONAR CLIENTE --</option>
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
         </select>
-        <select 
-          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
-          value={report.falla} 
-          onChange={e => setReport({...report, falla: e.target.value})}
-        >
+        <select className="w-full bg-gray-50 p-5 rounded-2xl border font-bold" value={report.falla} onChange={e => setReport({...report, falla: e.target.value})}>
           <option>Sin internet</option>
           <option>Lentitud</option>
           <option>Antena apagada</option>
           <option>LAN0: 10Mbps</option>
-          <option>Problema con el CPE</option>
-          <option>Actualización</option>
           <option>Otro</option>
         </select>
-        <textarea 
-          placeholder="Observaciones..." 
-          className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none focus:border-green-500" 
-          value={report.comentario} 
-          onChange={e => setReport({...report, comentario: e.target.value})} 
-        />
-        <div className="flex flex-col md:flex-row gap-4">
-          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"><Send size={24}/> ENVIAR POR TELEGRAM</button>
-          <button type="button" onClick={handlePrint} className="bg-gray-100 text-gray-700 py-5 px-8 rounded-2xl font-black shadow-md flex items-center justify-center gap-3 hover:bg-gray-200 active:scale-95 transition-transform"><Printer size={24}/> IMPRIMIR</button>
-        </div>
+        <textarea placeholder="Observaciones..." className="w-full bg-gray-50 p-5 rounded-2xl border h-32" value={report.comentario} onChange={e => setReport({...report, comentario: e.target.value})} />
+        <button type="submit" style={{ backgroundColor: colors.sidebar }} className="w-full py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3"><Send /> ENVIAR REPORTE</button>
       </form>
     </div>
   );
