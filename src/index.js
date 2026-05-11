@@ -411,7 +411,16 @@ function ClientesView({ clientes, nodos, db }) {
                  </div>
               </div>
             </div>
-            <div className="col-span-2 w-full flex justify-center"><a href={`tel:${c.telefono}`} className="text-gray-600 font-bold text-sm flex items-center gap-2"><Phone size={14} /> {c.telefono}</a></div>
+            {/* OPCIONES DE CONTACTO */}
+            <div className="col-span-2 w-full flex justify-center gap-4">
+              <a href={`tel:${c.telefono}`} className="text-blue-600 hover:scale-110 transition-transform flex items-center gap-2 font-bold text-sm" title="Llamada normal">
+                <Phone size={18} />
+              </a>
+              <a href={`https://wa.me/${c.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-green-600 hover:scale-110 transition-transform flex items-center gap-2 font-bold text-sm" title="WhatsApp">
+                <MessageCircle size={18} />
+              </a>
+              <span className="text-gray-600 font-bold text-sm border-l pl-2">{c.telefono}</span>
+            </div>
             <div className="col-span-1 flex justify-center gap-2">
               <button onClick={() => { setFormData(c); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
               <button onClick={() => deleteDoc(doc(db, 'clientes', c.id))} className="p-2 bg-red-50 text-red-500 rounded-xl"><Trash2 size={18} /></button>
