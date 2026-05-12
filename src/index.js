@@ -240,8 +240,9 @@ function PrestamosView({ clientes, db }) {
     .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-  const handleWhatsApp = (cliente) => {
-    const mensaje = `*Hola*, ${cliente.nombre} 😊. Te saludamos de parte de *EXONET*, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n*¡Gracias por tu preferencia!* 🌐`;
+  const handleWhatsApp = (cliente, customMsg = null) => {
+    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos de parte de *EXONET*, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n*¡Gracias por tu preferencia!* 🌐`;
+    const mensaje = customMsg || defaultMsg;
     const url = `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`;
     window.open(url, '_blank');
   };
@@ -251,8 +252,18 @@ function PrestamosView({ clientes, db }) {
     const currentIdx = estados.indexOf(cliente.estadoPrestamo || 'ACTIVO');
     const nextStatus = estados[(currentIdx + 1) % estados.length];
     
+    // Idea: Historial de observaciones rápido
+    let observaciones = cliente.observaciones || "";
+    if (nextStatus === 'PENDIENTE DE RETIRAR') {
+      const nota = prompt("¿Alguna observación sobre el estado del equipo? (Antena, cables, router)", observaciones);
+      if (nota !== null) observaciones = nota;
+    }
+
     try {
-      await updateDoc(doc(db, 'clientes', cliente.id), { estadoPrestamo: nextStatus });
+      await updateDoc(doc(db, 'clientes', cliente.id), { 
+        estadoPrestamo: nextStatus,
+        observaciones: observaciones 
+      });
     } catch (err) {
       console.error("Error al actualizar estado:", err);
     }
@@ -299,13 +310,40 @@ function PrestamosView({ clientes, db }) {
                   <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
                     <MapPin size={10}/> {c.direccion}
                   </p>
+                  {c.observaciones && (
+                    <p className="text-[9px] text-gray-500 font-medium mt-1 italic">Obs: {c.observaciones}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                
+                {/* Botón Dinámico según Estado */}
+                {c.estadoPrestamo === 'PENDIENTE DE RETIRAR' && (
+                  <button 
+                    onClick={() => handleWhatsApp(c, `Orden de Retiro *EXONET*: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}. Dirección: ${c.direccion}. Motivo: ${c.observaciones || 'Fin de contrato'}`)}
+                    className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
+                    title="Reportar Retiro"
+                  >
+                    <Wrench size={18} />
+                    <span className="text-[9px] font-black hidden lg:block">REPORTAR RETIRO</span>
+                  </button>
+                )}
+
+                {c.estadoPrestamo === 'REVISIÓN' && (
+                  <button 
+                    onClick={() => handleWhatsApp(c, `Soporte *EXONET*: Chequeo de equipos para ${c.nombre} ${c.apellido}. Por favor, revisen si hay algún problema y reporten las novedades.`)}
+                    className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
+                    title="Mandar a Revisión"
+                  >
+                    <AlertCircle size={18} />
+                    <span className="text-[9px] font-black hidden lg:block">REVISIÓN TÉCNICA</span>
+                  </button>
+                )}
+
                 <button 
                   onClick={() => handleWhatsApp(c)}
                   className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
-                  title="Enviar recordatorio"
+                  title="Enviar recordatorio estándar"
                 >
                   <MessageCircle size={20} />
                 </button>
@@ -407,7 +445,6 @@ function ClientesView({ clientes, nodos, db }) {
               </div>
             </div>
             
-            {/* SECCIÓN DE CONTACTO CON ICONOS MÁS GRANDES */}
             <div className="col-span-2 w-full flex flex-col items-center gap-1.5 min-w-[160px]">
               {c.telefono.split(/[\s,]+/).map((num, idx) => {
                 const cleanNum = num.replace(/[^\d+]/g, '');
