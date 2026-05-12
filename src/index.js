@@ -252,17 +252,9 @@ function PrestamosView({ clientes, db }) {
     const currentIdx = estados.indexOf(cliente.estadoPrestamo || 'ACTIVO');
     const nextStatus = estados[(currentIdx + 1) % estados.length];
     
-    // Idea: Historial de observaciones rápido
-    let observaciones = cliente.observaciones || "";
-    if (nextStatus === 'PENDIENTE DE RETIRAR') {
-      const nota = prompt("¿Alguna observación sobre el estado del equipo? (Antena, cables, router)", observaciones);
-      if (nota !== null) observaciones = nota;
-    }
-
     try {
       await updateDoc(doc(db, 'clientes', cliente.id), { 
-        estadoPrestamo: nextStatus,
-        observaciones: observaciones 
+        estadoPrestamo: nextStatus
       });
     } catch (err) {
       console.error("Error al actualizar estado:", err);
@@ -310,9 +302,6 @@ function PrestamosView({ clientes, db }) {
                   <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
                     <MapPin size={10}/> {c.direccion}
                   </p>
-                  {c.observaciones && (
-                    <p className="text-[9px] text-gray-500 font-medium mt-1 italic">Obs: {c.observaciones}</p>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
@@ -320,7 +309,7 @@ function PrestamosView({ clientes, db }) {
                 {/* Botón Dinámico según Estado */}
                 {c.estadoPrestamo === 'PENDIENTE DE RETIRAR' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Orden de Retiro *EXONET*: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}. Dirección: ${c.direccion}. Motivo: ${c.observaciones || 'Fin de contrato'}`)}
+                    onClick={() => handleWhatsApp(c, `Orden de Retiro *EXONET*: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}. Dirección: ${c.direccion}.`)}
                     className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                     title="Reportar Retiro"
                   >
