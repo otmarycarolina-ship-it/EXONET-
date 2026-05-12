@@ -240,10 +240,16 @@ function PrestamosView({ clientes, db }) {
     .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-  const handleWhatsApp = (cliente, customMsg = null) => {
+  const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
     const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos de parte de *EXONET*, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n*¡Gracias por tu preferencia!* 🌐`;
     const mensaje = customMsg || defaultMsg;
-    const url = `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`;
+    
+    // Si es mensaje de cobro (directToNumber es true), se envía a su número
+    // Si es retiro/revisión, se abre WhatsApp para elegir a quién enviarlo
+    const url = directToNumber 
+      ? `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+      
     window.open(url, '_blank');
   };
 
@@ -306,10 +312,10 @@ function PrestamosView({ clientes, db }) {
               </div>
               <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                 
-                {/* Botón Dinámico según Estado */}
+                {/* Botón Dinámico según Estado (Permite elegir destino) */}
                 {c.estadoPrestamo === 'PENDIENTE DE RETIRAR' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Orden de Retiro *EXONET*: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}. Dirección: ${c.direccion}.`)}
+                    onClick={() => handleWhatsApp(c, `Orden de Retiro *EXONET*: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}. Dirección: ${c.direccion}.`, false)}
                     className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                     title="Reportar Retiro"
                   >
@@ -320,7 +326,7 @@ function PrestamosView({ clientes, db }) {
 
                 {c.estadoPrestamo === 'REVISIÓN' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Soporte *EXONET*: Chequeo de equipos para ${c.nombre} ${c.apellido}. Por favor, revisen si hay algún problema y reporten las novedades.`)}
+                    onClick={() => handleWhatsApp(c, `Soporte *EXONET*: Chequeo de equipos para ${c.nombre} ${c.apellido}. Por favor, revisen si hay algún problema y reporten las novedades.`, false)}
                     className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                     title="Mandar a Revisión"
                   >
@@ -329,10 +335,11 @@ function PrestamosView({ clientes, db }) {
                   </button>
                 )}
 
+                {/* Botón de Cobro (Directo a su número) */}
                 <button 
-                  onClick={() => handleWhatsApp(c)}
+                  onClick={() => handleWhatsApp(c, null, true)}
                   className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
-                  title="Enviar recordatorio estándar"
+                  title="Enviar recordatorio estándar (Cobro)"
                 >
                   <MessageCircle size={20} />
                 </button>
@@ -363,6 +370,8 @@ function PrestamosView({ clientes, db }) {
     </div>
   );
 }
+
+// ... Resto del código (ClientesView, NodosView, SoporteView) sin cambios ...
 
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
