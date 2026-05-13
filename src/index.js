@@ -112,7 +112,7 @@ export default function App() {
     const unsubNodos = onSnapshot(collection(db, 'nodos'), (snap) => {
       const sorted = snap.docs
         .map(d => ({ ...d.data(), id: d.id }))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true, sensitivity: 'base' }));
       setNodos(sorted);
     });
 
