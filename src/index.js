@@ -438,22 +438,29 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
             
             <div className="col-span-2 w-full flex flex-col items-center gap-1.5 min-w-[160px]">
-              {c.telefono.split(/[\s,]+/).map((num, idx) => {
-                const cleanNum = num.replace(/[^\d+]/g, '');
-                return (
-                  <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
-                    <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
-                    <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
-                      <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
-                        <Phone size={18} strokeWidth={2.5} />
-                      </a>
-                      <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp">
-                        <MessageCircle size={18} strokeWidth={2.5} />
-                      </a>
+              {c.telefono && c.telefono.trim() !== "" ? (
+                c.telefono.split(/[\s,]+/).map((num, idx) => {
+                  const cleanNum = num.replace(/[^\d+]/g, '');
+                  if (!cleanNum) return null;
+                  return (
+                    <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
+                      <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
+                      <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
+                        <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
+                          <Phone size={18} strokeWidth={2.5} />
+                        </a>
+                        <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp">
+                          <MessageCircle size={18} strokeWidth={2.5} />
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <div className="w-full bg-gray-50/50 px-3 py-2 rounded-xl border border-dashed border-gray-200 text-center">
+                  <span className="text-[9px] text-gray-300 font-black uppercase tracking-widest">Sin contacto</span>
+                </div>
+              )}
             </div>
 
             <div className="col-span-1 flex justify-center gap-2">
