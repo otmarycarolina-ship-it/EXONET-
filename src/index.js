@@ -75,6 +75,8 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
 // --- UTILIDAD DE IMPRESIÓN ---
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
+  const esListaGeneral = titulo.includes('GENERAL');
+  
   const html = `
     <html>
       <head>
@@ -94,13 +96,10 @@ const handlePrintGeneral = (titulo, data) => {
         <table>
           <thead>
             <tr>
-              <th>#</th>
-              <th>CLIENTE</th>
-              <th>IP</th>
-              <th>PLAN</th>
-              <th>TELÉFONO</th>
-              <th>DIRECCIÓN</th>
-              ${titulo.includes('PRÉSTAMO') ? '<th>ESTADO</th>' : '<th>NODO</th>'}
+              <th style="width: 50px;">#</th>
+              <th>CLIENTE (NOMBRE Y APELLIDO)</th>
+              ${!esListaGeneral ? '<th>ESTADO DEL EQUIPO</th>' : ''}
+              ${!esListaGeneral ? '<th>DIRECCIÓN</th>' : ''}
             </tr>
           </thead>
           <tbody>
@@ -108,11 +107,8 @@ const handlePrintGeneral = (titulo, data) => {
               <tr>
                 <td>${i + 1}</td>
                 <td>${c.nombre} ${c.apellido}</td>
-                <td>${c.ip}</td>
-                <td>${c.plan} Mbps</td>
-                <td>${c.telefono || 'N/A'}</td>
-                <td>${c.direccion}</td>
-                <td>${titulo.includes('PRÉSTAMO') ? (c.estadoPrestamo || 'ACTIVO') : c.ap}</td>
+                ${!esListaGeneral ? `<td>${c.estadoPrestamo || 'ACTIVO'}</td>` : ''}
+                ${!esListaGeneral ? `<td>${c.direccion || 'N/A'}</td>` : ''}
               </tr>
             `).join('')}
           </tbody>
@@ -335,7 +331,7 @@ function PrestamosView({ clientes, db }) {
       <div className="flex justify-between items-center mb-8">
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos a Préstamo</h2>
         <button 
-          onClick={() => handlePrintGeneral('LISTA DE EQUIPOS EN PRÉSTAMO', enPrestamo)}
+          onClick={() => handlePrintGeneral('LISTA DE EQUIPOS A PRÉSTAMO', enPrestamo)}
           className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
         >
           <Printer size={18} /> IMPRIMIR LISTA
@@ -354,7 +350,7 @@ function PrestamosView({ clientes, db }) {
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
         <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
-           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Lista Oficial de Préstamos</span>
+           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Clientes con Equipos a Préstamo</span>
            <span className="bg-orange-100 text-orange-700 px-4 py-1 rounded-full text-xs font-bold">{enPrestamo.length} EQUIPOS</span>
         </div>
         
@@ -472,7 +468,7 @@ function ClientesView({ clientes, nodos, db }) {
             onClick={() => handlePrintGeneral('LISTA GENERAL DE CLIENTES', clientes)}
             className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all"
           >
-            <Printer size={20} /> IMPRIMIR TODO
+            <Printer size={20} /> IMPRIMIR NOMBRES
           </button>
           <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
         </div>
