@@ -72,6 +72,60 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
   </svg>
 );
 
+// --- UTILIDAD DE IMPRESIÓN ---
+const handlePrintGeneral = (titulo, data) => {
+  const printWindow = window.open('', '_blank');
+  const html = `
+    <html>
+      <head>
+        <title>Exonet - ${titulo}</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; color: #333; }
+          h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #f4f4f4; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 12px; }
+          td { padding: 10px; border: 1px solid #ddd; font-size: 12px; }
+          .footer { margin-top: 20px; font-size: 10px; color: #999; text-align: right; }
+        </style>
+      </head>
+      <body>
+        <h1>EXONET - ${titulo}</h1>
+        <p>Total registros: ${data.length} | Fecha: ${new Date().toLocaleDateString()}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>CLIENTE</th>
+              <th>IP</th>
+              <th>PLAN</th>
+              <th>TELÉFONO</th>
+              <th>DIRECCIÓN</th>
+              ${titulo.includes('PRÉSTAMO') ? '<th>ESTADO</th>' : '<th>NODO</th>'}
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map((c, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${c.nombre} ${c.apellido}</td>
+                <td>${c.ip}</td>
+                <td>${c.plan} Mbps</td>
+                <td>${c.telefono || 'N/A'}</td>
+                <td>${c.direccion}</td>
+                <td>${titulo.includes('PRÉSTAMO') ? (c.estadoPrestamo || 'ACTIVO') : c.ap}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Generado por Sistema de Gestión Exonet</div>
+      </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.print();
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('CLIENTES');
@@ -278,7 +332,15 @@ function PrestamosView({ clientes, db }) {
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-      <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Equipos a Préstamo</h2>
+      <div className="flex justify-between items-center mb-8">
+        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos a Préstamo</h2>
+        <button 
+          onClick={() => handlePrintGeneral('LISTA DE EQUIPOS EN PRÉSTAMO', enPrestamo)}
+          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
+        >
+          <Printer size={18} /> IMPRIMIR LISTA
+        </button>
+      </div>
       
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
@@ -405,7 +467,15 @@ function ClientesView({ clientes, nodos, db }) {
             {clientes.length} ABONADOS
           </span>
         </div>
-        <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => handlePrintGeneral('LISTA GENERAL DE CLIENTES', clientes)}
+            className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all"
+          >
+            <Printer size={20} /> IMPRIMIR TODO
+          </button>
+          <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
+        </div>
       </div>
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
