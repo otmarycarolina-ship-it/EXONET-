@@ -465,7 +465,16 @@ function ClientesView({ clientes, nodos, db }) {
 
             <div className="col-span-1 flex justify-center gap-2">
               <button onClick={() => { setFormData(c); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
-              <button onClick={() => deleteDoc(doc(db, 'clientes', c.id))} className="p-2 bg-red-50 text-red-500 rounded-xl"><Trash2 size={18} /></button>
+              <button 
+                onClick={() => {
+                  if (window.confirm(`¿Estás seguro de que deseas eliminar al abonado ${c.nombre} ${c.apellido}?`)) {
+                    deleteDoc(doc(db, 'clientes', c.id));
+                  }
+                }} 
+                className="p-2 bg-red-50 text-red-500 rounded-xl"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
           </div>
         ))}
@@ -637,7 +646,14 @@ function NodosView({ nodos, clientes, db }) {
                     <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600 transition-colors">
                       <Printer size={22} />
                     </button>
-                    <button onClick={() => deleteDoc(doc(db, 'nodos', n.id))} className="p-2 text-gray-300 hover:text-red-500 transition-colors">
+                    <button 
+                      onClick={() => {
+                        if (window.confirm(`¿Deseas eliminar el nodo ${n.nombre}? Esta acción desconectará visualmente a sus clientes de este nodo.`)) {
+                          deleteDoc(doc(db, 'nodos', n.id));
+                        }
+                      }} 
+                      className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                    >
                       <Trash2 size={22} />
                     </button>
                   </div>
