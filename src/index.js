@@ -196,8 +196,8 @@ export default function App() {
   );
 
   if (!user) return (
-    <div style={{ backgroundColor: colors.bg }} className="min-h-screen flex items-center justify-center p-4 font-sans text-gray-800">
-      <div className="bg-white p-10 rounded-[2.5rem] shadow-xl w-full max-w-md border border-green-100">
+    <div style={{ backgroundColor: colors.bg }} className="min-h-screen items-center justify-center p-4 font-sans text-gray-800">
+      <div className="bg-white p-10 rounded-[2.5rem] shadow-xl w-full max-w-md border border-green-100 mx-auto">
         <div className="flex flex-col items-center mb-10">
           <div style={{ backgroundColor: colors.sidebar }} className="p-5 rounded-3xl mb-4 shadow-lg"><ExonetLogo size={60} color="#FFF" /></div>
           <h1 style={{ color: colors.textMain }} className="text-4xl font-black tracking-tighter uppercase text-center">EXONET</h1>
@@ -468,7 +468,7 @@ function ClientesView({ clientes, nodos, db }) {
             onClick={() => handlePrintGeneral('LISTA GENERAL DE CLIENTES', clientes)}
             className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all"
           >
-            <Printer size={20} /> IMPRIMIR NOMBRES
+            <Printer size={20} /> IMPRIMIR LISTA
           </button>
           <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
         </div>
