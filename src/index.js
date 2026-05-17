@@ -202,7 +202,7 @@ export default function App() {
   );
 
   if (!user) return (
-    <div style={{ backgroundColor: colors.bg }} className="min-h-screen flex flex-col items-center justify-center p-4 font-sans text-gray-800">
+    <div style={{ backgroundColor: colors.bg }} className="min-h-screen items-center justify-center p-4 font-sans text-gray-800">
       <div className="bg-white p-10 rounded-[2.5rem] shadow-xl w-full max-w-md border border-green-100 mx-auto">
         <div className="flex flex-col items-center mb-10">
           <div style={{ backgroundColor: colors.sidebar }} className="p-5 rounded-3xl mb-4 shadow-lg"><ExonetLogo size={60} color="#FFF" /></div>
@@ -313,39 +313,15 @@ function PagosView({ clientes, db }) {
     }
   };
 
-  const handleSendTelegramPendientes = () => {
-    if (pendientes.length === 0) {
-      alert("No hay clientes con pagos pendientes en este momento.");
-      return;
-    }
-
-    let text = `⚠️ *REPORTE DE CLIENTES PENDIENTES - EXONET*\n`;
-    text += `📅 Fecha: ${new Date().toLocaleDateString()}\n`;
-    text += `📊 Total Deudores: ${pendientes.length}\n\n`;
-    
-    pendientes.forEach((c, idx) => {
-      text += `${idx + 1}. 👤 ${c.nombre} ${c.apellido}\n`;
-      text += `   🌐 Plan: ${c.plan} Mbps | 💵 Costo: $${c.costo}\n`;
-      text += `   📍 Dir: ${c.direccion || 'N/A'}\n\n`;
-    });
-
-    const link = document.createElement('a');
-    // Solución: Usamos el parámetro formal text= y codificamos correctamente toda la cadena
-    link.href = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.click();
-  };
-
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Control de Pagos Mensuales</h2>
         <button 
-          onClick={handleSendTelegramPendientes}
-          className="bg-green-100 text-green-800 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-green-200 border border-green-200 transition-colors shadow-sm"
+          onClick={() => handlePrintGeneral('LISTA DE CLIENTES PENDIENTES DE PAGO', pendientes)}
+          className="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-green-200 transition-colors shadow-sm"
         >
-          <Send size={18} /> ENVIAR PENDIENTES
+          <Printer size={18} /> IMPRIMIR PENDIENTES
         </button>
       </div>
 
@@ -899,7 +875,7 @@ function SoporteView({ clientes, db }) {
     if(!cli) return alert("Selecciona un cliente");
     
     const text = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
-    window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
     
     try {
       await addDoc(collection(db, 'soporte'), { 
