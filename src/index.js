@@ -329,7 +329,12 @@ function PagosView({ clientes, db }) {
       text += `   📍 Dir: ${c.direccion || 'N/A'}\n\n`;
     });
 
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+    // Se cambia de window.open a rel="noopener noreferrer" indirecto usando un elemento 'a' para evitar bloqueos del navegador
+    const link = document.createElement('a');
+    link.href = `https://t.me/share/url?url=${encodeURIComponent(text)}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
   };
 
   return (
@@ -338,7 +343,7 @@ function PagosView({ clientes, db }) {
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Control de Pagos Mensuales</h2>
         <button 
           onClick={handleSendTelegramPendientes}
-          className="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-200 transition-colors shadow-sm"
+          className="bg-green-100 text-green-800 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-green-200 border border-green-200 transition-colors shadow-sm"
         >
           <Send size={18} /> ENVIAR PENDIENTES POR TELEGRAM
         </button>
