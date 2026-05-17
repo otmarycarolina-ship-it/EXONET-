@@ -296,10 +296,18 @@ function NavItem({ active, onClick, icon, label }) {
 
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
+  const [filtroPago, setFiltroPago] = useState('TODOS');
 
-  const filteredClientes = clientes.filter(c => 
-    `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredClientes = clientes.filter(c => {
+    const cumpleBusqueda = `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase());
+    if (!cumpleBusqueda) return false;
+    
+    if (filtroPago === 'PENDIENTES') return !c.pagoCompletado;
+    if (filtroPago === 'SOLVENTES') return c.pagoCompletado;
+    return true;
+  });
+
+  const pendientes = clientes.filter(c => !c.pagoCompletado);
 
   const handleTogglePago = async (cliente) => {
     try {
@@ -311,10 +319,35 @@ function PagosView({ clientes, db }) {
     }
   };
 
+  const handleSendTelegramPendientes = () => {
+    if (pendientes.length === 0) {
+      alert("No hay clientes con pagos pendientes en este momento.");
+      return;
+    }
+
+    let text = `⚠️ *REPORTE DE CLIENTES PENDIENTES - EXONET*\n`;
+    text += `📅 Fecha: ${new Date().toLocaleDateString()}\n`;
+    text += `📊 Total Deudores: ${pendientes.length}\n\n`;
+    
+    pendientes.forEach((c, idx) => {
+      text += `${idx + 1}. 👤 ${c.nombre} ${c.apellido}\n`;
+      text += `   🌐 Plan: ${c.plan} Mbps | 💵 Costo: $${c.costo}\n`;
+      text += `   📍 Dir: ${c.direccion || 'N/A'}\n\n`;
+    });
+
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+  };
+
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Control de Pagos Mensuales</h2>
+        <button 
+          onClick={handleSendTelegramPendientes}
+          className="bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-200 transition-colors shadow-sm"
+        >
+          <Send size={18} /> ENVIAR PENDIENTES POR TELEGRAM
+        </button>
       </div>
 
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
@@ -328,11 +361,33 @@ function PagosView({ clientes, db }) {
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
-        <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
+        <div className="p-6 bg-gray-50/50 border-b flex flex-col sm:flex-row justify-between items-center gap-4">
           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Listado Mensual de Abonados</span>
-          <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
-            {clientes.filter(c => c.pagoCompletado).length} / {clientes.length} SOLVENTES
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+              <button 
+                onClick={() => setFiltroPago('TODOS')} 
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'TODOS' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                Todos
+              </button>
+              <button 
+                onClick={() => setFiltroPago('PENDIENTES')} 
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
+              >
+                Pendientes
+              </button>
+              <button 
+                onClick={() => setFiltroPago('SOLVENTES')} 
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
+              >
+                Solventes
+              </button>
+            </div>
+            <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
+              {clientes.filter(c => c.pagoCompletado).length} / {clientes.length} SOLVENTES
+            </span>
+          </div>
         </div>
 
         <div className="divide-y divide-gray-50">
@@ -367,7 +422,7 @@ function PagosView({ clientes, db }) {
           {filteredClientes.length === 0 && (
             <div className="p-20 text-center">
               <DollarSign size={48} className="mx-auto text-gray-200 mb-4" />
-              <p className="text-gray-400 font-bold italic">No se encontraron clientes para la búsqueda.</p>
+              <p className="text-gray-400 font-bold italic">No se encontraron clientes para la búsqueda o filtro seleccionado.</p>
             </div>
           )}
         </div>
