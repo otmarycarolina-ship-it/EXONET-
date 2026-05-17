@@ -35,7 +35,8 @@ import {
   Square,
   ExternalLink,
   Laptop,
-  MessageCircle 
+  MessageCircle,
+  DollarSign
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -76,6 +77,7 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
   const esListaGeneral = titulo.includes('GENERAL');
+  const esPagos = titulo.includes('PAGOS');
   
   const html = `
     <html>
@@ -98,8 +100,10 @@ const handlePrintGeneral = (titulo, data) => {
             <tr>
               <th style="width: 50px;">#</th>
               <th>CLIENTE (NOMBRE Y APELLIDO)</th>
-              ${!esListaGeneral ? '<th>ESTADO DEL EQUIPO</th>' : ''}
-              ${!esListaGeneral ? '<th>DIRECCIÓN</th>' : ''}
+              ${!esListaGeneral && !esPagos ? '<th>ESTADO DEL EQUIPO</th>' : ''}
+              ${esPagos ? '<th>PLAN / COSTO</th>' : ''}
+              <th>DIRECCIÓN</th>
+              ${esPagos ? '<th>ESTADO DE PAGO</th>' : ''}
             </tr>
           </thead>
           <tbody>
@@ -107,8 +111,10 @@ const handlePrintGeneral = (titulo, data) => {
               <tr>
                 <td>${i + 1}</td>
                 <td>${c.nombre} ${c.apellido}</td>
-                ${!esListaGeneral ? `<td>${c.estadoPrestamo || 'ACTIVO'}</td>` : ''}
-                ${!esListaGeneral ? `<td>${c.direccion || 'N/A'}</td>` : ''}
+                ${!esListaGeneral && !esPagos ? `<td>${c.estadoPrestamo || 'ACTIVO'}</td>` : ''}
+                ${esPagos ? `<td>${c.plan} Mbps - $${c.costo}</td>` : ''}
+                <td>${c.direccion || 'N/A'}</td>
+                ${esPagos ? `<td>${c.pagoCompletado ? 'AL DÍA' : 'PENDIENTE'}</td>` : ''}
               </tr>
             `).join('')}
           </tbody>
@@ -229,6 +235,7 @@ export default function App() {
         <div className="flex items-center gap-3 mb-12"><ExonetLogo size={32} color="#FFF" /><span className="text-2xl font-black text-white">EXONET</span></div>
         <nav className="flex-1 space-y-4">
           <NavItem active={activeTab === 'CLIENTES'} onClick={() => setActiveTab('CLIENTES')} icon={<Users />} label="CLIENTES" />
+          <NavItem active={activeTab === 'PAGOS'} onClick={() => setActiveTab('PAGOS')} icon={<DollarSign />} label="PAGOS" />
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
           <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
@@ -241,6 +248,7 @@ export default function App() {
 
       <main className="p-4 md:p-10 max-w-[1400px] mx-auto">
         {activeTab === 'CLIENTES' && <ClientesView clientes={clientes} nodos={nodos} db={db} />}
+        {activeTab === 'PAGOS' && <PagosView clientes={clientes} db={db} />}
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
         {activeTab === 'PRESTAMOS' && <PrestamosView clientes={clientes} db={db} />}
@@ -250,6 +258,10 @@ export default function App() {
         <button onClick={() => setActiveTab('CLIENTES')} className="p-2 flex flex-col items-center">
           <Users color={activeTab === 'CLIENTES' ? colors.sidebar : '#CCC'} />
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'CLIENTES' ? colors.sidebar : '#CCC' }}>CLIENTES</span>
+        </button>
+        <button onClick={() => setActiveTab('PAGOS')} className="p-2 flex flex-col items-center">
+          <DollarSign color={activeTab === 'PAGOS' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PAGOS' ? colors.sidebar : '#CCC' }}>PAGOS</span>
         </button>
         <button onClick={() => setActiveTab('SOPORTE')} className="p-2 flex flex-col items-center">
           <Wrench color={activeTab === 'SOPORTE' ? colors.sidebar : '#CCC'} />
@@ -281,6 +293,96 @@ function NavItem({ active, onClick, icon, label }) {
 }
 
 // --- VISTAS HIJAS ---
+
+function PagosView({ clientes, db }) {
+  const [search, setSearch] = useState('');
+
+  const filteredClientes = clientes.filter(c => 
+    `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const pendientes = filteredClientes.filter(c => !c.pagoCompletado);
+
+  const handleTogglePago = async (cliente) => {
+    try {
+      await updateDoc(doc(db, 'clientes', cliente.id), {
+        pagoCompletado: !cliente.pagoCompletado
+      });
+    } catch (err) {
+      console.error("Error al actualizar estado de pago:", err);
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Control de Pagos Mensuales</h2>
+        <button 
+          onClick={() => handlePrintGeneral('LISTA DE CLIENTES PENDIENTES DE PAGO', pendientes)}
+          className="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-green-200 transition-colors shadow-sm"
+        >
+          <Printer size={18} /> IMPRIMIR PENDIENTES
+        </button>
+      </div>
+
+      <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
+        <Search size={20} className="text-gray-400" />
+        <input 
+          placeholder="Buscar cliente para verificar pago..." 
+          className="bg-transparent w-full p-4 outline-none font-medium" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
+        <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
+          <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Listado Mensual de Abonados</span>
+          <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
+            {clientes.filter(c => c.pagoCompletado).length} / {clientes.length} SOLVENTES
+          </span>
+        </div>
+
+        <div className="divide-y divide-gray-50">
+          {filteredClientes.map((c, index) => (
+            <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
+              <div className="flex items-center gap-5">
+                <span className="text-gray-300 font-black text-xl">{index + 1}</span>
+                <div>
+                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
+                    Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span> | Costo: <span className="text-gray-700 font-black">${c.costo}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <button
+                  onClick={() => handleTogglePago(c)}
+                  className={`w-full sm:w-auto px-5 py-2.5 rounded-xl border flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase ${
+                    c.pagoCompletado 
+                      ? 'bg-green-600 text-white border-green-600 shadow-md' 
+                      : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                  }`}
+                >
+                  {c.pagoCompletado ? <CheckSquare size={16} /> : <Square size={16} />}
+                  <span>{c.pagoCompletado ? 'PAGADO' : 'MARCAR PAGO'}</span>
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {filteredClientes.length === 0 && (
+            <div className="p-20 text-center">
+              <DollarSign size={48} className="mx-auto text-gray-200 mb-4" />
+              <p className="text-gray-400 font-bold italic">No se encontraron clientes para la búsqueda.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PrestamosView({ clientes, db }) {
   const [search, setSearch] = useState('');
@@ -432,7 +534,7 @@ function ClientesView({ clientes, nodos, db }) {
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
     costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false,
-    estadoPrestamo: 'ACTIVO'
+    estadoPrestamo: 'ACTIVO', pagoCompletado: false
   });
 
   const filtered = clientes.filter(c => `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase()));
@@ -448,7 +550,7 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), formData);
       else await addDoc(collection(db, 'clientes'), { ...formData, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO' });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO', pagoCompletado: false });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
