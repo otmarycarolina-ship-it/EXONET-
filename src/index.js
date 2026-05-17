@@ -330,7 +330,8 @@ function PagosView({ clientes, db }) {
     });
 
     const link = document.createElement('a');
-    link.href = `https://t.me/share/url?url=${encodeURIComponent(text)}`;
+    // Solución: Usamos el parámetro formal text= y codificamos correctamente toda la cadena
+    link.href = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.click();
@@ -898,7 +899,7 @@ function SoporteView({ clientes, db }) {
     if(!cli) return alert("Selecciona un cliente");
     
     const text = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(text)}`, '_blank');
     
     try {
       await addDoc(collection(db, 'soporte'), { 
