@@ -726,7 +726,7 @@ function FtthView({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido* . Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin internet sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
+    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido*. Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
@@ -941,7 +941,6 @@ function ClientesView({ clientes, nodos, db }) {
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
         </div>
         <div className="flex gap-2">
-          {/* BOTÓN CON FUNCIÓN DE IMPRESIÓN EXCLUSIVA Y MODIFICADA */}
           <button 
             onClick={() => handlePrintClientesFiltrados(clientes)}
             className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all"
