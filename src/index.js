@@ -170,7 +170,6 @@ export default function App() {
       const ultimoMesRegistrado = localStorage.getItem('exonet_mes_pago');
 
       if (ultimoMesRegistrado && ultimoMesRegistrado !== mesAnioActual) {
-        // Ha cambiado el mes, reiniciamos el estado de pago de todos los clientes solventes
         for (const cliente of sorted) {
           if (cliente.pagoCompletado) {
             try {
@@ -570,7 +569,7 @@ function PrestamosView({ clientes, db }) {
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
-  const [filtroRapido, setFiltroRapido] = useState('DE_PAGO'); // 'TODOS', 'DE_PAGO', 'EXONERADOS'
+  const [filtroRapido, setFiltroRapido] = useState('DE_PAGO');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
@@ -578,7 +577,6 @@ function ClientesView({ clientes, nodos, db }) {
     estadoPrestamo: 'ACTIVO', pagoCompletado: false, exonerado: false
   });
 
-  // Filtrado combinando la barra de búsqueda y las nuevas pestañas de Filtro Rápido
   const filtered = clientes.filter(c => {
     const cumpleBusqueda = `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase());
     if (!cumpleBusqueda) return false;
@@ -588,8 +586,20 @@ function ClientesView({ clientes, nodos, db }) {
     return true;
   });
 
-  // Cuenta solo los abonados reales de pago
   const totalDePago = clientes.filter(c => !c.exonerado).length;
+
+  // Maneja los cambios del input costo y automatiza el estado de exoneración en vivo
+  const handleCostoChange = (val) => {
+    const costoLimpio = val.trim();
+    // Si el costo está vacío o es un "0" exacto, se marca como exonerado automáticamente
+    const esExoneradoAutomatico = costoLimpio === '' || costoLimpio === '0';
+    
+    setFormData({
+      ...formData,
+      costo: val,
+      exonerado: esExoneradoAutomatico
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -597,10 +607,19 @@ function ClientesView({ clientes, nodos, db }) {
       alert("Por favor, selecciona un Nodo antes de guardar.");
       return;
     }
+
+    // Doble verificación de respaldo antes de enviar a Firebase
+    const finalCosto = formData.costo.trim();
+    const finalExonerado = finalCosto === '' || finalCosto === '0' ? true : formData.exonerado;
+
+    const datosFinales = {
+      ...formData,
+      exonerado: finalExonerado
+    };
     
     try {
-      if (editingId) await setDoc(doc(db, 'clientes', editingId), formData);
-      else await addDoc(collection(db, 'clientes'), { ...formData, createdAt: Date.now() });
+      if (editingId) await setDoc(doc(db, 'clientes', editingId), datosFinales);
+      else await addDoc(collection(db, 'clientes'), { ...datosFinales, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
       setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO', pagoCompletado: false, exonerado: false });
     } catch (err) {
@@ -633,7 +652,6 @@ function ClientesView({ clientes, nodos, db }) {
         <input placeholder="Buscar abonado..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* --- NUEVA PESTAÑA DE FILTRO RÁPIDO SOLICITADA --- */}
       <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-md gap-1">
         <button 
           onClick={() => setFiltroRapido('TODOS')}
@@ -715,7 +733,7 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
 
             <div className="col-span-1 flex justify-center gap-2">
-              <button onClick={() => { setFormData({ ...formData, exonerado: false, ...c }); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
+              <button onClick={() => { setFormData({ ...c }); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
               <button 
                 onClick={() => {
                   if (window.confirm(`¿Estás seguro de que deseas eliminar al abonado ${c.nombre} ${c.apellido}?`)) {
@@ -747,7 +765,16 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
               <input placeholder="Dirección" className="md:col-span-2 bg-gray-50 p-4 rounded-xl border" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
               <input placeholder="Plan (Mbps)" type="text" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
-              <input placeholder="Costo ($)" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
+              
+              {/* --- CONTROL DEL INPUT COSTO AUTOMATIZADO --- */}
+              <input 
+                placeholder="Costo ($)" 
+                type="text" 
+                inputMode="decimal" 
+                className="bg-gray-50 p-4 rounded-xl border" 
+                value={formData.costo} 
+                onChange={e => handleCostoChange(e.target.value)} 
+              />
               
               <input 
                 placeholder="IP" 
@@ -788,10 +815,26 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              {/* --- CASILLA DE EXONERADO AGREGADA AL FORMULARIO --- */}
-              <div onClick={() => setFormData({...formData, exonerado: !formData.exonerado})} className="md:col-span-2 flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none">
+              {/* --- CASILLA DE EXONERADO (AHORA CAMBIA SOLA SI EL PRECIO ES VACÍO O CERO) --- */}
+              <div 
+                onClick={() => {
+                  // Permitir cambiar manualmente solo si hay un costo ingresado válido
+                  const finalCosto = formData.costo.trim();
+                  if (finalCosto !== '' && finalCosto !== '0') {
+                    setFormData({...formData, exonerado: !formData.exonerado});
+                  }
+                }} 
+                className={`md:col-span-2 flex items-center gap-3 p-4 rounded-xl border select-none transition-colors ${
+                  formData.exonerado ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-gray-100'
+                } ${
+                  (formData.costo.trim() === '' || formData.costo.trim() === '0') ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
+                }`}
+              >
                 {formData.exonerado ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
-                <span className="font-bold text-gray-700">Cliente Exonerado (Familiares o Empleados)</span>
+                <span className="font-bold text-gray-700">
+                  Cliente Exonerado (Familiares o Empleados) 
+                  {(formData.costo.trim() === '' || formData.costo.trim() === '0') && ' — Activado por falta de precio'}
+                </span>
               </div>
 
               <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} className="md:col-span-2 flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none">
