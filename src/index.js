@@ -113,7 +113,7 @@ const handlePrintGeneral = (titulo, data) => {
               <tr>
                 <td>${i + 1}</td>
                 <td>${c.nombre} ${c.apellido}</td>
-                ${!esListaGeneral && !esPagos ? `<td>${c.estadoPrestamo || 'ACTIVO'}</td>` : ''}
+                ${!esListaGeneral && !esPagos ? `<td>${c.estadoPrestamo || c.estadoFTTH || 'ACTIVO'}</td>` : ''}
                 ${esPagos ? `<td>${c.plan} Mbps - $${c.costo}</td>` : ''}
                 <td>${c.direccion || 'N/A'}</td>
                 ${esPagos ? `<td>${c.pagoCompletado ? 'AL DÍA' : 'PENDIENTE'}</td>` : ''}
@@ -271,7 +271,7 @@ export default function App() {
         {activeTab === 'PAGOS' && <PagosView clientes={clientes} db={db} />}
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
-        {activeTab === 'PRESTAMOS' && <PrestamosView clientes={clientes} db={db} />}
+        {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
       </main>
 
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-4 z-50 shadow-lg">
@@ -427,6 +427,37 @@ function PagosView({ clientes, db }) {
   );
 }
 
+// --- CONTENEDOR MAESTRO DE EQUIPOS (CON TABS SUPERIORES) ---
+function ItemManagementView({ clientes, db }) {
+  const [subTab, setSubTab] = useState('INALAMBRICOS'); // 'INALAMBRICOS' o 'FTTH'
+
+  return (
+    <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
+      {/* Botones de navegación interna (Pestañas superiores) */}
+      <div className="flex bg-white/80 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-xl mx-auto gap-2 shadow-sm">
+        <button 
+          onClick={() => setSubTab('INALAMBRICOS')}
+          className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${subTab === 'INALAMBRICOS' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+        >
+          [ Equipos a préstamo ]
+        </button>
+        <button 
+          onClick={() => setSubTab('FTTH')}
+          className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${subTab === 'FTTH' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+        >
+          [ Fibra (FTTH) ]
+        </button>
+      </div>
+
+      {subTab === 'INALAMBRICOS' ? (
+        <PrestamosView clientes={clientes} db={db} />
+      ) : (
+        <FtthView clientes={clientes} db={db} />
+      )}
+    </div>
+  );
+}
+
 function PrestamosView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
@@ -472,7 +503,7 @@ function PrestamosView({ clientes, db }) {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
+    <div>
       <div className="flex justify-between items-center mb-8">
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos a Préstamo</h2>
         <button 
@@ -570,6 +601,151 @@ function PrestamosView({ clientes, db }) {
   );
 }
 
+// --- NUEVA VISTA EXCLUSIVA PARA EQUIPOS DE FIBRA (FTTH) ---
+function FtthView({ clientes, db }) {
+  const [search, setSearch] = useState('');
+
+  const clientesFtth = clientes
+    .filter(c => c.ftth === true)
+    .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
+    // MENSAJE ACTIVO (FIBRA) - SIN NOMBRE EXONET
+    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido* . Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
+    const mensaje = customMsg || defaultMsg;
+    
+    const url = directToNumber 
+      ? `https://wa.me/${cliente.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+      
+    window.open(url, '_blank');
+  };
+
+  const handleCycleStatus = async (cliente) => {
+    const estados = ['ACTIVO', 'REVISIÓN', 'PENDIENTE DE RETIRAR'];
+    const currentIdx = estados.indexOf(cliente.estadoFTTH || 'ACTIVO');
+    const nextStatus = estados[(currentIdx + 1) % estados.length];
+    
+    try {
+      await updateDoc(doc(db, 'clientes', cliente.id), { 
+        estadoFTTH: nextStatus
+      });
+    } catch (err) {
+      console.error("Error al actualizar estado FTTH:", err);
+    }
+  };
+
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case 'PENDIENTE DE RETIRAR':
+        return 'bg-red-50 text-red-600 border-red-100';
+      case 'REVISIÓN':
+        return 'bg-orange-50 text-orange-600 border-orange-100';
+      default:
+        return 'bg-green-50 text-green-600 border-green-100';
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-8">
+        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos de Fibra (FTTH)</h2>
+        <button 
+          onClick={() => handlePrintGeneral('LISTA DE EQUIPOS FTTH (FIBRA)', clientesFtth)}
+          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
+        >
+          <Printer size={18} /> IMPRIMIR LISTA
+        </button>
+      </div>
+      
+      <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
+        <Search size={20} className="text-gray-400" />
+        <input 
+          placeholder="Buscar cliente con fibra óptica..." 
+          className="bg-transparent w-full p-4 outline-none font-medium" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
+        <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
+           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Clientes con Equipos FTTH Registrados</span>
+           <span className="bg-orange-100 text-orange-700 px-4 py-1 rounded-full text-xs font-bold">{clientesFtth.length} EQUIPOS FTTH</span>
+        </div>
+        
+        <div className="divide-y divide-gray-50">
+          {clientesFtth.map((c, index) => (
+            <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
+              <div className="flex items-center gap-5">
+                <span className="text-gray-300 font-black text-xl">{index + 1}</span>
+                <div>
+                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
+                    <MapPin size={10}/> {c.direccion}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                
+                {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
+                  <button 
+                    onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador y los accesorios que se usaron para instalarlo.`, false)}
+                    className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
+                    title="Reportar Retiro"
+                  >
+                    <Wrench size={18} />
+                    <span className="text-[9px] font-black hidden lg:block">REPORTAR RETIRO</span>
+                  </button>
+                )}
+
+                {c.estadoFTTH === 'REVISIÓN' && (
+                  <button 
+                    onClick={() => handleWhatsApp(c, `🛠️ Soporte *FTTH*: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem *(ONU)* está funcionando bien. Si hay alguna falla o la señal está muy baja, avisen de inmediato, por favor.`, false)}
+                    className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
+                    title="Mandar a Revisión"
+                  >
+                    <AlertCircle size={18} />
+                    <span className="text-[9px] font-black hidden lg:block">REVISIÓN TÉCNICA</span>
+                  </button>
+                )}
+
+                <button 
+                  onClick={() => handleWhatsApp(c, null, true)}
+                  className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
+                  title="Enviar recordatorio estándar FTTH (Cobro)"
+                >
+                  <MessageCircle size={20} />
+                </button>
+
+                <div 
+                  onClick={() => handleCycleStatus(c)}
+                  className={`cursor-pointer px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all active:scale-95 ${getStatusStyles(c.estadoFTTH || 'ACTIVO')}`}
+                >
+                  <CheckSquare size={14} />
+                  <span className="text-[10px] font-black">{c.estadoFTTH || 'ACTIVO'}</span>
+                </div>
+                
+                <div className="hidden sm:block text-right ml-2">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase">IP Cliente</p>
+                  <p className="text-xs font-black text-green-700 uppercase">{c.ip || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+          {clientesFtth.length === 0 && (
+            <div className="p-20 text-center">
+              <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
+              <p className="text-gray-400 font-bold italic">No hay resultados en la sección de Fibra Óptica.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
@@ -577,8 +753,8 @@ function ClientesView({ clientes, nodos, db }) {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
-    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false,
-    estadoPrestamo: 'ACTIVO', pagoCompletado: false, exonerado: false
+    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false,
+    estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false
   });
 
   const filtered = clientes.filter(c => {
@@ -612,7 +788,7 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), datosFinales);
       else await addDoc(collection(db, 'clientes'), { ...datosFinales, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO', pagoCompletado: false, exonerado: false });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
@@ -646,19 +822,22 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-md gap-1">
         <button 
           onClick={() => setFiltroRapido('TODOS')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${filtroRapido === 'TODOS' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          style={filtroRapido === 'TODOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
           [ Todos ({clientes.length}) ]
         </button>
         <button 
           onClick={() => setFiltroRapido('DE_PAGO')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${filtroRapido === 'DE_PAGO' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          style={filtroRapido === 'DE_PAGO' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
           [ Clientes De Pago ({totalDePago}) ]
         </button>
         <button 
           onClick={() => setFiltroRapido('EXONERADOS')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${filtroRapido === 'EXONERADOS' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          style={filtroRapido === 'EXONERADOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
           [ Exonerados ({clientes.filter(c => c.exonerado).length}) ]
         </button>
@@ -678,6 +857,7 @@ function ClientesView({ clientes, nodos, db }) {
               </div>
               <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
               {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
+              {c.ftth && <p className="text-[10px] text-blue-600 font-bold mt-1 flex items-center gap-1">FIBRA ÓPTICA (FTTH)</p>}
             </div>
             <div className="col-span-2 w-full text-center">
               <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
@@ -691,7 +871,7 @@ function ClientesView({ clientes, nodos, db }) {
               <div className="flex flex-col items-center">
                  <div className="flex gap-4 text-[9px] font-black text-gray-400 uppercase tracking-tighter"><span>LOCAL</span><span>REMOTA</span></div>
                  <div className="flex items-baseline justify-center gap-1 font-black text-gray-700 text-lg tracking-tighter">
-                   <span>{c.señal}</span><span className="text-gray-300 mx-0.5">/</span><span>{c.señalRemota}</span>
+                   <span>{c.señal || '0'}</span><span className="text-gray-300 mx-0.5">/</span><span>{c.señalRemota || '0'}</span>
                    <span className="text-[10px] text-gray-400 ml-1 font-bold">dBm</span>
                  </div>
               </div>
@@ -805,9 +985,23 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} className="md:col-span-2 flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none">
-                {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
-                <span className="font-bold text-gray-700">Equipos a préstamo</span>
+              {/* CONTENEDOR DE MODALIDADES DE EQUIPOS (NUNCA A LA VEZ) */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} 
+                  className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none"
+                >
+                  {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-gray-700 text-sm">Equipos a préstamo</span>
+                </div>
+
+                <div 
+                  onClick={() => setFormData({...formData, ftth: !formData.ftth, prestamo: false})} 
+                  className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
+                >
+                  {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-gray-700 text-sm">FTTH (Fibra Óptica)</span>
+                </div>
               </div>
               
               <button type="submit" style={{ backgroundColor: colors.sidebar }} className="md:col-span-2 py-5 rounded-2xl text-white font-black shadow-lg">GUARDAR CLIENTE</button>
@@ -844,6 +1038,7 @@ function NodosView({ nodos, clientes, db }) {
             th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
             td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
             .prestamo { color: #e67e22; font-weight: bold; }
+            .ftth { color: #2980b9; font-weight: bold; }
             .sig-container { display: flex; flex-direction: column; align-items: center; }
             .sig-labels { font-size: 8px; color: #999; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; }
             .sig-values { font-weight: 900; font-size: 16px; letter-spacing: -1px; }
@@ -876,11 +1071,11 @@ function NodosView({ nodos, clientes, db }) {
                   <td>
                     <div class="sig-container">
                       <div class="sig-labels">LOCAL REMOTA</div>
-                      <div class="sig-values">${c.señal}<span>/</span>${c.señalRemota} <small style="font-size: 10px; color: #999;">dBm</small></div>
+                      <div class="sig-values">${c.señal || '0'}<span>/</span>${c.señalRemota || '0'} <small style="font-size: 10px; color: #999;">dBm</small></div>
                     </div>
                   </td>
                   <td>${c.telefono}</td>
-                  <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : ''}</td>
+                  <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : c.ftth ? '<span class="ftth">FTTH</span>' : ''}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -927,7 +1122,7 @@ function NodosView({ nodos, clientes, db }) {
                     <button 
                       onClick={() => {
                         if (window.confirm(`¿Deseas eliminar el nodo ${n.nombre}? Esta acción desconectará visualmente a sus clientes de este nodo.`)) {
-                          deleteDoc(doc(doc, 'nodos', n.id));
+                          deleteDoc(doc(db, 'nodos', n.id));
                         }
                       }} 
                       className="p-2 text-gray-300 hover:text-red-500 transition-colors"
@@ -950,7 +1145,7 @@ function NodosView({ nodos, clientes, db }) {
                             <span>LOCAL</span><span>REMOTA</span>
                           </div>
                           <div className="text-gray-700 text-base font-black tracking-tighter">
-                            {c.señal} <span className="text-gray-200 mx-0.5">/</span> {c.señalRemota} <small className="text-[10px] text-gray-400 ml-1">dBm</small>
+                            {c.señal || '0'} <span className="text-gray-200 mx-0.5">/</span> {c.señalRemota || '0'} <small className="text-[10px] text-gray-400 ml-1">dBm</small>
                           </div>
                        </div>
                        <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
@@ -961,6 +1156,12 @@ function NodosView({ nodos, clientes, db }) {
                          <div className="bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
                            <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
                            <span>PRÉSTAMO</span>
+                         </div>
+                       )}
+                       {c.ftth && (
+                         <div className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
+                           <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
+                           <span>FTTH</span>
                          </div>
                        )}
                     </div>
