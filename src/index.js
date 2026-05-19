@@ -19,6 +19,7 @@ import {
   signOut 
 } from 'firebase/auth';
 import { 
+  textMain,
   Users, 
   Wrench, 
   Search, 
@@ -317,7 +318,10 @@ function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
 
-  const filteredClientes = clientes.filter(c => {
+  // FILTRO CLAVE: Primero aislamos únicamente a los clientes que NO son exonerados
+  const clientesDePago = clientes.filter(c => !c.exonerado);
+
+  const filteredClientes = clientesDePago.filter(c => {
     const cumpleBusqueda = `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase());
     if (!cumpleBusqueda) return false;
     
@@ -361,23 +365,23 @@ function PagosView({ clientes, db }) {
                 onClick={() => setFiltroPago('TODOS')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'TODOS' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
               >
-                Todos
+                Todos ({clientesDePago.length})
               </button>
               <button 
                 onClick={() => setFiltroPago('PENDIENTES')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
               >
-                Pendientes
+                Pendientes ({clientesDePago.filter(c => !c.pagoCompletado).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('SOLVENTES')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
               >
-                Solventes
+                Solventes ({clientesDePago.filter(c => c.pagoCompletado).length})
               </button>
             </div>
             <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
-              {clientes.filter(c => c.pagoCompletado).length} / {clientes.length} SOLVENTES
+              {clientesDePago.filter(c => c.pagoCompletado).length} / {clientesDePago.length} SOLVENTES
             </span>
           </div>
         </div>
@@ -595,7 +599,6 @@ function ClientesView({ clientes, nodos, db }) {
       return;
     }
 
-    // LÓGICA AUTOMÁTICA: Si el costo está vacío o es un "0" exacto, se marca como exonerado al guardar
     const finalCosto = formData.costo ? formData.costo.trim() : '';
     const esExoneradoAutomatico = finalCosto === '' || finalCosto === '0';
 
@@ -802,8 +805,6 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              {/* [SE REMOVIÓ LA CASILLA DE CLIENTE EXONERADO POR ENCARGO PARA EVITAR CONFUSIONES] */}
-
               <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} className="md:col-span-2 flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none">
                 {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
                 <span className="font-bold text-gray-700">Equipos a préstamo</span>
@@ -926,7 +927,7 @@ function NodosView({ nodos, clientes, db }) {
                     <button 
                       onClick={() => {
                         if (window.confirm(`¿Deseas eliminar el nodo ${n.nombre}? Esta acción desconectará visualmente a sus clientes de este nodo.`)) {
-                          deleteDoc(doc(db, 'nodos', n.id));
+                          deleteDoc(doc(doc, 'nodos', n.id));
                         }
                       }} 
                       className="p-2 text-gray-300 hover:text-red-500 transition-colors"
