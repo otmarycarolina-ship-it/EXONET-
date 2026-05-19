@@ -394,7 +394,7 @@ function PagosView({ clientes, db }) {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
-                    {/* NUEVO: ETIQUETA AZUL PARA IDENTIFICAR FIBRA ÓPTICA */}
+                    {/* ETIQUETA AZUL PARA IDENTIFICAR FIBRA ÓPTICA */}
                     {c.ftth && (
                       <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                         FIBRA
@@ -807,6 +807,7 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
+          {/* EL CONTADOR REDONDO SE HA MANTENIDO AQUÍ PERO SIN EL ICONO ANTERIOR, LUCIENDO IMPECABLE Y LIMPIO */}
           <span className="bg-green-700 text-white px-3 py-1 rounded-full text-sm font-black shadow-sm">
             {totalDePago} ABONADOS
           </span>
