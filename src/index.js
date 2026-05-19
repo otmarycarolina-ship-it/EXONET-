@@ -678,15 +678,6 @@ function FtthView({ clientes, db }) {
     .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-  // --- CÁLCULO EN TIEMPO REAL PARA LA VISTA ---
-  const ingresosActivos = clientesFtth
-    .filter(c => c.pagoCompletado)
-    .reduce((sum, c) => sum + (parseFloat(c.costo) || 0), 0);
-
-  const ingresosPendientes = clientesFtth
-    .filter(c => !c.pagoCompletado)
-    .reduce((sum, c) => sum + (parseFloat(c.costo) || 0), 0);
-
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
     const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido* . Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin internet sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
     const mensaje = customMsg || defaultMsg;
@@ -742,24 +733,6 @@ function FtthView({ clientes, db }) {
         </button>
       </div>
       
-      {/* TARJETAS FINANCIERAS EN VIVO EN LA INTERFAZ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-2xl border border-green-100 shadow-sm flex justify-between items-center">
-          <div>
-            <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Total Facturado Activo</p>
-            <p className="text-2xl font-black text-green-800">${ingresosActivos.toFixed(2)}</p>
-          </div>
-          <DollarSign className="text-green-600" size={28} />
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-red-100 shadow-sm flex justify-between items-center">
-          <div>
-            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Por Recaudar (Morosidad)</p>
-            <p className="text-2xl font-black text-red-700">${ingresosPendientes.toFixed(2)}</p>
-          </div>
-          <AlertCircle className="text-red-500" size={28} />
-        </div>
-      </div>
-      
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
         <input 
@@ -772,7 +745,7 @@ function FtthView({ clientes, db }) {
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
         <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
-           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Clientes con Equipos FTTH Registrados</span>
+           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Clientes con Equipos FTTH</span>
            <span className="bg-orange-100 text-orange-700 px-4 py-1 rounded-full text-xs font-bold">{clientesFtth.length} EQUIPOS FTTH</span>
         </div>
         
@@ -796,7 +769,7 @@ function FtthView({ clientes, db }) {
                       <MapPin size={10}/> {c.direccion}
                     </p>
                     <p className="text-[10px] font-black text-green-800 uppercase mt-1">
-                      Monto Reporte: <span className={c.pagoCompletado ? 'text-green-700' : 'text-red-600'}>{costoAMostrar}</span>
+                      Monto Reportado: <span className={c.pagoCompletado ? 'text-green-700' : 'text-red-600'}>{costoAMostrar}</span>
                     </p>
                   </div>
                 </div>
