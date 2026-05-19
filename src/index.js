@@ -392,7 +392,19 @@ function PagosView({ clientes, db }) {
               <div className="flex items-center gap-5">
                 <span className="text-gray-300 font-black text-xl">{index + 1}</span>
                 <div>
-                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                    {c.prestamo && (
+                      <span className="bg-orange-100 text-orange-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                        INALÁMBRICO
+                      </span>
+                    )}
+                    {c.ftth && (
+                      <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                        FIBRA
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
                     Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span> | Costo: <span className="text-gray-700 font-black">${c.costo}</span>
                   </p>
@@ -798,9 +810,9 @@ function ClientesView({ clientes, nodos, db }) {
     <div className="animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
-          <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
+          <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTAO DE CLIENTES</h2>
           <span className="bg-green-700 text-white px-3 py-1 rounded-full text-sm font-black shadow-sm">
-            {totalDePago} ABONADOS
+            {totalDePago}
           </span>
         </div>
         <div className="flex gap-2">
@@ -1253,5 +1265,9 @@ function SoporteView({ clientes, db }) {
 const container = document.getElementById('root');
 if (container) {
   const root = createRoot(container);
-  root.render(<App />);
+  root.render((
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  ));
 }
