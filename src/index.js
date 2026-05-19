@@ -36,7 +36,8 @@ import {
   ExternalLink,
   Laptop,
   MessageCircle,
-  DollarSign
+  DollarSign,
+  Gift
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -569,14 +570,26 @@ function PrestamosView({ clientes, db }) {
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
+  const [filtroRapido, setFiltroRapido] = useState('DE_PAGO'); // 'TODOS', 'DE_PAGO', 'EXONERADOS'
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
     costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false,
-    estadoPrestamo: 'ACTIVO', pagoCompletado: false
+    estadoPrestamo: 'ACTIVO', pagoCompletado: false, exonerado: false
   });
 
-  const filtered = clientes.filter(c => `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase()));
+  // Filtrado combinando la barra de búsqueda y las nuevas pestañas de Filtro Rápido
+  const filtered = clientes.filter(c => {
+    const cumpleBusqueda = `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase());
+    if (!cumpleBusqueda) return false;
+
+    if (filtroRapido === 'DE_PAGO') return !c.exonerado;
+    if (filtroRapido === 'EXONERADOS') return c.exonerado;
+    return true;
+  });
+
+  // Cuenta solo los abonados reales de pago
+  const totalDePago = clientes.filter(c => !c.exonerado).length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -589,7 +602,7 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), formData);
       else await addDoc(collection(db, 'clientes'), { ...formData, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO', pagoCompletado: false });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, estadoPrestamo: 'ACTIVO', pagoCompletado: false, exonerado: false });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
@@ -601,7 +614,7 @@ function ClientesView({ clientes, nodos, db }) {
         <div className="flex items-center gap-4">
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
           <span className="bg-green-700 text-white px-3 py-1 rounded-full text-sm font-black shadow-sm">
-            {clientes.length} ABONADOS
+            {totalDePago} ABONADOS
           </span>
         </div>
         <div className="flex gap-2">
@@ -614,15 +627,46 @@ function ClientesView({ clientes, nodos, db }) {
           <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
         </div>
       </div>
-      <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
+      
+      <div className="bg-white mb-4 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
         <input placeholder="Buscar abonado..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
+
+      {/* --- NUEVA PESTAÑA DE FILTRO RÁPIDO SOLICITADA --- */}
+      <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-md gap-1">
+        <button 
+          onClick={() => setFiltroRapido('TODOS')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${filtroRapido === 'TODOS' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+        >
+          [ Todos ({clientes.length}) ]
+        </button>
+        <button 
+          onClick={() => setFiltroRapido('DE_PAGO')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${filtroRapido === 'DE_PAGO' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+        >
+          [ Clientes De Pago ({totalDePago}) ]
+        </button>
+        <button 
+          onClick={() => setFiltroRapido('EXONERADOS')}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${filtroRapido === 'EXONERADOS' ? 'bg-green-700 text-white shadow-md' : 'text-green-800 hover:bg-green-100/50'}`}
+        >
+          [ Exonerados ({clientes.filter(c => c.exonerado).length}) ]
+        </button>
+      </div>
+
       <div className="space-y-3">
         {filtered.map(c => (
           <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
             <div className="col-span-3 w-full">
-              <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
+                {c.exonerado && (
+                  <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
+                    <Gift size={10} /> EXONERADO
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
               {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
             </div>
@@ -632,7 +676,7 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
             <div className="col-span-2 w-full flex flex-col items-center">
               <span style={{ color: colors.primary }} className="font-black italic">{c.plan} Mbps</span>
-              <p className="font-bold text-gray-800 text-sm">${c.costo}</p>
+              <p className="font-bold text-gray-800 text-sm">{c.exonerado ? '$0 (Cortesía)' : `$${c.costo}`}</p>
             </div>
             <div className="col-span-2 w-full text-center">
               <div className="flex flex-col items-center">
@@ -671,7 +715,7 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
 
             <div className="col-span-1 flex justify-center gap-2">
-              <button onClick={() => { setFormData(c); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
+              <button onClick={() => { setFormData({ ...formData, exonerado: false, ...c }); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
               <button 
                 onClick={() => {
                   if (window.confirm(`¿Estás seguro de que deseas eliminar al abonado ${c.nombre} ${c.apellido}?`)) {
@@ -685,7 +729,15 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
           </div>
         ))}
+
+        {filtered.length === 0 && (
+          <div className="bg-white p-20 text-center rounded-2xl border">
+            <Users size={48} className="mx-auto text-gray-200 mb-4" />
+            <p className="text-gray-400 font-bold italic">No hay abonados en esta categoría para mostrar.</p>
+          </div>
+        )}
       </div>
+
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[95vh]">
@@ -735,10 +787,18 @@ function ClientesView({ clientes, nodos, db }) {
                   onChange={e => setFormData({...formData, señalRemota: e.target.value})} 
                 />
               </div>
+
+              {/* --- CASILLA DE EXONERADO AGREGADA AL FORMULARIO --- */}
+              <div onClick={() => setFormData({...formData, exonerado: !formData.exonerado})} className="md:col-span-2 flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none">
+                {formData.exonerado ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
+                <span className="font-bold text-gray-700">Cliente Exonerado (Familiares o Empleados)</span>
+              </div>
+
               <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} className="md:col-span-2 flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none">
                 {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
                 <span className="font-bold text-gray-700">Equipos a préstamo</span>
               </div>
+              
               <button type="submit" style={{ backgroundColor: colors.sidebar }} className="md:col-span-2 py-5 rounded-2xl text-white font-black shadow-lg">GUARDAR CLIENTE</button>
               <button type="button" onClick={() => {setShowForm(false); setEditingId(null);}} className="md:col-span-2 text-gray-400 font-bold">CANCELAR</button>
             </form>
