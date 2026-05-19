@@ -19,7 +19,6 @@ import {
   signOut 
 } from 'firebase/auth';
 import { 
-  textMain,
   Users, 
   Wrench, 
   Search, 
@@ -75,52 +74,118 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
   </svg>
 );
 
-// --- UTILIDAD DE IMPRESIÓN ---
+// --- UTILIDAD DE IMPRESIÓN MODIFICADA ---
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
   const esListaGeneral = titulo.includes('GENERAL');
   const esPagos = titulo.includes('PAGOS');
+  const esFibra = titulo.includes('FTTH') || titulo.includes('FIBRA');
   
+  // Variables para cálculos financieros (solo si es Fibra)
+  let totalActivos = 0;
+  let totalPendientes = 0;
+
+  if (esFibra) {
+    data.forEach(c => {
+      const costoNum = parseFloat(c.costo) || 0;
+      if (c.pagoCompletado) {
+        totalActivos += costoNum;
+      } else {
+        totalPendientes += costoNum;
+      }
+    });
+  }
+
   const html = `
     <html>
       <head>
         <title>Exonet - ${titulo}</title>
         <style>
           body { font-family: sans-serif; padding: 20px; color: #333; }
-          h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background: #f4f4f4; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 12px; }
+          h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
+          .meta-info { font-size: 13px; color: #555; margin-bottom: 20px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #2E7D32; color: white; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
           td { padding: 10px; border: 1px solid #ddd; font-size: 12px; }
-          .footer { margin-top: 20px; font-size: 10px; color: #999; text-align: right; }
+          .status-badge { font-weight: bold; padding: 3px 6px; rounded: 4px; font-size: 11px; }
+          .status-active { color: #2E7D32; }
+          .status-suspended { color: #d32f2f; font-weight: bold; }
+          .status-review { color: #f57c00; }
+          .row-suspended { background-color: #ffebee; }
+          .finanzas-container { margin-top: 30px; border-top: 3px double #2E7D32; padding-top: 15px; width: 100%; display: flex; justify-content: flex-end; }
+          .finanzas-tabla { width: 320px; margin-left: auto; border: none; }
+          .finanzas-tabla td { padding: 6px 10px; border: none; font-size: 14px; }
+          .finanzas-total { font-size: 16px; font-weight: black; color: #2E7D32; background: #e8f5e9; }
+          .footer { margin-top: 40px; font-size: 10px; color: #999; text-align: right; border-top: 1px solid #eee; padding-top: 5px; }
         </style>
       </head>
       <body>
         <h1>EXONET - ${titulo}</h1>
-        <p>Total registros: ${data.length} | Fecha: ${new Date().toLocaleDateString()}</p>
+        <div class="meta-info">Total registros: ${data.length} | Fecha: ${new Date().toLocaleDateString()}</div>
         <table>
           <thead>
             <tr>
-              <th style="width: 50px;">#</th>
+              <th style="width: 40px;">#</th>
               <th>CLIENTE (NOMBRE Y APELLIDO)</th>
-              ${!esListaGeneral && !esPagos ? '<th>ESTADO DEL EQUIPO</th>' : ''}
-              ${esPagos ? '<th>PLAN / COSTO</th>' : ''}
+              <th>ESTADO DEL EQUIPO</th>
+              ${esFibra ? '<th>MONTO ($)</th>' : ''}
               <th>DIRECCIÓN</th>
               ${esPagos ? '<th>ESTADO DE PAGO</th>' : ''}
             </tr>
           </thead>
           <tbody>
-            ${data.map((c, i) => `
-              <tr>
-                <td>${i + 1}</td>
-                <td>${c.nombre} ${c.apellido}</td>
-                ${!esListaGeneral && !esPagos ? `<td>${c.estadoPrestamo || c.estadoFTTH || 'ACTIVO'}</td>` : ''}
-                ${esPagos ? `<td>${c.plan} Mbps - $${c.costo}</td>` : ''}
-                <td>${c.direccion || 'N/A'}</td>
-                ${esPagos ? `<td>${c.pagoCompletado ? 'AL DÍA' : 'PENDIENTE'}</td>` : ''}
-              </tr>
-            `).join('')}
+            ${data.map((c, i) => {
+              let estadoVisual = 'ACTIVO';
+              let claseEstado = 'status-active';
+              let claseFila = '';
+              let montoVisual = `$${parseFloat(c.costo || 0).toFixed(2)}`;
+
+              if (esFibra) {
+                if (!c.pagoCompletado) {
+                  estadoVisual = 'SIN SERVICIO';
+                  claseEstado = 'status-suspended';
+                  claseFila = 'class="row-suspended"';
+                  montoVisual = '$0.00';
+                } else if (c.estadoFTTH === 'REVISIÓN') {
+                  estadoVisual = 'REVISIÓN';
+                  claseEstado = 'status-review';
+                } else if (c.estadoFTTH === 'PENDIENTE DE RETIRAR') {
+                  estadoVisual = 'PENDIENTE DE RETIRAR';
+                  claseEstado = 'status-suspended';
+                }
+              } else {
+                estadoVisual = c.estadoPrestamo || c.estadoFTTH || 'ACTIVO';
+              }
+
+              return `
+                <tr ${claseFila}>
+                  <td>${i + 1}</td>
+                  <td style="font-weight: bold;">${c.nombre} ${c.apellido}</td>
+                  <td><span class="status-badge ${claseEstado}">${estadoVisual}</span></td>
+                  ${esFibra ? `<td style="font-weight: bold;">${montoVisual}</td>` : ''}
+                  <td>${c.direccion || 'N/A'}</td>
+                  ${esPagos ? `<td>${c.pagoCompletado ? 'AL DÍA' : 'PENDIENTE'}</td>` : ''}
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
+
+        ${esFibra ? `
+          <div class="finanzas-container">
+            <table class="finanzas-tabla">
+              <tr class="finanzas-total">
+                <td><strong>TOTAL RECAUDADO (ACTIVOS):</strong></td>
+                <td style="text-align: right; font-weight: 900;"><strong>$${totalActivos.toFixed(2)}</strong></td>
+              </tr>
+              <tr style="color: #666; font-size: 12px;">
+                <td>Total por Recaudar (Morosidad):</td>
+                <td style="text-align: right; font-weight: bold; color: #c62828;">$${totalPendientes.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+        ` : ''}
+
         <div class="footer">Generado por Sistema de Gestión Exonet</div>
       </body>
     </html>
@@ -165,7 +230,6 @@ export default function App() {
         .map(d => ({ ...d.data(), id: d.id }))
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
       
-      // --- LÓGICA DE REINICIO MENSUAL AUTOMÁTICO ---
       const fechaActual = new Date();
       const mesAnioActual = `${fechaActual.getMonth() + 1}-${fechaActual.getFullYear()}`;
       const ultimoMesRegistrado = localStorage.getItem('exonet_mes_pago');
@@ -312,13 +376,10 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
-// --- VISTAS HIJAS ---
-
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
 
-  // FILTRO CLAVE: Primero aislamos únicamente a los clientes que NO son exonerados
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
   const filteredClientes = clientesDePago.filter(c => {
@@ -394,7 +455,6 @@ function PagosView({ clientes, db }) {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
-                    {/* NUEVO: ETIQUETA AZUL PARA IDENTIFICAR FIBRA ÓPTICA */}
                     {c.ftth && (
                       <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                         FIBRA
@@ -435,13 +495,11 @@ function PagosView({ clientes, db }) {
   );
 }
 
-// --- CONTENEDOR MAESTRO DE EQUIPOS (CON TABS SUPERIORES) ---
 function ItemManagementView({ clientes, db }) {
-  const [subTab, setSubTab] = useState('INALAMBRICOS'); // 'INALAMBRICOS' o 'FTTH'
+  const [subTab, setSubTab] = useState('INALAMBRICOS');
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-      {/* Botones de navegación interna (Pestañas superiores) */}
       <div className="flex bg-white/80 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-xl mx-auto gap-2 shadow-sm">
         <button 
           onClick={() => setSubTab('INALAMBRICOS')}
@@ -611,7 +669,7 @@ function PrestamosView({ clientes, db }) {
   );
 }
 
-// --- NUEVA VISTA EXCLUSIVA PARA EQUIPOS DE FIBRA (FTTH) ---
+// --- VISTA EXCLUSIVA PARA EQUIPOS DE FIBRA (FTTH) MODIFICADA ---
 function FtthView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
@@ -620,9 +678,17 @@ function FtthView({ clientes, db }) {
     .filter(c => `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+  // --- CÁLCULO EN TIEMPO REAL PARA LA VISTA ---
+  const ingresosActivos = clientesFtth
+    .filter(c => c.pagoCompletado)
+    .reduce((sum, c) => sum + (parseFloat(c.costo) || 0), 0);
+
+  const ingresosPendientes = clientesFtth
+    .filter(c => !c.pagoCompletado)
+    .reduce((sum, c) => sum + (parseFloat(c.costo) || 0), 0);
+
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    // MENSAJE ACTIVO (FIBRA) - SIN NOMBRE EXONET
-    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido* . Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
+    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido* . Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin internet sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
@@ -646,14 +712,21 @@ function FtthView({ clientes, db }) {
     }
   };
 
+  const getDynamicStatus = (cliente) => {
+    if (!cliente.pagoCompletado) return 'SIN SERVICIO';
+    return cliente.estadoFTTH || 'ACTIVO';
+  };
+
   const getStatusStyles = (status) => {
     switch (status) {
+      case 'SIN SERVICIO':
+        return 'bg-red-600 text-white border-red-600 shadow-sm font-black';
       case 'PENDIENTE DE RETIRAR':
-        return 'bg-red-50 text-red-600 border-red-100';
+        return 'bg-red-50 text-red-600 border-red-100 font-bold';
       case 'REVISIÓN':
-        return 'bg-orange-50 text-orange-600 border-orange-100';
+        return 'bg-orange-50 text-orange-600 border-orange-100 font-bold';
       default:
-        return 'bg-green-50 text-green-600 border-green-100';
+        return 'bg-green-50 text-green-600 border-green-100 font-bold';
     }
   };
 
@@ -667,6 +740,24 @@ function FtthView({ clientes, db }) {
         >
           <Printer size={18} /> IMPRIMIR LISTA
         </button>
+      </div>
+      
+      {/* TARJETAS FINANCIERAS EN VIVO EN LA INTERFAZ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white p-5 rounded-2xl border border-green-100 shadow-sm flex justify-between items-center">
+          <div>
+            <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Total Facturado Activo</p>
+            <p className="text-2xl font-black text-green-800">${ingresosActivos.toFixed(2)}</p>
+          </div>
+          <DollarSign className="text-green-600" size={28} />
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-red-100 shadow-sm flex justify-between items-center">
+          <div>
+            <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">Por Recaudar (Morosidad)</p>
+            <p className="text-2xl font-black text-red-700">${ingresosPendientes.toFixed(2)}</p>
+          </div>
+          <AlertCircle className="text-red-500" size={28} />
+        </div>
       </div>
       
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
@@ -686,64 +777,83 @@ function FtthView({ clientes, db }) {
         </div>
         
         <div className="divide-y divide-gray-50">
-          {clientesFtth.map((c, index) => (
-            <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
-              <div className="flex items-center gap-5">
-                <span className="text-gray-300 font-black text-xl">{index + 1}</span>
-                <div>
-                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
-                  <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
-                    <MapPin size={10}/> {c.direccion}
-                  </p>
+          {clientesFtth.map((c, index) => {
+            const estadoActual = getDynamicStatus(c);
+            const costoAMostrar = c.pagoCompletado ? `$${parseFloat(c.costo || 0).toFixed(2)}` : '$0.00';
+
+            return (
+              <div 
+                key={c.id} 
+                className={`p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between transition-colors gap-4 ${
+                  !c.pagoCompletado ? 'bg-red-50/40 hover:bg-red-50/60' : 'hover:bg-green-50/30'
+                }`}
+              >
+                <div className="flex items-center gap-5">
+                  <span className="text-gray-300 font-black text-xl">{index + 1}</span>
+                  <div>
+                    <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                    <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
+                      <MapPin size={10}/> {c.direccion}
+                    </p>
+                    <p className="text-[10px] font-black text-green-800 uppercase mt-1">
+                      Monto Reporte: <span className={c.pagoCompletado ? 'text-green-700' : 'text-red-600'}>{costoAMostrar}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                  
+                  {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
+                    <button 
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador y los accesorios que se usaron para instalarlo.`, false)}
+                      className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
+                      title="Reportar Retiro"
+                    >
+                      <Wrench size={18} />
+                      <span className="text-[9px] font-black hidden lg:block">REPORTAR RETIRO</span>
+                    </button>
+                  )}
+
+                  {c.estadoFTTH === 'REVISIÓN' && (
+                    <button 
+                      onClick={() => handleWhatsApp(c, `🛠️ Soporte *FTTH*: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem *(ONU)* está funcionando bien. Si hay alguna falla o la señal está muy baja, avisen de inmediato, por favor.`, false)}
+                      className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
+                      title="Mandar a Revisión"
+                    >
+                      <AlertCircle size={18} />
+                      <span className="text-[9px] font-black hidden lg:block">REVISIÓN TÉCNICA</span>
+                    </button>
+                  )}
+
+                  <button 
+                    onClick={() => handleWhatsApp(c, null, true)}
+                    className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
+                    title="Enviar recordatorio estándar FTTH (Cobro)"
+                  >
+                    <MessageCircle size={20} />
+                  </button>
+
+                  <div 
+                    onClick={() => {
+                      if (c.pagoCompletado) {
+                        handleCycleStatus(c);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all select-none ${
+                      c.pagoCompletado ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'
+                    } ${getStatusStyles(estadoActual)}`}
+                  >
+                    <CheckSquare size={14} />
+                    <span className="text-[10px] font-black">{estadoActual}</span>
+                  </div>
+                  
+                  <div className="hidden sm:block text-right ml-2">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase">IP Cliente</p>
+                    <p className="text-xs font-black text-green-700 uppercase">{c.ip || 'N/A'}</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                
-                {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
-                  <button 
-                    onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador y los accesorios que se usaron para instalarlo.`, false)}
-                    className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
-                    title="Reportar Retiro"
-                  >
-                    <Wrench size={18} />
-                    <span className="text-[9px] font-black hidden lg:block">REPORTAR RETIRO</span>
-                  </button>
-                )}
-
-                {c.estadoFTTH === 'REVISIÓN' && (
-                  <button 
-                    onClick={() => handleWhatsApp(c, `🛠️ Soporte *FTTH*: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem *(ONU)* está funcionando bien. Si hay alguna falla o la señal está muy baja, avisen de inmediato, por favor.`, false)}
-                    className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
-                    title="Mandar a Revisión"
-                  >
-                    <AlertCircle size={18} />
-                    <span className="text-[9px] font-black hidden lg:block">REVISIÓN TÉCNICA</span>
-                  </button>
-                )}
-
-                <button 
-                  onClick={() => handleWhatsApp(c, null, true)}
-                  className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
-                  title="Enviar recordatorio estándar FTTH (Cobro)"
-                >
-                  <MessageCircle size={20} />
-                </button>
-
-                <div 
-                  onClick={() => handleCycleStatus(c)}
-                  className={`cursor-pointer px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all active:scale-95 ${getStatusStyles(c.estadoFTTH || 'ACTIVO')}`}
-                >
-                  <CheckSquare size={14} />
-                  <span className="text-[10px] font-black">{c.estadoFTTH || 'ACTIVO'}</span>
-                </div>
-                
-                <div className="hidden sm:block text-right ml-2">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase">IP Cliente</p>
-                  <p className="text-xs font-black text-green-700 uppercase">{c.ip || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {clientesFtth.length === 0 && (
             <div className="p-20 text-center">
               <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
@@ -809,7 +919,6 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
-          {/* Se removió la etiqueta de abonados obsoleta de aquí */}
         </div>
         <div className="flex gap-2">
           <button 
@@ -993,7 +1102,6 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              {/* CONTENEDOR DE MODALIDADES DE EQUIPOS (NUNCA A LA VEZ) */}
               <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div 
                   onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} 
