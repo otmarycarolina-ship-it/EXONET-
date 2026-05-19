@@ -19,7 +19,6 @@ import {
   signOut 
 } from 'firebase/auth';
 import { 
-  textMain,
   Users, 
   Wrench, 
   Search, 
@@ -165,7 +164,6 @@ export default function App() {
         .map(d => ({ ...d.data(), id: d.id }))
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
       
-      // --- LÓGICA DE REINICIO MENSUAL AUTOMÁTICO ---
       const fechaActual = new Date();
       const mesAnioActual = `${fechaActual.getMonth() + 1}-${fechaActual.getFullYear()}`;
       const ultimoMesRegistrado = localStorage.getItem('exonet_mes_pago');
@@ -318,7 +316,6 @@ function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
 
-  // FILTRO CLAVE: Primero aislamos únicamente a los clientes que NO son exonerados
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
   const filteredClientes = clientesDePago.filter(c => {
@@ -394,7 +391,6 @@ function PagosView({ clientes, db }) {
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
-                    {/* ETIQUETA AZUL PARA IDENTIFICAR FIBRA ÓPTICA */}
                     {c.ftth && (
                       <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                         FIBRA
@@ -435,13 +431,11 @@ function PagosView({ clientes, db }) {
   );
 }
 
-// --- CONTENEDOR MAESTRO DE EQUIPOS (CON TABS SUPERIORES) ---
 function ItemManagementView({ clientes, db }) {
-  const [subTab, setSubTab] = useState('INALAMBRICOS'); // 'INALAMBRICOS' o 'FTTH'
+  const [subTab, setSubTab] = useState('INALAMBRICOS');
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-      {/* Botones de navegación interna (Pestañas superiores) */}
       <div className="flex bg-white/80 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-xl mx-auto gap-2 shadow-sm">
         <button 
           onClick={() => setSubTab('INALAMBRICOS')}
@@ -609,7 +603,6 @@ function PrestamosView({ clientes, db }) {
   );
 }
 
-// --- NUEVA VISTA EXCLUSIVA PARA EQUIPOS DE FIBRA (FTTH) ---
 function FtthView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
@@ -619,7 +612,6 @@ function FtthView({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    // MENSAJE ACTIVO (FIBRA) - SIN NOMBRE EXONET
     const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido* . Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
     const mensaje = customMsg || defaultMsg;
     
@@ -807,7 +799,6 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
-          {/* EL CONTADOR REDONDO SE HA MANTENIDO AQUÍ PERO SIN EL ICONO ANTERIOR, LUCIENDO IMPECABLE Y LIMPIO */}
           <span className="bg-green-700 text-white px-3 py-1 rounded-full text-sm font-black shadow-sm">
             {totalDePago} ABONADOS
           </span>
@@ -994,7 +985,6 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              {/* CONTENEDOR DE MODALIDADES DE EQUIPOS (NUNCA A LA VEZ) */}
               <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div 
                   onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} 
@@ -1023,6 +1013,7 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
+// El resto de tus componentes hijas (NodosView y SoporteView) se quedan intactos abajo
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
