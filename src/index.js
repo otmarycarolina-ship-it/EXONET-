@@ -81,7 +81,6 @@ const handlePrintGeneral = (titulo, data) => {
   const esPagos = titulo.includes('PAGOS');
   const esFibra = titulo.includes('FTTH') || titulo.includes('FIBRA');
   
-  // Variables para cálculos financieros (solo si es Fibra)
   let totalActivos = 0;
   let totalPendientes = 0;
 
@@ -669,7 +668,6 @@ function PrestamosView({ clientes, db }) {
   );
 }
 
-// --- VISTA EXCLUSIVA PARA EQUIPOS DE FIBRA (FTTH) MODIFICADA ---
 function FtthView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
@@ -842,6 +840,7 @@ function FtthView({ clientes, db }) {
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
+  // Por defecto se inicializa en 'DE_PAGO' para ocultar automáticamente exonerados y fibra
   const [filtroRapido, setFiltroRapido] = useState('DE_PAGO');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
@@ -854,12 +853,16 @@ function ClientesView({ clientes, nodos, db }) {
     const cumpleBusqueda = `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase());
     if (!cumpleBusqueda) return false;
 
-    if (filtroRapido === 'DE_PAGO') return !c.exonerado;
+    // LÓGICA DE FILTRADO CORREGIDA:
+    // 'DE_PAGO' ahora representa la Lista General limpia (Excluye tanto Exonerados como Fibra)
+    if (filtroRapido === 'DE_PAGO') return !c.exonerado && !c.ftth;
     if (filtroRapido === 'EXONERADOS') return c.exonerado;
+    // 'TODOS' sigue mostrando la base de datos completa si necesitas verificar algo de rapidez
     return true;
   });
 
-  const totalDePago = clientes.filter(c => !c.exonerado).length;
+  // Contador específico para los clientes activos inalámbricos de pago
+  const totalDePagoInalambricos = clientes.filter(c => !c.exonerado && !c.ftth).length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -895,7 +898,7 @@ function ClientesView({ clientes, nodos, db }) {
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={() => handlePrintGeneral('LISTA GENERAL DE CLIENTES', clientes)}
+            onClick={() => handlePrintGeneral('LISTA GENERAL DE CLIENTES (INALÁMBRICOS DE PAGO)', filtered)}
             className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all"
           >
             <Printer size={20} /> IMPRIMIR LISTA
@@ -911,18 +914,11 @@ function ClientesView({ clientes, nodos, db }) {
 
       <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-md gap-1">
         <button 
-          onClick={() => setFiltroRapido('TODOS')}
-          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
-          style={filtroRapido === 'TODOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
-        >
-          [ Todos ({clientes.length}) ]
-        </button>
-        <button 
           onClick={() => setFiltroRapido('DE_PAGO')}
           className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
           style={filtroRapido === 'DE_PAGO' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
-          [ Clientes De Pago ({totalDePago}) ]
+          [ General ({totalDePagoInalambricos}) ]
         </button>
         <button 
           onClick={() => setFiltroRapido('EXONERADOS')}
@@ -930,6 +926,13 @@ function ClientesView({ clientes, nodos, db }) {
           style={filtroRapido === 'EXONERADOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
           [ Exonerados ({clientes.filter(c => c.exonerado).length}) ]
+        </button>
+        <button 
+          onClick={() => setFiltroRapido('TODOS')}
+          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          style={filtroRapido === 'TODOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
+        >
+          [ Base Completa ({clientes.length}) ]
         </button>
       </div>
 
@@ -942,6 +945,11 @@ function ClientesView({ clientes, nodos, db }) {
                 {c.exonerado && (
                   <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
                     <Gift size={10} /> EXONERADO
+                  </span>
+                )}
+                {c.ftth && (
+                  <span className="bg-blue-600 text-white font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
+                    FIBRA
                   </span>
                 )}
               </div>
