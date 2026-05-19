@@ -588,19 +588,6 @@ function ClientesView({ clientes, nodos, db }) {
 
   const totalDePago = clientes.filter(c => !c.exonerado).length;
 
-  // Maneja los cambios del input costo y automatiza el estado de exoneración en vivo
-  const handleCostoChange = (val) => {
-    const costoLimpio = val.trim();
-    // Si el costo está vacío o es un "0" exacto, se marca como exonerado automáticamente
-    const esExoneradoAutomatico = costoLimpio === '' || costoLimpio === '0';
-    
-    setFormData({
-      ...formData,
-      costo: val,
-      exonerado: esExoneradoAutomatico
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.ap) {
@@ -608,13 +595,14 @@ function ClientesView({ clientes, nodos, db }) {
       return;
     }
 
-    // Doble verificación de respaldo antes de enviar a Firebase
-    const finalCosto = formData.costo.trim();
-    const finalExonerado = finalCosto === '' || finalCosto === '0' ? true : formData.exonerado;
+    // LÓGICA AUTOMÁTICA: Si el costo está vacío o es un "0" exacto, se marca como exonerado al guardar
+    const finalCosto = formData.costo ? formData.costo.trim() : '';
+    const esExoneradoAutomatico = finalCosto === '' || finalCosto === '0';
 
     const datosFinales = {
       ...formData,
-      exonerado: finalExonerado
+      costo: finalCosto,
+      exonerado: esExoneradoAutomatico
     };
     
     try {
@@ -766,14 +754,13 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="Dirección" className="md:col-span-2 bg-gray-50 p-4 rounded-xl border" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
               <input placeholder="Plan (Mbps)" type="text" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
               
-              {/* --- CONTROL DEL INPUT COSTO AUTOMATIZADO --- */}
               <input 
                 placeholder="Costo ($)" 
                 type="text" 
                 inputMode="decimal" 
                 className="bg-gray-50 p-4 rounded-xl border" 
                 value={formData.costo} 
-                onChange={e => handleCostoChange(e.target.value)} 
+                onChange={e => setFormData({...formData, costo: e.target.value})} 
               />
               
               <input 
@@ -815,27 +802,7 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              {/* --- CASILLA DE EXONERADO (AHORA CAMBIA SOLA SI EL PRECIO ES VACÍO O CERO) --- */}
-              <div 
-                onClick={() => {
-                  // Permitir cambiar manualmente solo si hay un costo ingresado válido
-                  const finalCosto = formData.costo.trim();
-                  if (finalCosto !== '' && finalCosto !== '0') {
-                    setFormData({...formData, exonerado: !formData.exonerado});
-                  }
-                }} 
-                className={`md:col-span-2 flex items-center gap-3 p-4 rounded-xl border select-none transition-colors ${
-                  formData.exonerado ? 'bg-blue-50 border-blue-200' : 'bg-gray-50/50 border-gray-100'
-                } ${
-                  (formData.costo.trim() === '' || formData.costo.trim() === '0') ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
-                }`}
-              >
-                {formData.exonerado ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
-                <span className="font-bold text-gray-700">
-                  Cliente Exonerado (Familiares o Empleados) 
-                  {(formData.costo.trim() === '' || formData.costo.trim() === '0') && ' — Activado por falta de precio'}
-                </span>
-              </div>
+              {/* [SE REMOVIÓ LA CASILLA DE CLIENTE EXONERADO POR ENCARGO PARA EVITAR CONFUSIONES] */}
 
               <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} className="md:col-span-2 flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none">
                 {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
