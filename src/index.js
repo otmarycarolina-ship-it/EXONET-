@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -41,7 +41,8 @@ import {
   Calendar,
   FileText,
   X,
-  Clock
+  Clock,
+  Share2
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -86,20 +87,29 @@ const obtenerFechaActualLocal = () => {
   return `${d.getFullYear()}-${mes}-${dia}`;
 };
 
+// NUEVA LÓGICA DE CORTE: Fuerza el vencimiento al día 4 del mes siguiente del pago
 const calcularVencimientoLocal = (fechaInicioStr) => {
   if (!fechaInicioStr) return '';
   const parts = fechaInicioStr.split('-');
   const ano = parseInt(parts[0], 10);
-  const mes = parseInt(parts[1], 10) - 1;
+  const mes = parseInt(parts[1], 10) - 1; // Base 0 en JS (0 = Enero)
   const dia = parseInt(parts[2], 10);
   
-  const fecha = new Date(ano, mes, dia);
-  // Sumamos 31 días de mes regular + 4 días de cortesía = 35 días
-  fecha.setDate(fecha.getDate() + 35);
+  // Creamos la fecha base del pago
+  const fechaPago = new Date(ano, mes, dia);
   
-  const rMes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const rDia = String(fecha.getDate()).padStart(2, '0');
-  return `${fecha.getFullYear()}-${rMes}-${rDia}`;
+  // Avanzamos al mes siguiente y fijamos el día 4
+  let anoVencimiento = fechaPago.getFullYear();
+  let mesVencimiento = fechaPago.getMonth() + 1; // Siguiente mes
+  
+  if (mesVencimiento > 11) {
+    mesVencimiento = 0;
+    anoVencimiento += 1;
+  }
+  
+  const rMes = String(mesVencimiento + 1).padStart(2, '0');
+  const rDia = '04'; // El corte es estricto el día 4
+  return `${anoVencimiento}-${rMes}-${rDia}`;
 };
 
 const formatearFechaPantalla = (fechaStr) => {
@@ -118,7 +128,7 @@ const obtenerEstadoCliente = (cliente) => {
   return hoyStr <= cliente.fechaVencimiento ? 'SOLVENTE' : 'PENDIENTE';
 };
 
-// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER (DENTRO DE LOS PRÓXIMOS 3 DÍAS) ---
+// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER (DENTRO DE LOS PRÓXIMOS 3 DÍAS ANTES DEL 4) ---
 const esProximoAVencer = (cliente) => {
   if (cliente.exonerado || !cliente.fechaVencimiento) return false;
   
@@ -205,7 +215,7 @@ const handleGenerarRecibo = (cliente) => {
   printWindow.print();
 };
 
-// --- FUNCIÓN DE IMPRESIÓN MODIFICADA PARA GESTIÓN DE CLIENTES ---
+// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
   const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
@@ -543,10 +553,12 @@ function NavItem({ active, onClick, icon, label }) {
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
+  const canvasRef = useRef(null);
   
   // Estados para Ventana Modal de Registro de Pago
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
+  const [imageGenerated, setImageGenerated] = useState('');
   const [modalForm, setModalForm] = useState({
     montoPagado: '',
     referenciaPago: '',
@@ -573,7 +585,91 @@ function PagosView({ clientes, db }) {
       referenciaPago: '',
       fechaPago: obtenerFechaActualLocal()
     });
+    setImageGenerated('');
     setShowPaymentModal(true);
+  };
+
+  // FUNCIÓN PARA GENERAR UNA IMAGEN DIGITAL UTILIZANDO CANVAS NATIVO
+  const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    // Dimensiones estables de imagen vertical para smartphones
+    canvas.width = 480;
+    canvas.height = 640;
+
+    // Fondo limpio de tarjeta
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, 480, 640);
+
+    // Encabezado decorativo institucional (Estilo EXONET Verde)
+    ctx.fillStyle = '#2E7D32';
+    ctx.fillRect(0, 0, 480, 110);
+
+    // Texto de marca principal
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'black 32px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('EXONET', 240, 55);
+
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = '#A3E635';
+    ctx.fillText('COMPROBANTE DE PAGO DIGITAL', 240, 85);
+
+    // Caja contenedora de Monto Recibido
+    ctx.fillStyle = '#E8F5E9';
+    ctx.fillRect(40, 140, 400, 80);
+    ctx.strokeStyle = '#C5E1A5';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(40, 140, 400, 80);
+
+    ctx.fillStyle = '#1B5E20';
+    ctx.font = '900 34px sans-serif';
+    ctx.fillText(`$${parseFloat(monto || 0).toFixed(2)} USD`, 240, 192);
+
+    // Líneas de detalles técnicos del cliente
+    const drawRow = (label, value, y, valueColor = '#1B5E20') => {
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#888888';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(label.toUpperCase(), 50, y);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = valueColor;
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText(value, 430, y);
+    };
+
+    const numControl = referencia || Math.floor(100000 + Math.random() * 900000);
+    
+    drawRow('No. Control', `#EXO-${numControl}`, 270, '#555555');
+    drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 310);
+    drawRow('Plan Técnico', `${cliente.plan} Mbps ${cliente.ftth ? '(Fibra)' : '(Antena)'}`, 350);
+    drawRow('Fecha Operación', formatearFechaPantalla(fPago), 390);
+    drawRow('Próximo Vence', formatearFechaPantalla(fVenc), 430, '#C62828');
+    drawRow('Referencia', referencia || 'EFECTIVO / DIVISAS', 470, '#444444');
+
+    // Separador punteado analógico
+    ctx.strokeStyle = '#2E7D32';
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(40, 520);
+    ctx.lineTo(440, 520);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Pie de página institucional
+    ctx.fillStyle = '#666666';
+    ctx.font = 'italic 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, 560);
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = '#2E7D32';
+    ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, 585);
+
+    // Guardar el string Base64 limpio para previsualizar y descargar
+    setImageGenerated(canvas.toDataURL('image/jpeg'));
   };
 
   const handleSavePago = async (e) => {
@@ -588,14 +684,32 @@ function PagosView({ clientes, db }) {
         referenciaPago: modalForm.referenciaPago.toUpperCase(),
         fechaPago: modalForm.fechaPago,
         fechaVencimiento: vencimientoCalculado,
-        pagoCompletado: true // Mantenido por retrocompatibilidad estructural
+        pagoCompletado: true
       });
-      setShowPaymentModal(false);
-      setSelectedCliente(null);
+      
+      // Renderizar el canvas inmediatamente después del registro exitoso
+      generarImagenRecibo(
+        selectedCliente, 
+        modalForm.montoPagado, 
+        modalForm.referenciaPago.toUpperCase(), 
+        modalForm.fechaPago, 
+        vencimientoCalculado
+      );
     } catch (err) {
       console.error("Error al registrar el pago técnico:", err);
       alert("Error al guardar registro en la base de datos.");
     }
+  };
+
+  const enviarWhatsAppConRecibo = () => {
+    if (!selectedCliente) return;
+    const vencimientoCalculado = calcularVencimientoLocal(modalForm.fechaPago);
+    
+    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu pago de *$${parseFloat(modalForm.montoPagado).toFixed(2)} USD* ha sido procesado de manera exitosa.\n\n📅 *Detalles de Cobertura:*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(vencimientoCalculado)} _(Corte el día 4 a primera hora)_\n\n¡Gracias por mantener tu servicio al día! Mantén presionada la imagen adjunta para guardarla como tu comprobante oficial. 😉`;
+    
+    const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(url, '_blank');
   };
 
   const handleClearPagoStatus = async (cliente) => {
@@ -616,6 +730,9 @@ function PagosView({ clientes, db }) {
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
+      {/* Canvas Oculto en el DOM para renderizado asíncrono */}
+      <canvas ref={canvasRef} className="hidden" />
+
       <div className="flex justify-between items-center mb-8">
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Control de Vencimientos y Pagos</h2>
       </div>
@@ -697,7 +814,7 @@ function PagosView({ clientes, db }) {
                         <>
                           <span>|</span>
                           <span className="text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded">
-                            Vence: {formatearFechaPantalla(c.fechaVencimiento)}
+                            Vence el: {formatearFechaPantalla(c.fechaVencimiento)}
                           </span>
                         </>
                       )}
@@ -708,12 +825,23 @@ function PagosView({ clientes, db }) {
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                   {estadoActual === 'SOLVENTE' && (
                     <button
-                      onClick={() => handleGenerarRecibo(c)}
+                      onClick={() => {
+                        setSelectedCliente(c);
+                        setModalForm({
+                          montoPagado: c.montoPagado || c.costo || '',
+                          referenciaPago: c.referenciaPago || '',
+                          fechaPago: c.fechaPago || obtenerFechaActualLocal()
+                        });
+                        setShowPaymentModal(true);
+                        setTimeout(() => {
+                          generarImagenRecibo(c, c.montoPagado || c.costo, c.referenciaPago, c.fechaPago || obtenerFechaActualLocal(), c.fechaVencimiento);
+                        }, 250);
+                      }}
                       className="px-3 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1.5 text-xs font-black"
-                      title="Generar Recibo Digital"
+                      title="Ver Recibo Digital de Imagen"
                     >
                       <FileText size={15} />
-                      <span className="hidden md:inline">RECIBO</span>
+                      <span>VER RECIBO</span>
                     </button>
                   )}
 
@@ -748,18 +876,18 @@ function PagosView({ clientes, db }) {
         </div>
       </div>
 
-      {/* MODAL REGISTRO DE PAGO INTERACTIVO */}
+      {/* MODAL INTERACTIVO DE REGISTRO Y PREVISUALIZACIÓN DE IMAGEN */}
       {showPaymentModal && selectedCliente && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative border border-green-100">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 shadow-2xl relative border border-green-100 my-8">
             <button 
-              onClick={() => { setShowPaymentModal(false); setSelectedCliente(null); }}
+              onClick={() => { setShowPaymentModal(false); setSelectedCliente(null); setImageGenerated(''); }}
               className="absolute right-6 top-6 p-2 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X size={20} />
             </button>
             
-            <div className="mb-6">
+            <div className="mb-4">
               <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">PROCESO DE COBRANZA</span>
               <h3 className="text-xl font-black text-gray-800 uppercase leading-tight">
                 {selectedCliente.nombre} {selectedCliente.apellido}
@@ -769,64 +897,98 @@ function PagosView({ clientes, db }) {
               </p>
             </div>
 
-            <form onSubmit={handleSavePago} className="space-y-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ($)</label>
-                <div className="relative flex items-center">
-                  <DollarSign size={16} className="absolute left-4 text-gray-400" />
+            {!imageGenerated ? (
+              <form onSubmit={handleSavePago} className="space-y-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ($)</label>
+                  <div className="relative flex items-center">
+                    <DollarSign size={16} className="absolute left-4 text-gray-400" />
+                    <input 
+                      type="text" 
+                      inputMode="decimal"
+                      required
+                      className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                      value={modalForm.montoPagado}
+                      onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Referencia o Transacción</label>
                   <input 
                     type="text" 
-                    inputMode="decimal"
-                    required
-                    className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
-                    value={modalForm.montoPagado}
-                    onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
+                    placeholder="Ej. PAGO MOVIL / EFECTIVO"
+                    className="w-full bg-gray-50 px-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                    value={modalForm.referenciaPago}
+                    onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value})}
                   />
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-gray-500 uppercase px-1">Referencia o Transacción</label>
-                <input 
-                  type="text" 
-                  placeholder="Ej. PAGO MOVIL / EFECTIVO"
-                  className="w-full bg-gray-50 px-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
-                  value={modalForm.referenciaPago}
-                  onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value})}
-                />
-              </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Fecha de Activación / Pago</label>
+                  <div className="relative flex items-center">
+                    <Calendar size={16} className="absolute left-4 text-gray-400" />
+                    <input 
+                      type="date" 
+                      required
+                      className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                      value={modalForm.fechaPago}
+                      onChange={e => setModalForm({...modalForm, fechaPago: e.target.value})}
+                    />
+                  </div>
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-gray-500 uppercase px-1">Fecha de Activación / Pago</label>
-                <div className="relative flex items-center">
-                  <Calendar size={16} className="absolute left-4 text-gray-400" />
-                  <input 
-                    type="date" 
-                    required
-                    className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
-                    value={modalForm.fechaPago}
-                    onChange={e => setModalForm({...modalForm, fechaPago: e.target.value})}
-                  />
+                <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-[11px] font-medium text-green-800 flex flex-col gap-0.5">
+                  <div className="font-bold uppercase tracking-wider text-[9px] text-green-600">Regla Estricta de Control:</div>
+                  <div>• Cobertura calculada: Mes corriente completo.</div>
+                  <div className="font-bold mt-1 text-red-700">
+                    • Suspensión Automática: {formatearFechaPantalla(calcularVencimientoLocal(modalForm.fechaPago))} (Día 4 a primera hora)
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  style={{ backgroundColor: colors.sidebar }} 
+                  className="w-full py-4 text-white font-black text-sm rounded-xl shadow-lg uppercase tracking-wider mt-2 active:scale-95 transition-transform"
+                >
+                  PROCESAR Y GENERAR IMAGEN
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-4 text-center animate-in zoom-in-95 duration-200">
+                <p className="text-xs text-gray-500 font-bold uppercase">¡Imagen generada con éxito! Haz clic prolongado o clic derecho para guardarla / copiarla.</p>
+                
+                <div className="border rounded-2xl overflow-hidden shadow-inner max-w-xs mx-auto bg-gray-100">
+                  <img src={imageGenerated} alt="Recibo Digital Exonet" className="w-full h-auto object-contain mx-auto" />
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                    onClick={enviarWhatsAppConRecibo}
+                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black text-sm rounded-xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2 transition-transform active:scale-95"
+                  >
+                    <MessageCircle size={18} />
+                    <span>ENVIAR FACTURA POR WHATSAPP</span>
+                  </button>
+
+                  <a 
+                    href={imageGenerated} 
+                    download={`Recibo_Exonet_${selectedCliente.nombre}_${selectedCliente.apellido}.jpg`}
+                    className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block"
+                  >
+                    Descargar en Dispositivo
+                  </a>
+
+                  <button
+                    onClick={() => { setShowPaymentModal(false); setSelectedCliente(null); setImageGenerated(''); }}
+                    className="text-xs text-gray-400 font-bold uppercase hover:underline mt-2"
+                  >
+                    Cerrar ventana de caja
+                  </button>
                 </div>
               </div>
-
-              <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-[11px] font-medium text-green-800 flex flex-col gap-0.5">
-                <div className="font-bold uppercase tracking-wider text-[9px] text-green-600">Proyección Automática:</div>
-                <div>• Cobertura regular: **31 días contratados.**</div>
-                <div>• Amortización de cortesía: **+4 días de margen.**</div>
-                <div className="font-bold mt-1 text-red-700">
-                  • Fecha de suspensión automática: {formatearFechaPantalla(calcularVencimientoLocal(modalForm.fechaPago))}
-                </div>
-              </div>
-
-              <button 
-                type="submit" 
-                style={{ backgroundColor: colors.sidebar }} 
-                className="w-full py-4 text-white font-black text-sm rounded-xl shadow-lg uppercase tracking-wider mt-2 active:scale-95 transition-transform"
-              >
-                PROCESAR Y EMITIR SOLVENCIA
-              </button>
-            </form>
+            )}
           </div>
         </div>
       )}
