@@ -178,7 +178,7 @@ const handleGenerarRecibo = (cliente) => {
             <div class="logo-title">EXONET</div>
             <div class="subtitle">Comprobante de Pago Digital</div>
           </div>
-          <div class="monto-box">$${montoFormateado} USD</div>
+          <div class="monto-box">$${montoFormateado} COP</div>
           <table class="details-table">
             <tr>
               <td class="label">No. Control</td>
@@ -626,7 +626,7 @@ function PagosView({ clientes, db }) {
 
     ctx.fillStyle = '#1B5E20';
     ctx.font = '900 34px sans-serif';
-    ctx.fillText(`$${parseFloat(monto || 0).toFixed(2)} USD`, 240, 192);
+    ctx.fillText(`$${parseFloat(monto || 0).toFixed(2)} COP`, 240, 192);
 
     // Líneas de detalles técnicos del cliente
     const drawRow = (label, value, y, valueColor = '#1B5E20') => {
@@ -705,7 +705,7 @@ function PagosView({ clientes, db }) {
     if (!selectedCliente) return;
     const vencimientoCalculado = calcularVencimientoLocal(modalForm.fechaPago);
     
-    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu pago de *$${parseFloat(modalForm.montoPagado).toFixed(2)} USD* ha sido procesado de manera exitosa.\n\n📅 *Detalles de Cobertura:*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(vencimientoCalculado)} _(Corte el día 4 a primera hora)_\n\n¡Gracias por mantener tu servicio al día! Mantén presionada la imagen adjunta para guardarla como tu comprobante oficial. 😉`;
+    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu pago de *$${parseFloat(modalForm.montoPagado).toFixed(2)} COP* ha sido processed de manera exitosa.\n\n📅 *Detalles de Cobertura:*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(vencimientoCalculado)}\n\n¡Gracias por mantener tu servicio al día! Mantén presionada la imagen adjunta para guardarla como tu comprobante oficial. 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
