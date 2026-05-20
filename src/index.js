@@ -77,8 +77,6 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
 // --- FUNCIÓN DE IMPRESIÓN MODIFICADA PARA GESTIÓN DE CLIENTES ---
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
-  
-  // Filtrar de inmediato: Excluir exonerados y excluir fibra (FTTH)
   const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
 
   const html = `
@@ -123,10 +121,9 @@ const handlePrintClientesFiltrados = (data) => {
   printWindow.print();
 };
 
-// --- UTILIDAD DE IMPRESIÓN GENERAL (SE MANTIENE IGUAL PARA LAS OTRAS VISTAS) ---
+// --- UTILIDAD DE IMPRESIÓN GENERAL ---
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
-  const esListaGeneral = titulo.includes('GENERAL');
   const esPagos = titulo.includes('PAGOS');
   const esFibra = titulo.includes('FTTH') || titulo.includes('FIBRA');
   
@@ -271,6 +268,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // --- LÓGICA DE ACTUALIZACIÓN DEL CICLO DE COBROS (DÍA 4 DE CADA MES) ---
   useEffect(() => {
     if (!user) return;
     const unsubClientes = onSnapshot(collection(db, 'clientes'), async (snap) => {
@@ -279,21 +277,40 @@ export default function App() {
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       const fechaActual = new Date();
-      const mesAnioActual = `${fechaActual.getMonth() + 1}-${fechaActual.getFullYear()}`;
-      const ultimoMesRegistrado = localStorage.getItem('exonet_mes_pago');
+      const diaActual = fechaActual.getDate();
+      const mesActual = fechaActual.getMonth() + 1;
+      const anioActual = fechaActual.getFullYear();
 
-      if (ultimoMesRegistrado && ultimoMesRegistrado !== mesAnioActual) {
+      // Determinamos a qué ciclo de facturación pertenece la fecha actual.
+      // Si estamos antes del día 4, el período actual empezó el mes pasado.
+      let periodoAnio = anioActual;
+      let periodoMes = mesActual;
+      
+      if (diaActual < 4) {
+        periodoMes = mesActual - 1;
+        if (periodoMes === 0) {
+          periodoMes = 12;
+          periodoAnio = anioActual - 1;
+        }
+      }
+
+      const cicloIdentificador = `${periodoMes}-${periodoAnio}`;
+      const ultimoCicloProcesado = localStorage.getItem('exonet_ciclo_corte');
+
+      // Si ha llegado el día 4 (o posterior) de un ciclo que no hemos reiniciado, ejecutamos el corte general.
+      if (ultimoCicloProcesado && ultimoCicloProcesado !== cicloIdentificador) {
         for (const cliente of sorted) {
           if (cliente.pagoCompletado) {
             try {
               await updateDoc(doc(db, 'clientes', cliente.id), { pagoCompletado: false });
             } catch (err) {
-              console.error("Error al reiniciar mes:", err);
+              console.error("Error al reiniciar ciclo de cobros:", err);
             }
           }
         }
       }
-      localStorage.setItem('exonet_mes_pago', mesAnioActual);
+      
+      localStorage.setItem('exonet_ciclo_corte', cicloIdentificador);
       setClientes(sorted);
     }, (err) => console.log("Error Firestore:", err));
 
