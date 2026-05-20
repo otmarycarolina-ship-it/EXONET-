@@ -37,7 +37,11 @@ import {
   Laptop,
   MessageCircle,
   DollarSign,
-  Gift
+  Gift,
+  Calendar,
+  FileText,
+  X,
+  Clock
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -74,6 +78,133 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
   </svg>
 );
 
+// --- AUXILIARES DE FECHAS EN FORMATO LOCAL (YYYY-MM-DD) ---
+const obtenerFechaActualLocal = () => {
+  const d = new Date();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mes}-${dia}`;
+};
+
+const calcularVencimientoLocal = (fechaInicioStr) => {
+  if (!fechaInicioStr) return '';
+  const parts = fechaInicioStr.split('-');
+  const ano = parseInt(parts[0], 10);
+  const mes = parseInt(parts[1], 10) - 1;
+  const dia = parseInt(parts[2], 10);
+  
+  const fecha = new Date(ano, mes, dia);
+  // Sumamos 31 días de mes regular + 4 días de cortesía = 35 días
+  fecha.setDate(fecha.getDate() + 35);
+  
+  const rMes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const rDia = String(fecha.getDate()).padStart(2, '0');
+  return `${fecha.getFullYear()}-${rMes}-${rDia}`;
+};
+
+const formatearFechaPantalla = (fechaStr) => {
+  if (!fechaStr) return 'Sin Registro';
+  const parts = fechaStr.split('-');
+  if (parts.length !== 3) return fechaStr;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+};
+
+// --- OBTENER ESTADO DINÁMICO ---
+const obtenerEstadoCliente = (cliente) => {
+  if (cliente.exonerado) return 'SOLVENTE';
+  if (!cliente.fechaVencimiento) return 'PENDIENTE';
+  
+  const hoyStr = obtenerFechaActualLocal();
+  return hoyStr <= cliente.fechaVencimiento ? 'SOLVENTE' : 'PENDIENTE';
+};
+
+// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER (DENTRO DE LOS PRÓXIMOS 3 DÍAS) ---
+const esProximoAVencer = (cliente) => {
+  if (cliente.exonerado || !cliente.fechaVencimiento) return false;
+  
+  const hoyStr = obtenerFechaActualLocal();
+  if (hoyStr > cliente.fechaVencimiento) return false; // Ya venció
+  
+  const hoy = new Date(hoyStr.replace(/-/g, '\/'));
+  const vencimiento = new Date(cliente.fechaVencimiento.replace(/-/g, '\/'));
+  
+  const diferenciaTiempo = vencimiento.getTime() - hoy.getTime();
+  const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 60 * 60 * 24));
+  
+  return diferenciaDias >= 0 && diferenciaDias <= 3;
+};
+
+// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
+const handleGenerarRecibo = (cliente) => {
+  const printWindow = window.open('', '_blank');
+  const numControl = cliente.referenciaPago || Math.floor(100000 + Math.random() * 900000);
+  const montoFormateado = parseFloat(cliente.montoPagado || cliente.costo || 0).toFixed(2);
+  
+  const html = `
+    <html>
+      <head>
+        <title>Recibo Exonet - ${cliente.nombre} ${cliente.apellido}</title>
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 30px; color: #222; background: #f9f9f9; display: flex; justify-content: center; }
+          .recibo-card { background: white; width: 450px; border: 1px solid #e0e0e0; border-radius: 16px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+          .header { text-align: center; border-bottom: 2px dashed #2E7D32; padding-bottom: 15px; margin-bottom: 20px; }
+          .logo-title { font-size: 24px; font-weight: 900; color: #2E7D32; letter-spacing: 1px; margin: 5px 0; }
+          .subtitle { font-size: 10px; color: #666; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+          .monto-box { background: #E8F5E9; color: #1B5E20; text-align: center; padding: 15px; border-radius: 12px; font-size: 28px; font-weight: 900; margin: 15px 0; border: 1px solid #C5E1A5; }
+          .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .details-table td { padding: 8px 0; font-size: 13px; color: #444; }
+          .details-table td.label { color: #888; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+          .details-table td.value { text-align: right; font-weight: bold; color: #1B5E20; }
+          .footer-msg { text-align: center; font-size: 11px; color: #777; font-style: italic; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; }
+          @media print {
+            body { background: white; padding: 0; }
+            .recibo-card { border: none; box-shadow: none; width: 100%; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="recibo-card">
+          <div class="header">
+            <div class="logo-title">EXONET</div>
+            <div class="subtitle">Comprobante de Pago Digital</div>
+          </div>
+          <div class="monto-box">$${montoFormateado} USD</div>
+          <table class="details-table">
+            <tr>
+              <td class="label">No. Control</td>
+              <td class="value">#EXO-${numControl}</td>
+            </tr>
+            <tr>
+              <td class="label">Abonado</td>
+              <td class="value" style="text-transform: uppercase;">${cliente.nombre} ${cliente.apellido}</td>
+            </tr>
+            <tr>
+              <td class="label">Plan Contratado</td>
+              <td class="value">${cliente.plan} Mbps ${cliente.ftth ? '(Fibra Óptica)' : '(Inalámbrico)'}</td>
+            </tr>
+            <tr>
+              <td class="label">Fecha de Operación</td>
+              <td class="value">${formatearFechaPantalla(cliente.fechaPago)}</td>
+            </tr>
+            <tr>
+              <td class="label">Próximo Vencimiento</td>
+              <td class="value" style="color: #c62828;">${formatearFechaPantalla(cliente.fechaVencimiento)}</td>
+            </tr>
+            <tr>
+              <td class="label">Referencia / Pago</td>
+              <td class="value">${cliente.referenciaPago || 'Efectivo / Divisas'}</td>
+            </tr>
+          </table>
+          <div class="footer-msg">¡Gracias por tu solvencia y preferencia! Conexión Estable Siempre.</div>
+        </div>
+      </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.print();
+};
+
 // --- FUNCIÓN DE IMPRESIÓN MODIFICADA PARA GESTIÓN DE CLIENTES ---
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
@@ -107,7 +238,7 @@ const handlePrintClientesFiltrados = (data) => {
             ${clientesFiltrados.map((c, i) => `
               <tr>
                 <td>${i + 1}</td>
-                <td style="font-weight: bold; uppercase">${c.nombre} ${c.apellido}</td>
+                <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -133,7 +264,8 @@ const handlePrintGeneral = (titulo, data) => {
   if (esFibra) {
     data.forEach(c => {
       const costoNum = parseFloat(c.costo) || 0;
-      if (c.pagoCompletado) {
+      const estado = obtenerEstadoCliente(c);
+      if (estado === 'SOLVENTE') {
         totalActivos += costoNum;
       } else {
         totalPendientes += costoNum;
@@ -152,7 +284,7 @@ const handlePrintGeneral = (titulo, data) => {
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th { background: #2E7D32; color: white; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
           td { padding: 10px; border: 1px solid #ddd; font-size: 12px; }
-          .status-badge { font-weight: bold; padding: 3px 6px; rounded: 4px; font-size: 11px; }
+          .status-badge { font-weight: bold; padding: 3px 6px; border-radius: 4px; font-size: 11px; }
           .status-active { color: #2E7D32; }
           .status-suspended { color: #d32f2f; font-weight: bold; }
           .status-review { color: #f57c00; }
@@ -175,18 +307,20 @@ const handlePrintGeneral = (titulo, data) => {
               <th>ESTADO DEL EQUIPO</th>
               ${esFibra ? '<th>MONTO ($)</th>' : ''}
               <th>DIRECCIÓN</th>
+              <th>VENCIMIENTO</th>
               ${esPagos ? '<th>ESTADO DE PAGO</th>' : ''}
             </tr>
           </thead>
           <tbody>
             ${data.map((c, i) => {
+              const estadoPago = obtenerEstadoCliente(c);
               let estadoVisual = 'ACTIVO';
               let claseEstado = 'status-active';
               let claseFila = '';
               let montoVisual = `$${parseFloat(c.costo || 0).toFixed(2)}`;
 
               if (esFibra) {
-                if (!c.pagoCompletado) {
+                if (estadoPago === 'PENDIENTE') {
                   estadoVisual = 'SIN SERVICIO';
                   claseEstado = 'status-suspended';
                   claseFila = 'class="row-suspended"';
@@ -205,11 +339,12 @@ const handlePrintGeneral = (titulo, data) => {
               return `
                 <tr ${claseFila}>
                   <td>${i + 1}</td>
-                  <td style="font-weight: bold;">${c.nombre} ${c.apellido}</td>
+                  <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
                   <td><span class="status-badge ${claseEstado}">${estadoVisual}</span></td>
                   ${esFibra ? `<td style="font-weight: bold;">${montoVisual}</td>` : ''}
                   <td>${c.direccion || 'N/A'}</td>
-                  ${esPagos ? `<td>${c.pagoCompletado ? 'AL DÍA' : 'PENDIENTE'}</td>` : ''}
+                  <td>${formatearFechaPantalla(c.fechaVencimiento)}</td>
+                  ${esPagos ? `<td>${estadoPago === 'SOLVENTE' ? 'AL DÍA' : 'PENDIENTE'}</td>` : ''}
                 </tr>
               `;
             }).join('')}
@@ -268,49 +403,13 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- LÓGICA DE ACTUALIZACIÓN DEL CICLO DE COBROS (DÍA 4 DE CADA MES) ---
   useEffect(() => {
     if (!user) return;
-    const unsubClientes = onSnapshot(collection(db, 'clientes'), async (snap) => {
+    const unsubClientes = onSnapshot(collection(db, 'clientes'), (snap) => {
       const sorted = snap.docs
         .map(d => ({ ...d.data(), id: d.id }))
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
       
-      const fechaActual = new Date();
-      const diaActual = fechaActual.getDate();
-      const mesActual = fechaActual.getMonth() + 1;
-      const anioActual = fechaActual.getFullYear();
-
-      // Determinamos a qué ciclo de facturación pertenece la fecha actual.
-      // Si estamos antes del día 4, el período actual empezó el mes pasado.
-      let periodoAnio = anioActual;
-      let periodoMes = mesActual;
-      
-      if (diaActual < 4) {
-        periodoMes = mesActual - 1;
-        if (periodoMes === 0) {
-          periodoMes = 12;
-          periodoAnio = anioActual - 1;
-        }
-      }
-
-      const cicloIdentificador = `${periodoMes}-${periodoAnio}`;
-      const ultimoCicloProcesado = localStorage.getItem('exonet_ciclo_corte');
-
-      // Si ha llegado el día 4 (o posterior) de un ciclo que no hemos reiniciado, ejecutamos el corte general.
-      if (ultimoCicloProcesado && ultimoCicloProcesado !== cicloIdentificador) {
-        for (const cliente of sorted) {
-          if (cliente.pagoCompletado) {
-            try {
-              await updateDoc(doc(db, 'clientes', cliente.id), { pagoCompletado: false });
-            } catch (err) {
-              console.error("Error al reiniciar ciclo de cobros:", err);
-            }
-          }
-        }
-      }
-      
-      localStorage.setItem('exonet_ciclo_corte', cicloIdentificador);
       setClientes(sorted);
     }, (err) => console.log("Error Firestore:", err));
 
@@ -444,6 +543,15 @@ function NavItem({ active, onClick, icon, label }) {
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
+  
+  // Estados para Ventana Modal de Registro de Pago
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState(null);
+  const [modalForm, setModalForm] = useState({
+    montoPagado: '',
+    referenciaPago: '',
+    fechaPago: ''
+  });
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
@@ -451,31 +559,71 @@ function PagosView({ clientes, db }) {
     const cumpleBusqueda = `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase());
     if (!cumpleBusqueda) return false;
     
-    if (filtroPago === 'PENDIENTES') return !c.pagoCompletado;
-    if (filtroPago === 'SOLVENTES') return c.pagoCompletado;
+    const estado = obtenerEstadoCliente(c);
+    if (filtroPago === 'PENDIENTES') return estado === 'PENDIENTE' && !esProximoAVencer(c);
+    if (filtroPago === 'VENCER') return esProximoAVencer(c);
+    if (filtroPago === 'SOLVENTES') return estado === 'SOLVENTE' && !esProximoAVencer(c);
     return true;
   });
 
-  const handleTogglePago = async (cliente) => {
+  const openPaymentModal = (cliente) => {
+    setSelectedCliente(cliente);
+    setModalForm({
+      montoPagado: cliente.costo || '',
+      referenciaPago: '',
+      fechaPago: obtenerFechaActualLocal()
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleSavePago = async (e) => {
+    e.preventDefault();
+    if (!selectedCliente) return;
+
+    const vencimientoCalculado = calcularVencimientoLocal(modalForm.fechaPago);
+
     try {
-      await updateDoc(doc(db, 'clientes', cliente.id), {
-        pagoCompletado: !cliente.pagoCompletado
+      await updateDoc(doc(db, 'clientes', selectedCliente.id), {
+        montoPagado: modalForm.montoPagado,
+        referenciaPago: modalForm.referenciaPago.toUpperCase(),
+        fechaPago: modalForm.fechaPago,
+        fechaVencimiento: vencimientoCalculado,
+        pagoCompletado: true // Mantenido por retrocompatibilidad estructural
       });
+      setShowPaymentModal(false);
+      setSelectedCliente(null);
     } catch (err) {
-      console.error("Error al actualizar estado de pago:", err);
+      console.error("Error al registrar el pago técnico:", err);
+      alert("Error al guardar registro en la base de datos.");
+    }
+  };
+
+  const handleClearPagoStatus = async (cliente) => {
+    if (window.confirm(`¿Deseas restablecer y poner como PENDIENTE a ${cliente.nombre} ${cliente.apellido}?`)) {
+      try {
+        await updateDoc(doc(db, 'clientes', cliente.id), {
+          fechaVencimiento: '',
+          fechaPago: '',
+          referenciaPago: '',
+          montoPagado: '',
+          pagoCompletado: false
+        });
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-8">
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Control de Pagos Mensuales</h2>
+        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Control de Vencimientos y Pagos</h2>
       </div>
 
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
         <input 
-          placeholder="Buscar cliente para verificar pago..." 
+          placeholder="Buscar cliente para verificar control..." 
           className="bg-transparent w-full p-4 outline-none font-medium" 
           value={search} 
           onChange={e => setSearch(e.target.value)} 
@@ -484,7 +632,7 @@ function PagosView({ clientes, db }) {
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
         <div className="p-6 bg-gray-50/50 border-b flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Listado Mensual de Abonados</span>
+          <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Listado de Coberturas Técnicas</span>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
               <button 
@@ -497,65 +645,191 @@ function PagosView({ clientes, db }) {
                 onClick={() => setFiltroPago('PENDIENTES')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
               >
-                Pendientes ({clientesDePago.filter(c => !c.pagoCompletado).length})
+                Vencidos ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'PENDIENTE' && !esProximoAVencer(c)).length})
+              </button>
+              <button 
+                onClick={() => setFiltroPago('VENCER')} 
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'VENCER' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-orange-500'}`}
+              >
+                A Vencer ({clientesDePago.filter(c => esProximoAVencer(c)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('SOLVENTES')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
               >
-                Solventes ({clientesDePago.filter(c => c.pagoCompletado).length})
+                Solventes ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE' && !esProximoAVencer(c)).length})
               </button>
             </div>
             <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
-              {clientesDePago.filter(c => c.pagoCompletado).length} / {clientesDePago.length} SOLVENTES
+              {clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE').length} / {clientesDePago.length} AL DÍA
             </span>
           </div>
         </div>
 
         <div className="divide-y divide-gray-50">
-          {filteredClientes.map((c, index) => (
-            <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
-              <div className="flex items-center gap-5">
-                <span className="text-gray-300 font-black text-xl">{index + 1}</span>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
-                    {c.ftth && (
-                      <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
-                        FIBRA
-                      </span>
-                    )}
+          {filteredClientes.map((c, index) => {
+            const estadoActual = obtenerEstadoCliente(c);
+            const proximo = esProximoAVencer(c);
+
+            return (
+              <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
+                <div className="flex items-center gap-5">
+                  <span className="text-gray-300 font-black text-xl">{index + 1}</span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                      {c.ftth && (
+                        <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                          FIBRA
+                        </span>
+                      )}
+                      {proximo && (
+                        <span className="bg-orange-100 text-orange-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider animate-pulse flex items-center gap-1">
+                          <Clock size={10}/> PRÓXIMO A VENCER
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span>Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span></span>
+                      <span>|</span>
+                      <span>Costo: <span className="text-gray-700 font-black">${c.costo}</span></span>
+                      {c.fechaVencimiento && (
+                        <>
+                          <span>|</span>
+                          <span className="text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded">
+                            Vence: {formatearFechaPantalla(c.fechaVencimiento)}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
-                    Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span> | Costo: <span className="text-gray-700 font-black">${c.costo}</span>
-                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                  {estadoActual === 'SOLVENTE' && (
+                    <button
+                      onClick={() => handleGenerarRecibo(c)}
+                      className="px-3 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1.5 text-xs font-black"
+                      title="Generar Recibo Digital"
+                    >
+                      <FileText size={15} />
+                      <span className="hidden md:inline">RECIBO</span>
+                    </button>
+                  )}
+
+                  {estadoActual === 'SOLVENTE' ? (
+                    <button
+                      onClick={() => handleClearPagoStatus(c)}
+                      className="px-4 py-2.5 bg-green-600 text-white border border-green-600 shadow-md rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase"
+                    >
+                      <CheckSquare size={16} />
+                      <span>SOLVENTE</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => openPaymentModal(c)}
+                      className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase"
+                    >
+                      <Square size={16} />
+                      <span>REGISTRAR PAGO</span>
+                    </button>
+                  )}
                 </div>
               </div>
-
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                <button
-                  onClick={() => handleTogglePago(c)}
-                  className={`w-full sm:w-auto px-5 py-2.5 rounded-xl border flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase ${
-                    c.pagoCompletado 
-                      ? 'bg-green-600 text-white border-green-600 shadow-md' 
-                      : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
-                  }`}
-                >
-                  {c.pagoCompletado ? <CheckSquare size={16} /> : <Square size={16} />}
-                  <span>{c.pagoCompletado ? 'PAGADO' : 'MARCAR PAGO'}</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {filteredClientes.length === 0 && (
             <div className="p-20 text-center">
               <DollarSign size={48} className="mx-auto text-gray-200 mb-4" />
-              <p className="text-gray-400 font-bold italic">No se encontraron clientes para la búsqueda o filtro seleccionado.</p>
+              <p className="text-gray-400 font-bold italic">No se encontraron registros activos para este filtro.</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* MODAL REGISTRO DE PAGO INTERACTIVO */}
+      {showPaymentModal && selectedCliente && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative border border-green-100">
+            <button 
+              onClick={() => { setShowPaymentModal(false); setSelectedCliente(null); }}
+              className="absolute right-6 top-6 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="mb-6">
+              <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">PROCESO DE COBRANZA</span>
+              <h3 className="text-xl font-black text-gray-800 uppercase leading-tight">
+                {selectedCliente.nombre} {selectedCliente.apellido}
+              </h3>
+              <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+                Plan base asignado: {selectedCliente.plan} Mbps - ${selectedCliente.costo}
+              </p>
+            </div>
+
+            <form onSubmit={handleSavePago} className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ($)</label>
+                <div className="relative flex items-center">
+                  <DollarSign size={16} className="absolute left-4 text-gray-400" />
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    required
+                    className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                    value={modalForm.montoPagado}
+                    onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black text-gray-500 uppercase px-1">Referencia o Transacción</label>
+                <input 
+                  type="text" 
+                  placeholder="Ej. PAGO MOVIL / EFECTIVO"
+                  className="w-full bg-gray-50 px-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                  value={modalForm.referenciaPago}
+                  onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value})}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black text-gray-500 uppercase px-1">Fecha de Activación / Pago</label>
+                <div className="relative flex items-center">
+                  <Calendar size={16} className="absolute left-4 text-gray-400" />
+                  <input 
+                    type="date" 
+                    required
+                    className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                    value={modalForm.fechaPago}
+                    onChange={e => setModalForm({...modalForm, fechaPago: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-[11px] font-medium text-green-800 flex flex-col gap-0.5">
+                <div className="font-bold uppercase tracking-wider text-[9px] text-green-600">Proyección Automática:</div>
+                <div>• Cobertura regular: **31 días contratados.**</div>
+                <div>• Amortización de cortesía: **+4 días de margen.**</div>
+                <div className="font-bold mt-1 text-red-700">
+                  • Fecha de suspensión automática: {formatearFechaPantalla(calcularVencimientoLocal(modalForm.fechaPago))}
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                style={{ backgroundColor: colors.sidebar }} 
+                className="w-full py-4 text-white font-black text-sm rounded-xl shadow-lg uppercase tracking-wider mt-2 active:scale-95 transition-transform"
+              >
+                PROCESAR Y EMITIR SOLVENCIA
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -768,7 +1042,8 @@ function FtthView({ clientes, db }) {
   };
 
   const getDynamicStatus = (cliente) => {
-    if (!cliente.pagoCompletado) return 'SIN SERVICIO';
+    const estadoPago = obtenerEstadoCliente(cliente);
+    if (estadoPago === 'PENDIENTE') return 'SIN SERVICIO';
     return cliente.estadoFTTH || 'ACTIVO';
   };
 
@@ -816,13 +1091,14 @@ function FtthView({ clientes, db }) {
         <div className="divide-y divide-gray-50">
           {clientesFtth.map((c, index) => {
             const estadoActual = getDynamicStatus(c);
-            const costoAMostrar = c.pagoCompletado ? `$${parseFloat(c.costo || 0).toFixed(2)}` : '$0.00';
+            const estadoPago = obtenerEstadoCliente(c);
+            const costoAMostrar = estadoPago === 'SOLVENTE' ? `$${parseFloat(c.costo || 0).toFixed(2)}` : '$0.00';
 
             return (
               <div 
                 key={c.id} 
                 className={`p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between transition-colors gap-4 ${
-                  !c.pagoCompletado ? 'bg-red-50/40 hover:bg-red-50/60' : 'hover:bg-green-50/30'
+                  estadoPago === 'PENDIENTE' ? 'bg-red-50/40 hover:bg-red-50/60' : 'hover:bg-green-50/30'
                 }`}
               >
                 <div className="flex items-center gap-5">
@@ -833,7 +1109,7 @@ function FtthView({ clientes, db }) {
                       <MapPin size={10}/> {c.direccion}
                     </p>
                     <p className="text-[10px] font-black text-green-800 uppercase mt-1">
-                      Monto Reportado: <span className={c.pagoCompletado ? 'text-green-700' : 'text-red-600'}>{costoAMostrar}</span>
+                      Monto Reportado: <span className={estadoPago === 'SOLVENTE' ? 'text-green-700' : 'text-red-600'}>{costoAMostrar}</span>
                     </p>
                   </div>
                 </div>
@@ -871,12 +1147,12 @@ function FtthView({ clientes, db }) {
 
                   <div 
                     onClick={() => {
-                      if (c.pagoCompletado) {
+                      if (estadoPago === 'SOLVENTE') {
                         handleCycleStatus(c);
                       }
                     }}
                     className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all select-none ${
-                      c.pagoCompletado ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'
+                      estadoPago === 'SOLVENTE' ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'
                     } ${getStatusStyles(estadoActual)}`}
                   >
                     <CheckSquare size={14} />
@@ -911,7 +1187,8 @@ function ClientesView({ clientes, nodos, db }) {
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
     costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false,
-    estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false
+    estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false,
+    fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: ''
   });
 
   const filtered = clientes.filter(c => {
@@ -945,7 +1222,7 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), datosFinales);
       else await addDoc(collection(db, 'clientes'), { ...datosFinales, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '' });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
@@ -1017,9 +1294,14 @@ function ClientesView({ clientes, nodos, db }) {
               <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
               <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs font-bold text-green-700 hover:underline flex items-center justify-center gap-1">{c.ip} <ExternalLink size={10} /></a>
             </div>
-            <div className="col-span-2 w-full flex flex-col items-center">
-              <span style={{ color: colors.primary }} className="font-black italic">{c.plan} Mbps</span>
-              <p className="font-bold text-gray-800 text-sm">{c.exonerado ? '$0 (Cortesía)' : `$${c.costo}`}</p>
+            <div className="col-span-2 w-full text-center">
+              <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
+              <span className="font-bold text-gray-800 text-sm block">{c.exonerado ? '$0 (Cortesía)' : `$${c.costo}`}</span>
+              {c.fechaVencimiento && !c.exonerado && (
+                <span className="text-[9px] font-black text-red-600 bg-red-50 px-1 rounded inline-block mt-1">
+                  Vence: {formatearFechaPantalla(c.fechaVencimiento)}
+                </span>
+              )}
             </div>
             <div className="col-span-2 w-full text-center">
               <div className="flex flex-col items-center">
@@ -1218,7 +1500,7 @@ function NodosView({ nodos, clientes, db }) {
             <tbody>
               ${clientesNodo.map(c => `
                 <tr>
-                  <td>${c.nombre} ${c.apellido}</td>
+                  <td style="text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
                   <td>${c.ip}</td>
                   <td>${c.plan} Mbps</td>
                   <td>
