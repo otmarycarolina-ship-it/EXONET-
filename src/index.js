@@ -87,6 +87,16 @@ const obtenerFechaActualLocal = () => {
   return `${d.getFullYear()}-${mes}-${dia}`;
 };
 
+// Función auxiliar para obtener el encabezado del mes y año actual en mayúsculas
+const obtenerEncabezadoMesActual = () => {
+  const meses = [
+    "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+    "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
+  ];
+  const d = new Date();
+  return `${meses[d.getMonth()]} DE ${d.getFullYear()}`;
+};
+
 // NUEVA LÓGICA DE CORTE: Fuerza el vencimiento al día 4 del mes siguiente del pago
 const calcularVencimientoLocal = (fechaInicioStr) => {
   if (!fechaInicioStr) return '';
@@ -212,11 +222,12 @@ const handleGenerarRecibo = (cliente) => {
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
   const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
+  const encabezadoMes = obtenerEncabezadoMesActual();
 
   const html = `
     <html>
       <head>
-        <title>Exonet - LISTA GENERAL DE CLIENTES</title>
+        <title>Exonet - LISTA GENERAL DE CLIENTES - ${encabezadoMes}</title>
         <style>
           body { font-family: sans-serif; padding: 20px; color: #333; }
           h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
@@ -228,7 +239,7 @@ const handlePrintClientesFiltrados = (data) => {
         </style>
       </head>
       <body>
-        <h1>EXONET - LISTA GENERAL DE CLIENTES</h1>
+        <h1>EXONET - LISTA GENERAL DE CLIENTES (${encabezadoMes})</h1>
         <div class="meta-info">Total abonados: ${clientesFiltrados.length} | Fecha: ${new Date().toLocaleDateString()}</div>
         <table>
           <thead>
@@ -260,6 +271,8 @@ const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
   const esPagos = titulo.includes('PAGOS');
   const esFibra = titulo.includes('FTTH') || titulo.includes('FIBRA');
+  const esPrestamo = titulo.includes('PRÉSTAMO') || titulo.includes('EQUIPOS');
+  const encabezadoMes = obtenerEncabezadoMesActual();
   
   let totalActivos = 0;
   let totalPendientes = 0;
@@ -279,7 +292,7 @@ const handlePrintGeneral = (titulo, data) => {
   const html = `
     <html>
       <head>
-        <title>Exonet - ${titulo}</title>
+        <title>Exonet - ${titulo} - ${encabezadoMes}</title>
         <style>
           body { font-family: sans-serif; padding: 20px; color: #333; }
           h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
@@ -300,7 +313,7 @@ const handlePrintGeneral = (titulo, data) => {
         </style>
       </head>
       <body>
-        <h1>EXONET - ${titulo}</h1>
+        <h1>EXONET - ${titulo} (${encabezadoMes})</h1>
         <div class="meta-info">Total registros: ${data.length} | Fecha: ${new Date().toLocaleDateString()}</div>
         <table>
           <thead>
@@ -310,7 +323,7 @@ const handlePrintGeneral = (titulo, data) => {
               <th>ESTADO DEL EQUIPO</th>
               ${esFibra ? '<th>MONTO ($)</th>' : ''}
               <th>DIRECCIÓN</th>
-              <th>VENCIMIENTO</th>
+              ${!esPrestamo ? '<th>VENCIMIENTO</th>' : ''}
               ${esPagos ? '<th>ESTADO DE PAGO</th>' : ''}
             </tr>
           </thead>
@@ -346,7 +359,7 @@ const handlePrintGeneral = (titulo, data) => {
                   <td><span class="status-badge ${claseEstado}">${estadoVisual}</span></td>
                   ${esFibra ? `<td style="font-weight: bold;">${montoVisual}</td>` : ''}
                   <td>${c.direccion || 'N/A'}</td>
-                  <td>${formatearFechaPantalla(c.fechaVencimiento)}</td>
+                  ${!esPrestamo ? `<td>${formatearFechaPantalla(c.fechaVencimiento)}</td>` : ''}
                   ${esPagos ? `<td>${estadoPago === 'SOLVENTE' ? 'AL DÍA' : 'PENDIENTE'}</td>` : ''}
                 </tr>
               `;
@@ -1639,10 +1652,11 @@ function NodosView({ nodos, clientes, db }) {
 
   const handlePrintNodo = (nodo, clientesNodo) => {
     const printWindow = window.open('', '_blank');
+    const encabezadoMes = obtenerEncabezadoMesActual();
     const html = `
       <html>
         <head>
-          <title>Exonet - Lista de Clientes - ${nodo.nombre}</title>
+          <title>Exonet - Lista de Clientes - ${nodo.nombre} - ${encabezadoMes}</title>
           <style>
             body { font-family: sans-serif; padding: 40px; color: #333; }
             h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; }
@@ -1659,7 +1673,7 @@ function NodosView({ nodos, clientes, db }) {
           </style>
         </head>
         <body>
-          <h1>EXONET - ${nodo.nombre}</h1>
+          <h1>EXONET - ${nodo.nombre} (${encabezadoMes})</h1>
           <div class="info">
             <p>IP NODO: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
             <p>TOTAL CLIENTES: ${clientesNodo.length}</p>
