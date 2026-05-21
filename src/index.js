@@ -500,7 +500,7 @@ export default function App() {
       <main className="p-4 md:p-10 max-w-[1400px] mx-auto">
         {activeTab === 'CLIENTES' && <ClientesView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'PAGOS' && <PagosView clientes={clientes} db={db} />}
-        {activeTab === 'SOPORTE' && <SoporteView soporteList={soporteList} clientes={clientes} db={db} />}
+        {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
         {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
       </main>
@@ -582,6 +582,13 @@ function PagosView({ clientes, db }) {
     });
     setImageGenerated('');
     setShowPaymentModal(true);
+  };
+
+  const enviarRecordatorioAmigable = (cliente) => {
+    const textoMensaje = `¡Hola, *${cliente.nombre}*! Te saludamos del equipo de *EXONET* ⚡.\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
+    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(url, '_blank');
   };
 
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc) => {
@@ -800,6 +807,18 @@ function PagosView({ clientes, db }) {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                  {/* CAMBIO PRINCIPAL: El botón 'AVISAR' ahora evalúa únicamente si 'proximo' es verdadero */}
+                  {proximo && c.telefono && (
+                    <button
+                      onClick={() => enviarRecordatorioAmigable(c)}
+                      className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                      title="Enviar Recordatorio Amigable por WhatsApp"
+                    >
+                      <MessageCircle size={16} className="text-green-500 fill-green-500" />
+                      <span>AVISAR</span>
+                    </button>
+                  )}
+
                   {estadoActual === 'SOLVENTE' && (
                     <button
                       onClick={() => {
@@ -1072,7 +1091,7 @@ function PrestamosView({ clientes, db }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos a Préstamo</h2>
+        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos de Préstamo</h2>
         <button 
           onClick={() => handlePrintGeneral('LISTA DE EQUIPOS A PRÉSTAMO', enPrestamo)}
           className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
@@ -1562,7 +1581,6 @@ function ClientesView({ clientes, nodos, db }) {
               </select>
 
               <input placeholder="Teléfono" type="text" inputMode="tel" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
-              
               <div className="flex gap-2">
                 <input 
                   placeholder="Señal Local" 
@@ -1582,128 +1600,26 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              <div className="flex flex-col gap-2 p-2 bg-gray-50 rounded-xl border md:col-span-2">
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
-                  <input type="checkbox" checked={formData.prestamo} onChange={e => setFormData({...formData, prestamo: e.target.checked})} />
-                  ¿Tiene equipo en préstamo?
-                </label>
-                <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
-                  <input type="checkbox" checked={formData.ftth} onChange={e => setFormData({...formData, ftth: e.target.checked})} />
-                  ¿Es conexión por Fibra Óptica (FTTH)?
-                </label>
-              </div>
-
-              <div className="md:col-span-2 flex justify-end gap-3 pt-4 border-t">
-                <button 
-                  type="button" 
-                  onClick={() => { setShowForm(false); setEditingId(null); }} 
-                  className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm uppercase"
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} 
+                  className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none"
                 >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  style={{ backgroundColor: colors.sidebar }} 
-                  className="px-6 py-3 text-white font-black rounded-xl text-sm uppercase tracking-wider shadow-md"
+                  {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-gray-700 text-sm">Equipos a préstamo</span>
+                </div>
+
+                <div 
+                  onClick={() => setFormData({...formData, ftth: !formData.ftth, prestamo: false})} 
+                  className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
                 >
-                  Guardar Abonado
-                </button>
+                  {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-gray-700 text-sm">FTTH (Fibra Óptica)</span>
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SoporteView({ soporteList = [], clientes, db }) {
-  const [search, setSearch] = useState('');
-  const [showSoporteModal, setShowSoporteModal] = useState(false);
-  const [soporteForm, setSoporteForm] = useState({ clienteId: '', descripcion: '', tipo: 'FALLA DE SEÑAL', estado: 'PENDIENTE' });
-
-  const handleAddSoporte = async (e) => {
-    e.preventDefault();
-    if (!soporteForm.clienteId) return alert("Selecciona un cliente.");
-    const clienteAsociado = clientes.find(c => c.id === soporteForm.clienteId);
-    
-    try {
-      await addDoc(collection(db, 'soporte'), {
-        ...soporteForm,
-        clienteNombre: `${clienteAsociado.nombre} ${clienteAsociado.apellido}`,
-        fechaReporte: obtenerFechaActualLocal(),
-        createdAt: Date.now()
-      });
-      setShowSoporteModal(false);
-      setSoporteForm({ clienteId: '', descripcion: '', tipo: 'FALLA DE SEÑAL', estado: 'PENDIENTE' });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleUpdateSoporteEstado = async (id, actual) => {
-    const next = actual === 'PENDIENTE' ? 'EN REVISIÓN' : actual === 'EN REVISIÓN' ? 'SOLUCIONADO' : 'PENDIENTE';
-    try {
-      await updateDoc(doc(db, 'soporte', id), { estado: next });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  return (
-    <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Tickets de Soporte Técnico</h2>
-        <button onClick={() => setShowSoporteModal(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-md">+ Crear Ticket</button>
-      </div>
-
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden divide-y divide-gray-50">
-        {soporteList.map(s => (
-          <div key={s.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-gray-50/50">
-            <div>
-              <span className="text-[9px] font-black bg-orange-100 text-orange-700 px-2 py-0.5 rounded uppercase tracking-wider">{s.tipo}</span>
-              <h3 className="font-black text-gray-800 uppercase mt-1">{s.clienteNombre}</h3>
-              <p className="text-xs text-gray-500 font-medium mt-1">{s.descripcion}</p>
-              <p className="text-[10px] text-gray-400 font-bold mt-0.5">Reportado el: {formatearFechaPantalla(s.fechaReporte)}</p>
-            </div>
-            <button 
-              onClick={() => handleUpdateSoporteEstado(s.id, s.estado)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all border ${
-                s.estado === 'SOLUCIONADO' ? 'bg-green-50 text-green-600 border-green-200' :
-                s.estado === 'EN REVISIÓN' ? 'bg-orange-50 text-orange-600 border-orange-200 animate-pulse' :
-                'bg-red-50 text-red-600 border-red-200'
-              }`}
-            >
-              {s.estado}
-            </button>
-          </div>
-        ))}
-        {soporteList.length === 0 && (
-          <div className="p-20 text-center">
-            <Wrench size={48} className="mx-auto text-gray-200 mb-4" />
-            <p className="text-gray-400 font-bold italic">No hay tickets de soporte abiertos en este momento.</p>
-          </div>
-        )}
-      </div>
-
-      {showSoporteModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative border">
-            <button onClick={() => setShowSoporteModal(false)} className="absolute right-6 top-6 text-gray-400 hover:text-gray-600"><X size={20}/></button>
-            <h3 className="text-lg font-black text-gray-800 uppercase mb-4">Nuevo Ticket de Soporte</h3>
-            <form onSubmit={handleAddSoporte} className="space-y-4">
-              <select required className="w-full bg-gray-50 p-3.5 rounded-xl border text-sm font-bold" value={soporteForm.clienteId} onChange={e => setSoporteForm({...soporteForm, clienteId: e.target.value})}>
-                <option value="">-- SELECCIONAR CLIENTE --</option>
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
-              </select>
-              <select className="w-full bg-gray-50 p-3.5 rounded-xl border text-sm font-bold" value={soporteForm.tipo} onChange={e => setSoporteForm({...soporteForm, tipo: e.target.value})}>
-                <option value="FALLA DE SEÑAL">FALLA DE SEÑAL / LENTITUD</option>
-                <option value="EQUIPO APAGADO">CONECTOR / POE / EQUIPO APAGADO</option>
-                <option value="RETIRO DE EQUIPO">SOLICITUD DE RETIRO DE EQUIPOS</option>
-                <option value="OTROS">OTROS PROBLEMAS GENERALES</option>
-              </select>
-              <textarea required placeholder="Describe brevemente la falla reportada por el cliente..." rows="3" className="w-full bg-gray-50 p-4 rounded-xl border text-sm font-medium outline-none" value={soporteForm.descripcion} onChange={e => setSoporteForm({...soporteForm, descripcion: e.target.value})} />
-              <button type="submit" style={{ backgroundColor: colors.sidebar }} className="w-full py-4 text-white font-black text-xs rounded-xl shadow-lg uppercase tracking-wider">CREAR TICKET TÉCNICO</button>
+              
+              <button type="submit" style={{ backgroundColor: colors.sidebar }} className="md:col-span-2 py-5 rounded-2xl text-white font-black shadow-lg">GUARDAR CLIENTE</button>
+              <button type="button" onClick={() => {setShowForm(false); setEditingId(null);}} className="md:col-span-2 text-gray-400 font-bold">CANCELAR</button>
             </form>
           </div>
         </div>
@@ -1713,63 +1629,243 @@ function SoporteView({ soporteList = [], clientes, db }) {
 }
 
 function NodosView({ nodos, clientes, db }) {
-  const [showNodoForm, setShowNodoForm] = useState(false);
-  const [nodoNombre, setNodoNombre] = useState('');
-
-  const handleAddNodo = async (e) => {
-    e.preventDefault();
-    if (!nodoNombre.trim()) return;
+  const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
+  
+  const handleAdd = async () => {
     try {
-      await addDoc(collection(db, 'nodos'), { nombre: nodoNombre.toUpperCase().trim() });
-      setShowNodoForm(false); setNodoNombre('');
-    } catch (err) {
-      console.error(err);
-    }
+      await addDoc(collection(db, 'nodos'), nuevo);
+      setNuevo({nombre:'', ip:'', frecuencia:''});
+    } catch (e) { alert("Sin permisos"); }
+  };
+
+  const handlePrintNodo = (nodo, clientesNodo) => {
+    const printWindow = window.open('', '_blank');
+    const html = `
+      <html>
+        <head>
+          <title>Exonet - Lista de Clientes - ${nodo.nombre}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; }
+            .info { margin-bottom: 20px; font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
+            td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
+            .prestamo { color: #e67e22; font-weight: bold; }
+            .ftth { color: #2980b9; font-weight: bold; }
+            .sig-container { display: flex; flex-direction: column; align-items: center; }
+            .sig-labels { font-size: 8px; color: #999; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; }
+            .sig-values { font-weight: 900; font-size: 16px; letter-spacing: -1px; }
+            .sig-values span { color: #ddd; margin: 0 4px; font-weight: normal; }
+          </style>
+        </head>
+        <body>
+          <h1>EXONET - ${nodo.nombre}</h1>
+          <div class="info">
+            <p>IP NODO: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
+            <p>TOTAL CLIENTES: ${clientesNodo.length}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>CLIENTE</th>
+                <th>IP</th>
+                <th>PLAN</th>
+                <th>SEÑAL</th>
+                <th>TELÉFONO</th>
+                <th>ESTADO</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${clientesNodo.map(c => `
+                <tr>
+                  <td style="text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
+                  <td>${c.ip}</td>
+                  <td>${c.plan} Mbps</td>
+                  <td>
+                    <div class="sig-container">
+                      <div class="sig-labels">LOCAL REMOTA</div>
+                      <div class="sig-values">${c.señal || '0'}<span>/</span>${c.señalRemota || '0'} <small style="font-size: 10px; color: #999;">dBm</small></div>
+                    </div>
+                  </td>
+                  <td>${c.telefono}</td>
+                  <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : c.ftth ? '<span class="ftth">FTTH</span>' : ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   return (
-    <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Nodos Repartidores</h2>
-        <button onClick={() => setShowNodoForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-md">+ Añadir Repartidor</button>
+    <div className="max-w-5xl mx-auto">
+      <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
+      <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
+        <input placeholder="Nombre Nodo" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
+        <input placeholder="IP" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
+        <input placeholder="Frecuencia (MHz)" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
+        <button onClick={handleAdd} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold">AÑADIR</button>
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-8">
         {nodos.map(n => {
-          const abonadosEnNodo = clientes.filter(c => c.ap === n.nombre).length;
+          const clientesNodo = clientes.filter(c => c.ap === n.nombre);
           return (
-            <div key={n.id} className="bg-white p-6 rounded-[2rem] border border-green-50 shadow-sm relative group overflow-hidden">
-              <div style={{ backgroundColor: colors.bg }} className="w-12 h-12 rounded-2xl flex items-center justify-center text-green-700 mb-4 font-bold">
-                 <ExonetLogo size={24} color="currentColor"/>
+            <div key={n.id} className="bg-white rounded-[2.5rem] border shadow-sm overflow-hidden flex flex-col">
+              <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/30">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
+                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{n.frecuencia} MHz</span>
+                  </div>
+                  <a href={`http://${n.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-gray-400 mt-1 hover:text-green-600 flex items-center gap-1">{n.ip} <ExternalLink size={10} /></a>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right mr-4">
+                    <p className="text-[10px] font-black text-green-800 opacity-60 uppercase">Total Clientes</p>
+                    <p style={{ color: colors.sidebar }} className="text-2xl font-black">{clientesNodo.length}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600 transition-colors">
+                      <Printer size={22} />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (window.confirm(`¿Deseas eliminar el nodo ${n.nombre}? Esta acción desconectará visualmente a sus clientes de este nodo.`)) {
+                          deleteDoc(doc(db, 'nodos', n.id));
+                        }
+                      }} 
+                      className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={22} />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <h3 className="font-black text-gray-800 text-lg uppercase tracking-tight">{n.nombre}</h3>
-              <p className="text-xs text-gray-400 font-bold uppercase mt-1">Abonados vinculados: <span className="text-green-700 font-black">{abonadosEnNodo}</span></p>
-              <button 
-                onClick={() => {
-                  if (abonadosEnNodo > 0) return alert("No puedes eliminar un nodo que contiene clientes activos vinculados.");
-                  if (window.confirm(`¿Seguro que deseas eliminar el nodo ${n.nombre}?`)) deleteDoc(doc(db, 'nodos', n.id));
-                }}
-                className="absolute top-6 right-6 p-2 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Trash2 size={16}/>
-              </button>
+              <div className="p-6 space-y-3">
+                {clientesNodo.map(c => (
+                  <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-2xl gap-3 border border-transparent hover:border-green-200 transition-all">
+                    <div className="flex-1">
+                      <p className="font-black text-gray-800 uppercase text-sm">{c.nombre} {c.apellido}</p>
+                      <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-green-700 font-bold hover:underline flex items-center gap-1">{c.ip} <ExternalLink size={9} /></a>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
+                       <div className="bg-white px-4 py-2 rounded-xl border flex flex-col items-center">
+                          <div className="flex gap-4 text-[8px] text-gray-400 font-black uppercase tracking-widest leading-none mb-1">
+                            <span>LOCAL</span><span>REMOTA</span>
+                          </div>
+                          <div className="text-gray-700 text-base font-black tracking-tighter">
+                            {c.señal || '0'} <span className="text-gray-200 mx-0.5">/</span> {c.señalRemota || '0'} <small className="text-[10px] text-gray-400 ml-1">dBm</small>
+                          </div>
+                       </div>
+                       <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
+                          <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Plan</span>
+                          <span className="text-green-700">{c.plan}M</span>
+                       </div>
+                       {c.prestamo && (
+                         <div className="bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
+                           <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
+                           <span>PRÉSTAMO</span>
+                         </div>
+                       )}
+                       {c.ftth && (
+                         <div className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
+                           <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
+                           <span>FTTH</span>
+                         </div>
+                       )}
+                    </div>
+                  </div>
+                ))}
+                {clientesNodo.length === 0 && <p className="text-center py-4 text-gray-400 font-bold italic text-sm">Sin clientes vinculados</p>}
+              </div>
             </div>
           );
         })}
       </div>
-
-      {showNodoForm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl relative border">
-            <button onClick={() => setShowNodoForm(false)} className="absolute right-6 top-6 text-gray-400 hover:text-gray-600"><X size={20}/></button>
-            <h3 className="text-lg font-black text-gray-800 uppercase mb-4">Añadir Nuevo Nodo</h3>
-            <form onSubmit={handleAddNodo} className="space-y-4">
-              <input required placeholder="Ej. AP-NODO-CENTRO" className="w-full bg-gray-50 p-4 rounded-xl border text-sm font-bold uppercase" value={nodoNombre} onChange={e => setNodoNombre(e.target.value)} />
-              <button type="submit" style={{ backgroundColor: colors.sidebar }} className="w-full py-4 text-white font-black text-xs rounded-xl shadow-lg uppercase tracking-wider">GUARDAR NODO REPARTIDOR</button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function SoporteView({ clientes, db }) {
+  const [report, setReport] = useState({ clienteId: '', falla: 'Sin internet', comentario: '' });
+  
+  const handleSend = async (e) => {
+    e.preventDefault();
+    const cli = clientes.find(c => c.id === report.clienteId);
+    if(!cli) return alert("Selecciona un cliente");
+    
+    const text = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+    
+    try {
+      await addDoc(collection(db, 'soporte'), { 
+        ...report, 
+        timestamp: new Date().toLocaleString(), 
+        clienteNombre: `${cli?.nombre} ${cli?.apellido}` 
+      });
+      setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
+    } catch (e) { alert("Sin permisos"); }
+  };
+
+  const handlePrint = () => {
+    const cli = clientes.find(c => c.id === report.clienteId);
+    if(!cli) return alert("Selecciona un cliente primero");
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<html><body style="font-family:sans-serif; padding:40px;"><h1>EXONET - REPORTE</h1><p>Cliente: ${cli.nombre} ${cli.apellido}</p><p>Falla: ${report.falla}</p><p>Nota: ${report.comentario}</p></body></html>`);
+    printWindow.document.close(); 
+    printWindow.print();
+    setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
+      <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
+        <select 
+          required 
+          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
+          value={report.clienteId} 
+          onChange={e => setReport({...report, clienteId: e.target.value})}
+        >
+          <option value="">-- SELECCIONAR CLIENTE --</option>
+          {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
+        </select>
+        <select 
+          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
+          value={report.falla} 
+          onChange={e => setReport({...report, falla: e.target.value})}
+        >
+          <option>Sin internet</option>
+          <option>Lentitud</option>
+          <option>Antena apagada</option>
+          <option>LAN0: 10Mbps</option>
+          <option>Problemas con las señales</option>
+          <option>Problema con el CPE</option>
+          <option>Actualización</option>
+          <option>Otro</option>
+        </select>
+        <textarea 
+          placeholder="Observaciones..." 
+          className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none focus:border-green-500" 
+          value={report.comentario} 
+          onChange={e => setReport({...report, comentario: e.target.value})} 
+        />
+        <div className="flex flex-col md:flex-row gap-4">
+          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"><Send size={24}/> ENVIAR POR TELEGRAM</button>
+          <button type="button" onClick={handlePrint} className="bg-gray-100 text-gray-700 py-5 px-8 rounded-2xl font-black shadow-md flex items-center justify-center gap-3 hover:bg-gray-200 active:scale-95 transition-transform"><Printer size={24}/> IMPRIMIR</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(<App />);
 }
