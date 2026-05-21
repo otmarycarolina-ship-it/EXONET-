@@ -584,7 +584,6 @@ function PagosView({ clientes, db }) {
     setShowPaymentModal(true);
   };
 
-  // NUEVA FUNCIÓN: ENVÍO DE RECORDATORIO AMIGABLE BASADO EN TU SELECCIÓN
   const enviarRecordatorioAmigable = (cliente) => {
     const textoMensaje = `¡Hola, *${cliente.nombre}*! Te saludamos del equipo de *EXONET* ⚡.\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
@@ -592,25 +591,20 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
-  // RENDIMIENTO ASÍNCRONO DEL RECIBO LIMPIO EN IMAGEN SMARTPHONE
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Dimensiones estables de imagen vertical para smartphones
     canvas.width = 480;
     canvas.height = 600;
 
-    // Fondo limpio de tarjeta
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, 480, 600);
 
-    // Encabezado decorativo institucional (Estilo EXONET Verde)
     ctx.fillStyle = '#2E7D32';
     ctx.fillRect(0, 0, 480, 110);
 
-    // Texto de marca principal
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'black 32px sans-serif';
     ctx.textAlign = 'center';
@@ -620,7 +614,6 @@ function PagosView({ clientes, db }) {
     ctx.fillStyle = '#A3E635';
     ctx.fillText('COMPROBANTE DE PAGO DIGITAL', 240, 85);
 
-    // Caja contenedora de Monto Recibido
     ctx.fillStyle = '#E8F5E9';
     ctx.fillRect(40, 140, 400, 80);
     ctx.strokeStyle = '#C5E1A5';
@@ -631,7 +624,6 @@ function PagosView({ clientes, db }) {
     ctx.font = '900 34px sans-serif';
     ctx.fillText(`$${parseFloat(monto || 0).toFixed(2)} COP`, 240, 192);
 
-    // Líneas de detalles técnicos del cliente sin número de control
     const drawRow = (label, value, y, valueColor = '#1B5E20') => {
       ctx.textAlign = 'left';
       ctx.fillStyle = '#888888';
@@ -650,7 +642,6 @@ function PagosView({ clientes, db }) {
     drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), 380, '#C62828');
     drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', 420, '#444444');
 
-    // Separador punteado analógico
     ctx.strokeStyle = '#2E7D32';
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
@@ -659,7 +650,6 @@ function PagosView({ clientes, db }) {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Pie de página institucional
     ctx.fillStyle = '#666666';
     ctx.font = 'italic 12px sans-serif';
     ctx.textAlign = 'center';
@@ -817,8 +807,8 @@ function PagosView({ clientes, db }) {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                  {/* SECCIÓN NUEVA: BOTÓN DE NOTIFICACIÓN DE WHATSAPP CON TU PLANTILLA SELECCIONADA */}
-                  {(estadoActual === 'PENDIENTE' || proximo) && c.telefono && (
+                  {/* CAMBIO PRINCIPAL: El botón 'AVISAR' ahora evalúa únicamente si 'proximo' es verdadero */}
+                  {proximo && c.telefono && (
                     <button
                       onClick={() => enviarRecordatorioAmigable(c)}
                       className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
@@ -1023,7 +1013,6 @@ function PagosView({ clientes, db }) {
   );
 }
 
-// El resto de vistas e inicializaciones quedan exactamente iguales...
 function ItemManagementView({ clientes, db }) {
   const [subTab, setSubTab] = useState('INALAMBRICOS');
 
@@ -1102,7 +1091,7 @@ function PrestamosView({ clientes, db }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos a Préstamo</h2>
+        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos de Préstamo</h2>
         <button 
           onClick={() => handlePrintGeneral('LISTA DE EQUIPOS A PRÉSTAMO', enPrestamo)}
           className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
