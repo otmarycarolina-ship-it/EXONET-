@@ -700,7 +700,7 @@ function PagosView({ clientes, db }) {
     }
   };
 
-  const enviarWhatsAppConRecibo = () => {
+  const enviarSquareConRecibo = () => {
     if (!selectedCliente) return;
     
     const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de $${parseFloat(modalForm.montoPagado || 0).toFixed(2)} COP* ha sido procesado de manera exitosa.\n\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
@@ -994,7 +994,7 @@ function PagosView({ clientes, db }) {
 
                 <div className="flex flex-col gap-2 pt-2">
                   <button
-                    onClick={enviarWhatsAppConRecibo}
+                    onClick={enviarSquareConRecibo}
                     className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black text-sm rounded-xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2 transition-transform active:scale-95"
                   >
                     <MessageCircle size={18} />
@@ -1348,11 +1348,6 @@ function FtthView({ clientes, db }) {
                   >
                     <CheckSquare size={14} />
                     <span className="text-[10px] font-black">{estadoActual}</span>
-                  </div>
-                  
-                  <div className="hidden sm:block text-right ml-2">
-                    <p className="text-[9px] font-bold text-gray-400 uppercase">IP Cliente</p>
-                    <p className="text-xs font-black text-green-700 uppercase">{c.ip || 'N/A'}</p>
                   </div>
                 </div>
               </div>
