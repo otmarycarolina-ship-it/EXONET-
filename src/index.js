@@ -807,7 +807,6 @@ function PagosView({ clientes, db }) {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                  {/* CAMBIO PRINCIPAL: El botón 'AVISAR' ahora evalúa únicamente si 'proximo' es verdadero */}
                   {proximo && c.telefono && (
                     <button
                       onClick={() => enviarRecordatorioAmigable(c)}
@@ -1296,7 +1295,7 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador and los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador y los accesorios que se usaron para instalarlo.`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
@@ -1307,7 +1306,7 @@ function FtthView({ clientes, db }) {
 
                   {c.estadoFTTH === 'REVISIÓN' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `🛠️ Soporte *FTTH*: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem *(ONU)* está funcionando bien. Si hay alguna falla o la señal está muy baja, avisen de inmediato, por favor.`, false)}
+                      onClick={() => handleWhatsApp(c, `🛠️ Soporte *FTTH*: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem *(ONU)* está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
                       className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                       title="Mandar a Revisión"
                     >
