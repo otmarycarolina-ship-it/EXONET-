@@ -95,10 +95,8 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   const mes = parseInt(parts[1], 10) - 1; // Base 0 en JS (0 = Enero)
   const dia = parseInt(parts[2], 10);
   
-  // Creamos la fecha base del pago
   const fechaPago = new Date(ano, mes, dia);
   
-  // Avanzamos al mes siguiente y fijamos el día 4
   let anoVencimiento = fechaPago.getFullYear();
   let mesVencimiento = fechaPago.getMonth() + 1; // Siguiente mes
   
@@ -128,12 +126,12 @@ const obtenerEstadoCliente = (cliente) => {
   return hoyStr <= cliente.fechaVencimiento ? 'SOLVENTE' : 'PENDIENTE';
 };
 
-// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER (DENTRO DE LOS PRÓXIMOS 3 DÍAS ANTES DEL 4) ---
+// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER ---
 const esProximoAVencer = (cliente) => {
   if (cliente.exonerado || !cliente.fechaVencimiento) return false;
   
   const hoyStr = obtenerFechaActualLocal();
-  if (hoyStr > cliente.fechaVencimiento) return false; // Ya venció
+  if (hoyStr > cliente.fechaVencimiento) return false;
   
   const hoy = new Date(hoyStr.replace(/-/g, '\/'));
   const vencimiento = new Date(cliente.fechaVencimiento.replace(/-/g, '\/'));
@@ -147,7 +145,6 @@ const esProximoAVencer = (cliente) => {
 // --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
-  const numControl = cliente.referenciaPago || Math.floor(100000 + Math.random() * 900000);
   const montoFormateado = parseFloat(cliente.montoPagado || cliente.costo || 0).toFixed(2);
   
   const html = `
@@ -181,19 +178,15 @@ const handleGenerarRecibo = (cliente) => {
           <div class="monto-box">$${montoFormateado} COP</div>
           <table class="details-table">
             <tr>
-              <td class="label">No. Control</td>
-              <td class="value">#EXO-${numControl}</td>
-            </tr>
-            <tr>
               <td class="label">Abonado</td>
               <td class="value" style="text-transform: uppercase;">${cliente.nombre} ${cliente.apellido}</td>
             </tr>
             <tr>
               <td class="label">Plan Contratado</td>
-              <td class="value">${cliente.plan} Mbps ${cliente.ftth ? '(Fibra Óptica)' : '(Inalámbrico)'}</td>
+              <td class="value">${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}</td>
             </tr>
             <tr>
-              <td class="label">Fecha de Operación</td>
+              <td class="label">Fecha de Pago</td>
               <td class="value">${formatearFechaPantalla(cliente.fechaPago)}</td>
             </tr>
             <tr>
@@ -555,7 +548,6 @@ function PagosView({ clientes, db }) {
   const [filtroPago, setFiltroPago] = useState('TODOS');
   const canvasRef = useRef(null);
   
-  // Estados para Ventana Modal de Registro de Pago
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [imageGenerated, setImageGenerated] = useState('');
@@ -592,7 +584,7 @@ function PagosView({ clientes, db }) {
     setShowPaymentModal(true);
   };
 
-  // FUNCIÓN PARA GENERAR UNA IMAGEN DIGITAL UTILIZANDO CANVAS NATIVO
+  // RENDIMIENTO ASÍNCRONO DEL RECIBO LIMPIO EN IMAGEN SMARTPHONE
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -600,11 +592,11 @@ function PagosView({ clientes, db }) {
     
     // Dimensiones estables de imagen vertical para smartphones
     canvas.width = 480;
-    canvas.height = 640;
+    canvas.height = 600; // Ajustado ligeramente al remover una fila
 
     // Fondo limpio de tarjeta
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, 480, 640);
+    ctx.fillRect(0, 0, 480, 600);
 
     // Encabezado decorativo institucional (Estilo EXONET Verde)
     ctx.fillStyle = '#2E7D32';
@@ -631,7 +623,7 @@ function PagosView({ clientes, db }) {
     ctx.font = '900 34px sans-serif';
     ctx.fillText(`$${parseFloat(monto || 0).toFixed(2)} COP`, 240, 192);
 
-    // Líneas de detalles técnicos del cliente
+    // Líneas de detalles técnicos del cliente sin número de control
     const drawRow = (label, value, y, valueColor = '#1B5E20') => {
       ctx.textAlign = 'left';
       ctx.fillStyle = '#888888';
@@ -643,22 +635,19 @@ function PagosView({ clientes, db }) {
       ctx.font = 'bold 14px sans-serif';
       ctx.fillText(value, 430, y);
     };
-
-    const numControl = referencia || Math.floor(100000 + Math.random() * 900000);
     
-    drawRow('No. Control', `#EXO-${numControl}`, 270, '#555555');
-    drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 310);
-    drawRow('Plan Técnico', `${cliente.plan} Mbps ${cliente.ftth ? '(Fibra)' : '(Antena)'}`, 350);
-    drawRow('Fecha Operación', formatearFechaPantalla(fPago), 390);
-    drawRow('Próximo Vence', formatearFechaPantalla(fVenc), 430, '#C62828');
-    drawRow('Referencia', referencia || 'EFECTIVO / DIVISAS', 470, '#444444');
+    drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 260);
+    drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
+    drawRow('Fecha de Pago', formatearFechaPantalla(fPago), 340);
+    drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), 380, '#C62828');
+    drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', 420, '#444444');
 
     // Separador punteado analógico
     ctx.strokeStyle = '#2E7D32';
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.moveTo(40, 520);
-    ctx.lineTo(440, 520);
+    ctx.moveTo(40, 470);
+    ctx.lineTo(440, 470);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -666,12 +655,11 @@ function PagosView({ clientes, db }) {
     ctx.fillStyle = '#666666';
     ctx.font = 'italic 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, 560);
+    ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, 510);
     ctx.font = 'bold 11px sans-serif';
     ctx.fillStyle = '#2E7D32';
-    ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, 585);
+    ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, 535);
 
-    // Guardar el string Base64 limpio para previsualizar y descargar
     setImageGenerated(canvas.toDataURL('image/jpeg'));
   };
 
@@ -688,7 +676,6 @@ function PagosView({ clientes, db }) {
         pagoCompletado: true
       });
       
-      // Renderizar el canvas inmediatamente después del registro exitoso
       generarImagenRecibo(
         selectedCliente, 
         modalForm.montoPagado, 
@@ -702,10 +689,11 @@ function PagosView({ clientes, db }) {
     }
   };
 
+  // ENVÍO DE NOTIFICACIÓN DE PAGO USANDO TU PLANTILLA PERSONALIZADA
   const enviarWhatsAppConRecibo = () => {
     if (!selectedCliente) return;
     
-    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu pago de *$80.00 COP* ha sido procesado de manera exitosa.\n\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
+    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de $${parseFloat(modalForm.montoPagado || 0).toFixed(2)} COP* ha sido procesado de manera exitosa.\n\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
@@ -730,7 +718,6 @@ function PagosView({ clientes, db }) {
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-      {/* Canvas Oculto en el DOM para renderizado asíncrono */}
       <canvas ref={canvasRef} className="hidden" />
 
       <div className="flex justify-between items-center mb-8">
@@ -877,7 +864,6 @@ function PagosView({ clientes, db }) {
         </div>
       </div>
 
-      {/* MODAL INTERACTIVO DE REGISTRO Y PREVISUALIZACIÓN DE IMAGEN */}
       {showPaymentModal && selectedCliente && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200 overflow-y-auto">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 shadow-2xl relative border border-green-100 my-8">
@@ -1543,7 +1529,7 @@ function ClientesView({ clientes, nodos, db }) {
         {filtered.length === 0 && (
           <div className="bg-white p-20 text-center rounded-2xl border">
             <Users size={48} className="mx-auto text-gray-200 mb-4" />
-            <p className="text-gray-400 font-bold italic">No hay abonados en esta categoría para mostrar.</p>
+            <p className="text-gray-400 font-bold italic">No hay abonados in esta categoría para mostrar.</p>
           </div>
         )}
       </div>
