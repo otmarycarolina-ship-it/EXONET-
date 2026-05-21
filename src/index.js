@@ -584,6 +584,14 @@ function PagosView({ clientes, db }) {
     setShowPaymentModal(true);
   };
 
+  // NUEVA FUNCIÓN: ENVÍO DE RECORDATORIO AMIGABLE BASADO EN TU SELECCIÓN
+  const enviarRecordatorioAmigable = (cliente) => {
+    const textoMensaje = `¡Hola, *${cliente.nombre}*! Te saludamos del equipo de *EXONET* ⚡.\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
+    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(url, '_blank');
+  };
+
   // RENDIMIENTO ASÍNCRONO DEL RECIBO LIMPIO EN IMAGEN SMARTPHONE
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc) => {
     const canvas = canvasRef.current;
@@ -592,7 +600,7 @@ function PagosView({ clientes, db }) {
     
     // Dimensiones estables de imagen vertical para smartphones
     canvas.width = 480;
-    canvas.height = 600; // Ajustado ligeramente al remover una fila
+    canvas.height = 600;
 
     // Fondo limpio de tarjeta
     ctx.fillStyle = '#FFFFFF';
@@ -689,7 +697,6 @@ function PagosView({ clientes, db }) {
     }
   };
 
-  // ENVÍO DE NOTIFICACIÓN DE PAGO USANDO TU PLANTILLA PERSONALIZADA
   const enviarWhatsAppConRecibo = () => {
     if (!selectedCliente) return;
     
@@ -810,6 +817,18 @@ function PagosView({ clientes, db }) {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                  {/* SECCIÓN NUEVA: BOTÓN DE NOTIFICACIÓN DE WHATSAPP CON TU PLANTILLA SELECCIONADA */}
+                  {(estadoActual === 'PENDIENTE' || proximo) && c.telefono && (
+                    <button
+                      onClick={() => enviarRecordatorioAmigable(c)}
+                      className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                      title="Enviar Recordatorio Amigable por WhatsApp"
+                    >
+                      <MessageCircle size={16} className="text-green-500 fill-green-500" />
+                      <span>AVISAR</span>
+                    </button>
+                  )}
+
                   {estadoActual === 'SOLVENTE' && (
                     <button
                       onClick={() => {
