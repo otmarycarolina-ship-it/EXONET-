@@ -562,7 +562,8 @@ function PagosView({ clientes, db }) {
   const [modalForm, setModalForm] = useState({
     montoPagado: '',
     referenciaPago: '',
-    fechaPago: ''
+    fechaPago: '',
+    fechaVencimiento: ''
   });
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
@@ -579,11 +580,13 @@ function PagosView({ clientes, db }) {
   });
 
   const openPaymentModal = (cliente) => {
+    const fechaPagoInicial = obtenerFechaActualLocal();
     setSelectedCliente(cliente);
     setModalForm({
       montoPagado: cliente.costo || '',
       referenciaPago: '',
-      fechaPago: obtenerFechaActualLocal()
+      fechaPago: fechaPagoInicial,
+      fechaVencimiento: calcularVencimientoLocal(fechaPagoInicial)
     });
     setImageGenerated('');
     setShowPaymentModal(true);
@@ -676,14 +679,12 @@ function PagosView({ clientes, db }) {
     e.preventDefault();
     if (!selectedCliente) return;
 
-    const vencimientoCalculado = calcularVencimientoLocal(modalForm.fechaPago);
-
     try {
       await updateDoc(doc(db, 'clientes', selectedCliente.id), {
         montoPagado: modalForm.montoPagado,
         referenciaPago: modalForm.referenciaPago.toUpperCase(),
         fechaPago: modalForm.fechaPago,
-        fechaVencimiento: vencimientoCalculado,
+        fechaVencimiento: modalForm.fechaVencimiento,
         pagoCompletado: true
       });
       
@@ -693,7 +694,7 @@ function PagosView({ clientes, db }) {
         modalForm.montoPagado, 
         modalForm.referenciaPago.toUpperCase(), 
         modalForm.fechaPago, 
-        vencimientoCalculado
+        modalForm.fechaVencimiento
       );
     } catch (err) {
       console.error("Error al registrar el pago técnico:", err);
@@ -703,9 +704,8 @@ function PagosView({ clientes, db }) {
 
   const enviarWhatsAppConRecibo = () => {
     if (!selectedCliente) return;
-    const vencimientoCalculado = calcularVencimientoLocal(modalForm.fechaPago);
     
-    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu pago de *$${parseFloat(modalForm.montoPagado).toFixed(2)} COP* ha sido processed de manera exitosa.\n\n📅 *Detalles de Cobertura:*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(vencimientoCalculado)}\n\n¡Gracias por mantener tu servicio al día! Mantén presionada la imagen adjunta para guardarla como tu comprobante oficial. 😉`;
+    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu pago de *$80.00 COP* ha sido procesado de manera exitosa.\n\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
@@ -830,7 +830,8 @@ function PagosView({ clientes, db }) {
                         setModalForm({
                           montoPagado: c.montoPagado || c.costo || '',
                           referenciaPago: c.referenciaPago || '',
-                          fechaPago: c.fechaPago || obtenerFechaActualLocal()
+                          fechaPago: c.fechaPago || obtenerFechaActualLocal(),
+                          fechaVencimiento: c.fechaVencimiento || calcularVencimientoLocal(c.fechaPago || obtenerFechaActualLocal())
                         });
                         setShowPaymentModal(true);
                         setTimeout(() => {
@@ -934,7 +935,28 @@ function PagosView({ clientes, db }) {
                       required
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
                       value={modalForm.fechaPago}
-                      onChange={e => setModalForm({...modalForm, fechaPago: e.target.value})}
+                      onChange={e => {
+                        const nuevaFechaPago = e.target.value;
+                        setModalForm({
+                          ...modalForm,
+                          fechaPago: nuevaFechaPago,
+                          fechaVencimiento: calcularVencimientoLocal(nuevaFechaPago)
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Fecha de Suspensión / Vencimiento</label>
+                  <div className="relative flex items-center">
+                    <Calendar size={16} className="absolute left-4 text-gray-400" />
+                    <input 
+                      type="date" 
+                      required
+                      className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                      value={modalForm.fechaVencimiento}
+                      onChange={e => setModalForm({...modalForm, fechaVencimiento: e.target.value})}
                     />
                   </div>
                 </div>
@@ -943,7 +965,7 @@ function PagosView({ clientes, db }) {
                   <div className="font-bold uppercase tracking-wider text-[9px] text-green-600">Regla Estricta de Control:</div>
                   <div>• Cobertura calculada: Mes corriente completo.</div>
                   <div className="font-bold mt-1 text-red-700">
-                    • Suspensión Automática: {formatearFechaPantalla(calcularVencimientoLocal(modalForm.fechaPago))} (Día 4 a primera hora)
+                    • Suspensión Programada: {formatearFechaPantalla(modalForm.fechaVencimiento)}
                   </div>
                 </div>
 
@@ -996,6 +1018,7 @@ function PagosView({ clientes, db }) {
   );
 }
 
+// El resto de vistas e inicializaciones quedan exactamente iguales...
 function ItemManagementView({ clientes, db }) {
   const [subTab, setSubTab] = useState('INALAMBRICOS');
 
@@ -1145,7 +1168,7 @@ function PrestamosView({ clientes, db }) {
 
                 <div 
                   onClick={() => handleCycleStatus(c)}
-                  className={`cursor-pointer px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all active:scale-95 ${getStatusStyles(c.estadoPrestamo || 'ACTIVO')}`}
+                  className={`cursor-pointer px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all select-none ${getStatusStyles(c.estadoPrestamo || 'ACTIVO')}`}
                 >
                   <CheckSquare size={14} />
                   <span className="text-[10px] font-black">{c.estadoPrestamo || 'ACTIVO'}</span>
@@ -1279,7 +1302,7 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador y los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador and los accesorios que se usaron para instalarlo.`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
