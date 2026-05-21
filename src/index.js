@@ -585,7 +585,7 @@ function PagosView({ clientes, db }) {
   };
 
   const enviarRecordatorioAmigable = (cliente) => {
-    const textoMensaje = `¡Hola, *${cliente.nombre}*! Te saludamos del equipo de *EXONET* ⚡.\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
+    const textoMensaje = `¡Hola! *${cliente.nombre}* *Te saludamos desde el área de atención para tu conexión de internet.*⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
