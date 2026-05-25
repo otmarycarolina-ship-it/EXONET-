@@ -214,7 +214,7 @@ const handleGenerarRecibo = (cliente) => {
             ` : ''}
             <tr>
               <td class="label">Fecha de Pago</td>
-              <td class="value">${formatearFechaPantally(cliente.fechaPago)}</td>
+              <td class="value">${formatearFechaPantalla(cliente.fechaPago)}</td>
             </tr>
             <tr>
               <td class="label">Próximo Vencimiento</td>
@@ -626,12 +626,34 @@ function PagosView({ clientes, db }) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    const costoTotal = parseFloat(cliente.costo || 0);
-    const abono = parseFloat(monto || 0);
-    const restante = Math.max(0, costoTotal - abono);
+    // Identificar la moneda ingresada en el monto
+    const esBolivares = String(monto).toLowerCase().includes('bs');
+    let textoMontoVisual = '';
+    let costoTotalTexto = '';
+    let abonoTexto = '';
+    let restanteTexto = '';
+
+    if (esBolivares) {
+      // Si ya trae "Bs", limpiar texto para cálculos numéricos o usarlo directamente
+      const numeroLimpio = parseFloat(String(monto).replace(/[^\d.]/g, '')) || 0;
+      textoMontoVisual = `${numeroLimpio.toLocaleString('es-VE', { minimumFractionDigits: 2 })} Bs`;
+      costoTotalTexto = `${(parseFloat(cliente.costo || 0)).toFixed(2)} COP`; 
+      abonoTexto = `${numeroLimpio.toLocaleString('es-VE', { minimumFractionDigits: 2 })} Bs`;
+      restanteTexto = '0.00 Bs'; // Al ser cambio de moneda directo, se asume completado o manejado en Bs
+    } else {
+      const costoTotal = parseFloat(cliente.costo || 0);
+      const abono = parseFloat(monto || 0);
+      const restante = Math.max(0, costoTotal - abono);
+      
+      textoMontoVisual = `$${abono.toFixed(2)} COP`;
+      costoTotalTexto = `$${costoTotal.toFixed(2)} COP`;
+      abonoTexto = `$${abono.toFixed(2)} COP`;
+      restanteTexto = `$${restante.toFixed(2)} COP`;
+    }
     
+    const esMontoAbonoParcial = !esBolivares && (Math.max(0, parseFloat(cliente.costo || 0) - parseFloat(monto || 0)) > 0);
     canvas.width = 480;
-    canvas.height = restante > 0 ? 640 : 600; // Ajusta altura dinámicamente si falta saldo
+    canvas.height = esMontoAbonoParcial ? 640 : 600;
 
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -656,7 +678,7 @@ function PagosView({ clientes, db }) {
 
     ctx.fillStyle = '#1B5E20';
     ctx.font = '900 34px sans-serif';
-    ctx.fillText(`$${parseFloat(monto || 0).toFixed(2)} COP`, 240, 192);
+    ctx.fillText(textoMontoVisual, 240, 192);
 
     const drawRow = (label, value, y, valueColor = '#1B5E20') => {
       ctx.textAlign = 'left';
@@ -672,12 +694,12 @@ function PagosView({ clientes, db }) {
     
     drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 260);
     drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
-    drawRow('Costo Total', `$${costoTotal.toFixed(2)} COP`, 340, '#444444');
-    drawRow('Monto Abonado', `$${abono.toFixed(2)} COP`, 380, '#1B5E20');
+    drawRow('Costo Total', costoTotalTexto, 340, '#444444');
+    drawRow('Monto Abonado', abonoTexto, 380, '#1B5E20');
     
     let currentY = 420;
-    if (restante > 0) {
-      drawRow('Falta Restante', `$${restante.toFixed(2)} COP`, currentY, '#C62828');
+    if (esMontoAbonoParcial) {
+      drawRow('Falta Restante', restanteTexto, currentY, '#C62828');
       currentY += 40;
     }
     
@@ -685,7 +707,7 @@ function PagosView({ clientes, db }) {
     currentY += 40;
     drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), currentY, '#C62828');
     currentY += 40;
-    drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', currentY, '#444444');
+    drawRow('Referencia / Pago', referencia || (esBolivares ? 'TRANSFERENCIA / PAGO MÓVIL' : 'EFECTIVO / DIVISAS'), currentY, '#444444');
     currentY += 50;
 
     ctx.strokeStyle = '#2E7D32';
@@ -739,16 +761,26 @@ function PagosView({ clientes, db }) {
   const enviarSquareConRecibo = () => {
     if (!selectedCliente) return;
     
-    const costoTotal = parseFloat(selectedCliente.costo || 0);
-    const abono = parseFloat(modalForm.montoPagado || 0);
-    const restante = Math.max(0, costoTotal - abono);
-    
-    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *$${abono.toFixed(2)} COP* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n• *Costo del Plan:* $${costoTotal.toFixed(2)} COP\n• *Abonado Hoy:* $${abono.toFixed(2)} COP\n`;
-    
-    if (restante > 0) {
-      textoMensaje += `• *Falta Restante:* _$${restante.toFixed(2)} COP_\n⚠️ _Recuerda cubrir el saldo pendiente a la brevedad._\n`;
+    const esBolivares = String(modalForm.montoPagado).toLowerCase().includes('bs');
+    let textoMensaje = '';
+
+    if (esBolivares) {
+      const numeroLimpio = parseFloat(String(modalForm.montoPagado).replace(/[^\d.]/g, '')) || 0;
+      const montoBsFormateado = `${numeroLimpio.toLocaleString('es-VE', { minimumFractionDigits: 2 })} Bs`;
+      
+      textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *${montoBsFormateado}* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n• *Plan Base:* ${selectedCliente.plan} Mbps\n• *Abonado Hoy:* ${montoBsFormateado}\n• *Estado:* ¡Totalmente Solventado! 🎉\n`;
     } else {
-      textoMensaje += `• *Estado:* ¡Totalmente Solventado! 🎉\n`;
+      const costoTotal = parseFloat(selectedCliente.costo || 0);
+      const abono = parseFloat(modalForm.montoPagado || 0);
+      const restante = Math.max(0, costoTotal - abono);
+      
+      textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *$${abono.toFixed(2)} COP* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n• *Costo del Plan:* $${costoTotal.toFixed(2)} COP\n• *Abonado Hoy:* $${abono.toFixed(2)} COP\n`;
+      
+      if (restante > 0) {
+        textoMensaje += `• *Falta Restante:* _$${restante.toFixed(2)} COP_\n⚠️ _Recuerda cubrir el saldo pendiente a la brevedad._\n`;
+      } else {
+        textoMensaje += `• *Estado:* ¡Totalmente Solventado! 🎉\n`;
+      }
     }
     
     textoMensaje += `\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
@@ -834,8 +866,9 @@ function PagosView({ clientes, db }) {
             const proximo = esProximoAVencer(c);
             
             const costoTotal = parseFloat(c.costo || 0);
-            const abono = parseFloat(c.montoPagado || 0);
-            const faltante = estadoActual === 'SOLVENTE' ? Math.max(0, costoTotal - abono) : 0;
+            const abonoEsBs = String(c.montoPagado).toLowerCase().includes('bs');
+            const abono = abonoEsBs ? 0 : parseFloat(c.montoPagado || 0);
+            const faltante = estadoActual === 'SOLVENTE' && !abonoEsBs ? Math.max(0, costoTotal - abono) : 0;
 
             return (
               <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
@@ -859,10 +892,10 @@ function PagosView({ clientes, db }) {
                       <span>Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span></span>
                       <span>|</span>
                       <span>Costo: <span className="text-gray-700 font-black">${c.costo}</span></span>
-                      {c.pagoCompletado && abono > 0 && (
+                      {c.pagoCompletado && c.montoPagado && (
                         <>
                           <span>|</span>
-                          <span>Abonó: <span className="text-blue-700 font-black">${c.montoPagado}</span></span>
+                          <span>Abonó: <span className="text-blue-700 font-black">{abonoEsBs ? c.montoPagado : `$${c.montoPagado}`}</span></span>
                         </>
                       )}
                       {faltante > 0 && (
@@ -974,20 +1007,19 @@ function PagosView({ clientes, db }) {
             {!imageGenerated ? (
               <form onSubmit={handleSavePago} className="space-y-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ($)</label>
+                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ($ o Bs)</label>
                   <div className="relative flex items-center">
                     <DollarSign size={16} className="absolute left-4 text-gray-400" />
                     <input 
                       type="text" 
-                      inputMode="decimal"
                       required
-                      placeholder="Ej. 50"
+                      placeholder="Ej. 50 o 1500 Bs"
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
                       value={modalForm.montoPagado}
                       onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
                     />
                   </div>
-                  {modalForm.montoPagado && parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado) > 0 && (
+                  {modalForm.montoPagado && !modalForm.montoPagado.toLowerCase().includes('bs') && parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado) > 0 && (
                     <span className="text-xs text-red-600 font-bold px-1 mt-0.5">
                       ⚠️ Se registrará una deuda restante de: ${(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado)).toFixed(0)}
                     </span>
@@ -1536,9 +1568,10 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="space-y-3">
         {filtered.map(c => {
           const costoTotal = parseFloat(c.costo || 0);
-          const abono = parseFloat(c.montoPagado || 0);
+          const abonoEsBs = String(c.montoPagado).toLowerCase().includes('bs');
+          const abono = abonoEsBs ? 0 : parseFloat(c.montoPagado || 0);
           const estadoActual = obtenerEstadoCliente(c);
-          const faltante = estadoActual === 'SOLVENTE' ? Math.max(0, costoTotal - abono) : 0;
+          const faltante = estadoActual === 'SOLVENTE' && !abonoEsBs ? Math.max(0, costoTotal - abono) : 0;
 
           return (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
@@ -1682,7 +1715,7 @@ function ClientesView({ clientes, nodos, db }) {
                   inputMode="decimal"
                   className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
                   value={formData.señal} 
-                  onChange={e => setFormData({...formData, señal: e.target.value})} 
+                  onChange={e => setFormData({...formData, señal} || '')} 
                 />
                 <input 
                   placeholder="Señal Remota" 
