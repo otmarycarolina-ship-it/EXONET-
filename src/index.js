@@ -156,6 +156,9 @@ const esProximoAVencer = (cliente) => {
 const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const montoFormateado = parseFloat(cliente.montoPagado || cliente.costo || 0).toFixed(2);
+  const costoTotal = parseFloat(cliente.costo || 0);
+  const abono = parseFloat(cliente.montoPagado || 0);
+  const restante = Math.max(0, costoTotal - abono);
   
   const html = `
     <html>
@@ -196,8 +199,22 @@ const handleGenerarRecibo = (cliente) => {
               <td class="value">${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}</td>
             </tr>
             <tr>
+              <td class="label">Costo Total Plan</td>
+              <td class="value">$${costoTotal.toFixed(2)} COP</td>
+            </tr>
+            <tr>
+              <td class="label">Monto Abonado</td>
+              <td class="value">$${abono.toFixed(2)} COP</td>
+            </tr>
+            ${restante > 0 ? `
+            <tr>
+              <td class="label" style="color: #c62828;">Saldo Restante Pendiente</td>
+              <td class="value" style="color: #c62828;">$${restante.toFixed(2)} COP</td>
+            </tr>
+            ` : ''}
+            <tr>
               <td class="label">Fecha de Pago</td>
-              <td class="value">${formatearFechaPantalla(cliente.fechaPago)}</td>
+              <td class="value">${formatearFechaPantally(cliente.fechaPago)}</td>
             </tr>
             <tr>
               <td class="label">Próximo Vencimiento</td>
@@ -609,11 +626,15 @@ function PagosView({ clientes, db }) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
+    const costoTotal = parseFloat(cliente.costo || 0);
+    const abono = parseFloat(monto || 0);
+    const restante = Math.max(0, costoTotal - abono);
+    
     canvas.width = 480;
-    canvas.height = 600;
+    canvas.height = restante > 0 ? 640 : 600; // Ajusta altura dinámicamente si falta saldo
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, 480, 600);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = '#2E7D32';
     ctx.fillRect(0, 0, 480, 110);
@@ -651,25 +672,40 @@ function PagosView({ clientes, db }) {
     
     drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 260);
     drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
-    drawRow('Fecha de Pago', formatearFechaPantalla(fPago), 340);
-    drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), 380, '#C62828');
-    drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', 420, '#444444');
+    drawRow('Costo Total', `$${costoTotal.toFixed(2)} COP`, 340, '#444444');
+    drawRow('Monto Abonado', `$${abono.toFixed(2)} COP`, 380, '#1B5E20');
+    
+    let currentY = 420;
+    if (restante > 0) {
+      drawRow('Falta Restante', `$${restante.toFixed(2)} COP`, currentY, '#C62828');
+      currentY += 40;
+    }
+    
+    drawRow('Fecha de Pago', formatearFechaPantalla(fPago), currentY);
+    currentY += 40;
+    drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), currentY, '#C62828');
+    currentY += 40;
+    drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', currentY, '#444444');
+    currentY += 50;
 
     ctx.strokeStyle = '#2E7D32';
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.moveTo(40, 470);
-    ctx.lineTo(440, 470);
+    ctx.moveTo(40, currentY);
+    ctx.lineTo(440, currentY);
     ctx.stroke();
     ctx.setLineDash([]);
-
+    
+    currentY += 40;
     ctx.fillStyle = '#666666';
     ctx.font = 'italic 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, 510);
+    ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, currentY);
+    
+    currentY += 25;
     ctx.font = 'bold 11px sans-serif';
     ctx.fillStyle = '#2E7D32';
-    ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, 535);
+    ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, currentY);
 
     setImageGenerated(canvas.toDataURL('image/jpeg'));
   };
@@ -703,7 +739,19 @@ function PagosView({ clientes, db }) {
   const enviarSquareConRecibo = () => {
     if (!selectedCliente) return;
     
-    const textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de $${parseFloat(modalForm.montoPagado || 0).toFixed(2)} COP* ha sido procesado de manera exitosa.\n\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
+    const costoTotal = parseFloat(selectedCliente.costo || 0);
+    const abono = parseFloat(modalForm.montoPagado || 0);
+    const restante = Math.max(0, costoTotal - abono);
+    
+    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *$${abono.toFixed(2)} COP* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n• *Costo del Plan:* $${costoTotal.toFixed(2)} COP\n• *Abonado Hoy:* $${abono.toFixed(2)} COP\n`;
+    
+    if (restante > 0) {
+      textoMensaje += `• *Falta Restante:* _$${restante.toFixed(2)} COP_\n⚠️ _Recuerda cubrir el saldo pendiente a la brevedad._\n`;
+    } else {
+      textoMensaje += `• *Estado:* ¡Totalmente Solventado! 🎉\n`;
+    }
+    
+    textoMensaje += `\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
@@ -784,6 +832,10 @@ function PagosView({ clientes, db }) {
           {filteredClientes.map((c, index) => {
             const estadoActual = obtenerEstadoCliente(c);
             const proximo = esProximoAVencer(c);
+            
+            const costoTotal = parseFloat(c.costo || 0);
+            const abono = parseFloat(c.montoPagado || 0);
+            const faltante = estadoActual === 'SOLVENTE' ? Math.max(0, costoTotal - abono) : 0;
 
             return (
               <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
@@ -807,10 +859,24 @@ function PagosView({ clientes, db }) {
                       <span>Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span></span>
                       <span>|</span>
                       <span>Costo: <span className="text-gray-700 font-black">${c.costo}</span></span>
-                      {c.fechaVencimiento && (
+                      {c.pagoCompletado && abono > 0 && (
+                        <>
+                          <span>|</span>
+                          <span>Abonó: <span className="text-blue-700 font-black">${c.montoPagado}</span></span>
+                        </>
+                      )}
+                      {faltante > 0 && (
                         <>
                           <span>|</span>
                           <span className="text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded">
+                            Faltan: ${faltante.toFixed(0)} Restantes
+                          </span>
+                        </>
+                      )}
+                      {c.fechaVencimiento && (
+                        <>
+                          <span>|</span>
+                          <span className="text-gray-600 font-bold">
                             Vence el: {formatearFechaPantalla(c.fechaVencimiento)}
                           </span>
                         </>
@@ -915,11 +981,17 @@ function PagosView({ clientes, db }) {
                       type="text" 
                       inputMode="decimal"
                       required
+                      placeholder="Ej. 50"
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
                       value={modalForm.montoPagado}
                       onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
                     />
                   </div>
+                  {modalForm.montoPagado && parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado) > 0 && (
+                    <span className="text-xs text-red-600 font-bold px-1 mt-0.5">
+                      ⚠️ Se registrará una deuda restante de: ${(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado)).toFixed(0)}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -1025,6 +1097,7 @@ function PagosView({ clientes, db }) {
   );
 }
 
+// --- CONFIGURACIÓN DE PESTAÑA EQUIPOS ---
 function ItemManagementView({ clientes, db }) {
   const [subTab, setSubTab] = useState('INALAMBRICOS');
 
@@ -1461,90 +1534,104 @@ function ClientesView({ clientes, nodos, db }) {
       </div>
 
       <div className="space-y-3">
-        {filtered.map(c => (
-          <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
-            <div className="col-span-3 w-full">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
-                {c.exonerado && (
-                  <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
-                    <Gift size={10} /> EXONERADO
+        {filtered.map(c => {
+          const costoTotal = parseFloat(c.costo || 0);
+          const abono = parseFloat(c.montoPagado || 0);
+          const estadoActual = obtenerEstadoCliente(c);
+          const faltante = estadoActual === 'SOLVENTE' ? Math.max(0, costoTotal - abono) : 0;
+
+          return (
+            <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
+              <div className="col-span-3 w-full">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
+                  {c.exonerado && (
+                    <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
+                      <Gift size={10} /> EXONERADO
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
+                {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
+                {c.ftth && <p className="text-[10px] text-blue-600 font-bold mt-1 flex items-center gap-1">FIBRA ÓPTICA (FTTH)</p>}
+              </div>
+              <div className="col-span-2 w-full text-center">
+                <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
+                <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs font-bold text-green-700 hover:underline flex items-center justify-center gap-1">{c.ip} <ExternalLink size={10} /></a>
+              </div>
+              <div className="col-span-2 w-full text-center">
+                <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
+                <span className="font-bold text-gray-800 text-sm block">
+                  {c.exonerado ? '$0 (Cortesía)' : `$${c.costo}`}
+                </span>
+                {faltante > 0 && (
+                  <span className="text-[10px] text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
+                    Faltan: ${faltante.toFixed(0)}
+                  </span>
+                )}
+                {c.fechaVencimiento && !c.exonerado && (
+                  <span className="text-[9px] font-black text-red-600 bg-red-50 px-1 rounded inline-block mt-1">
+                    Vence: {formatearFechaPantalla(c.fechaVencimiento)}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
-              {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
-              {c.ftth && <p className="text-[10px] text-blue-600 font-bold mt-1 flex items-center gap-1">FIBRA ÓPTICA (FTTH)</p>}
-            </div>
-            <div className="col-span-2 w-full text-center">
-              <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
-              <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs font-bold text-green-700 hover:underline flex items-center justify-center gap-1">{c.ip} <ExternalLink size={10} /></a>
-            </div>
-            <div className="col-span-2 w-full text-center">
-              <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
-              <span className="font-bold text-gray-800 text-sm block">{c.exonerado ? '$0 (Cortesía)' : `$${c.costo}`}</span>
-              {c.fechaVencimiento && !c.exonerado && (
-                <span className="text-[9px] font-black text-red-600 bg-red-50 px-1 rounded inline-block mt-1">
-                  Vence: {formatearFechaPantalla(c.fechaVencimiento)}
-                </span>
-              )}
-            </div>
-            <div className="col-span-2 w-full text-center">
-              <div className="flex flex-col items-center">
-                 <div className="flex gap-4 text-[9px] font-black text-gray-400 uppercase tracking-tighter"><span>LOCAL</span><span>REMOTA</span></div>
-                 <div className="flex items-baseline justify-center gap-1 font-black text-gray-700 text-lg tracking-tighter">
-                   <span>{c.señal || '0'}</span><span className="text-gray-300 mx-0.5">/</span><span>{c.señalRemota || '0'}</span>
-                   <span className="text-[10px] text-gray-400 ml-1 font-bold">dBm</span>
-                 </div>
+              <div className="col-span-2 w-full text-center">
+                <div className="flex flex-col items-center">
+                   <div className="flex gap-4 text-[9px] font-black text-gray-400 uppercase tracking-tighter"><span>LOCAL</span><span>REMOTA</span></div>
+                   <div className="flex items-baseline justify-center gap-1 font-black text-gray-700 text-lg tracking-tighter">
+                     <span>{c.señal || '0'}</span><span className="text-gray-300 mx-0.5">/</span><span>{c.señalRemota || '0'}</span>
+                     <span className="text-[10px] text-gray-400 ml-1 font-bold">dBm</span>
+                   </div>
+                </div>
+              </div>
+              
+              <div className="col-span-2 w-full flex flex-col items-center gap-1.5 min-w-[160px]">
+                {c.telefono && c.telefono.trim() !== "" ? (
+                  c.telefono.split(/[\s,]+/).map((num, idx) => {
+                    const cleanNum = num.replace(/[^\d+]/g, '');
+                    if (!cleanNum) return null;
+                    return (
+                      <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
+                        <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
+                        <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
+                          <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
+                            <Phone size={18} strokeWidth={2.5} />
+                          </a>
+                          <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp">
+                            <MessageCircle size={18} strokeWidth={2.5} />
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="w-full bg-gray-50/50 px-3 py-2 rounded-xl border border-dashed border-gray-200 text-center">
+                    <span className="text-[9px] text-gray-300 font-black uppercase tracking-widest">Sin contacto</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="col-span-1 flex justify-center gap-2">
+                <button onClick={() => { setFormData({ ...c }); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
+                <button 
+                  onClick={() => {
+                    if (window.confirm(`¿Estás seguro de que deseas eliminar al abonado ${c.nombre} ${c.apellido}?`)) {
+                      deleteDoc(doc(db, 'clientes', c.id));
+                    }
+                  }} 
+                  className="p-2 bg-red-50 text-red-500 rounded-xl"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             </div>
-            
-            <div className="col-span-2 w-full flex flex-col items-center gap-1.5 min-w-[160px]">
-              {c.telefono && c.telefono.trim() !== "" ? (
-                c.telefono.split(/[\s,]+/).map((num, idx) => {
-                  const cleanNum = num.replace(/[^\d+]/g, '');
-                  if (!cleanNum) return null;
-                  return (
-                    <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
-                      <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
-                      <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
-                        <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
-                          <Phone size={18} strokeWidth={2.5} />
-                        </a>
-                        <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp">
-                          <MessageCircle size={18} strokeWidth={2.5} />
-                        </a>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="w-full bg-gray-50/50 px-3 py-2 rounded-xl border border-dashed border-gray-200 text-center">
-                  <span className="text-[9px] text-gray-300 font-black uppercase tracking-widest">Sin contacto</span>
-                </div>
-              )}
-            </div>
-
-            <div className="col-span-1 flex justify-center gap-2">
-              <button onClick={() => { setFormData({ ...c }); setEditingId(c.id); setShowForm(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Pencil size={18} /></button>
-              <button 
-                onClick={() => {
-                  if (window.confirm(`¿Estás seguro de que deseas eliminar al abonado ${c.nombre} ${c.apellido}?`)) {
-                    deleteDoc(doc(db, 'clientes', c.id));
-                  }
-                }} 
-                className="p-2 bg-red-50 text-red-500 rounded-xl"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {filtered.length === 0 && (
           <div className="bg-white p-20 text-center rounded-2xl border">
             <Users size={48} className="mx-auto text-gray-200 mb-4" />
-            <p className="text-gray-400 font-bold italic">No hay abonados in esta categoría para mostrar.</p>
+            <p className="text-gray-400 font-bold italic">No hay abonados en esta categoría para mostrar.</p>
           </div>
         )}
       </div>
