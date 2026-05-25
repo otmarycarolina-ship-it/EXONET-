@@ -42,7 +42,7 @@ import {
   FileText,
   X,
   Clock,
-  Share2
+  RefreshCw
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -87,7 +87,6 @@ const obtenerFechaActualLocal = () => {
   return `${d.getFullYear()}-${mes}-${dia}`;
 };
 
-// Función auxiliar para obtener el encabezado del mes y año actual en mayúsculas
 const obtenerEncabezadoMesActual = () => {
   const meses = [
     "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
@@ -130,6 +129,12 @@ const formatearFechaPantalla = (fechaStr) => {
 // --- OBTENER ESTADO DINÁMICO ---
 const obtenerEstadoCliente = (cliente) => {
   if (cliente.exonerado) return 'SOLVENTE';
+  
+  // Si falta saldo por pagar del costo total, el estado visual sigue siendo PENDIENTE en el control general
+  const costoTotal = parseFloat(cliente.costo || 0);
+  const abono = parseFloat(cliente.montoPagado || 0);
+  if (cliente.pagoCompletado && abono < costoTotal) return 'PENDIENTE';
+
   if (!cliente.fechaVencimiento) return 'PENDIENTE';
   
   const hoyStr = obtenerFechaActualLocal();
@@ -140,6 +145,11 @@ const obtenerEstadoCliente = (cliente) => {
 const esProximoAVencer = (cliente) => {
   if (cliente.exonerado || !cliente.fechaVencimiento) return false;
   
+  // Si tiene saldo restante pendiente, se prioriza el cobro inmediato, no la métrica de días de gracia
+  const costoTotal = parseFloat(cliente.costo || 0);
+  const abono = parseFloat(cliente.montoPagado || 0);
+  if (cliente.pagoCompletado && abono < costoTotal) return false;
+
   const hoyStr = obtenerFechaActualLocal();
   if (hoyStr > cliente.fechaVencimiento) return false;
   
@@ -155,6 +165,7 @@ const esProximoAVencer = (cliente) => {
 // --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
+  const moneda = cliente.esBolivares ? 'Bs' : 'COP';
   const montoFormateado = parseFloat(cliente.montoPagado || cliente.costo || 0).toFixed(2);
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
@@ -188,7 +199,7 @@ const handleGenerarRecibo = (cliente) => {
             <div class="logo-title">EXONET</div>
             <div class="subtitle">Comprobante de Pago Digital</div>
           </div>
-          <div class="monto-box">$${montoFormateado} COP</div>
+          <div class="monto-box">$${montoFormateado} ${moneda}</div>
           <table class="details-table">
             <tr>
               <td class="label">Abonado</td>
@@ -200,16 +211,16 @@ const handleGenerarRecibo = (cliente) => {
             </tr>
             <tr>
               <td class="label">Costo Total Plan</td>
-              <td class="value">$${costoTotal.toFixed(2)} COP</td>
+              <td class="value">$${costoTotal.toFixed(2)} ${moneda}</td>
             </tr>
             <tr>
               <td class="label">Monto Abonado</td>
-              <td class="value">$${abono.toFixed(2)} COP</td>
+              <td class="value">$${abono.toFixed(2)} ${moneda}</td>
             </tr>
             ${restante > 0 ? `
             <tr>
               <td class="label" style="color: #c62828;">Saldo Restante Pendiente</td>
-              <td class="value" style="color: #c62828;">$${restante.toFixed(2)} COP</td>
+              <td class="value" style="color: #c62828;">$${restante.toFixed(2)} ${moneda}</td>
             </tr>
             ` : ''}
             <tr>
@@ -581,6 +592,8 @@ function PagosView({ clientes, db }) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [imageGenerated, setImageGenerated] = useState('');
+  const [pagoEnBolivares, setPagoEnBolivares] = useState(false);
+  
   const [modalForm, setModalForm] = useState({
     montoPagado: '',
     referenciaPago: '',
@@ -604,6 +617,7 @@ function PagosView({ clientes, db }) {
   const openPaymentModal = (cliente) => {
     const fechaPagoInicial = obtenerFechaActualLocal();
     setSelectedCliente(cliente);
+    setPagoEnBolivares(false); // Por defecto inicia en moneda base
     setModalForm({
       montoPagado: cliente.costo || '',
       referenciaPago: '',
@@ -614,6 +628,27 @@ function PagosView({ clientes, db }) {
     setShowPaymentModal(true);
   };
 
+  // NUEVA FUNCIÓN: Permite liquidar el saldo total de forma directa con un click
+  const handleLiquidarSaldoDirecto = async (cliente) => {
+    const fechaPagoActual = obtenerFechaActualLocal();
+    const vencimientoCalculado = calcularVencimientoLocal(fechaPagoActual);
+    const costoTotal = cliente.costo || '0';
+
+    if (window.confirm(`¿Deseas registrar la liquidación completa de saldo para ${cliente.nombre} ${cliente.apellido} por un monto total de $${costoTotal} ${cliente.esBolivares ? 'Bs' : 'COP'}?`)) {
+      try {
+        await updateDoc(doc(db, 'clientes', cliente.id), {
+          montoPagado: costoTotal,
+          fechaPago: fechaPagoActual,
+          fechaVencimiento: vencimientoCalculado,
+          pagoCompletado: true
+        });
+        alert(`¡Servicio de ${cliente.nombre} completamente solventado con éxito!`);
+      } catch (err) {
+        console.error("Error al liquidar saldo directo:", err);
+      }
+    }
+  };
+
   const enviarRecordatorioAmigable = (cliente) => {
     const textoMensaje = `¡Hola! *${cliente.nombre}* *Te saludamos desde el área de atención para tu conexión de internet.*⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
@@ -621,39 +656,18 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
-  const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc) => {
+  const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc, enBs) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Identificar la moneda ingresada en el monto
-    const esBolivares = String(monto).toLowerCase().includes('bs');
-    let textoMontoVisual = '';
-    let costoTotalTexto = '';
-    let abonoTexto = '';
-    let restanteTexto = '';
-
-    if (esBolivares) {
-      // Si ya trae "Bs", limpiar texto para cálculos numéricos o usarlo directamente
-      const numeroLimpio = parseFloat(String(monto).replace(/[^\d.]/g, '')) || 0;
-      textoMontoVisual = `${numeroLimpio.toLocaleString('es-VE', { minimumFractionDigits: 2 })} Bs`;
-      costoTotalTexto = `${(parseFloat(cliente.costo || 0)).toFixed(2)} COP`; 
-      abonoTexto = `${numeroLimpio.toLocaleString('es-VE', { minimumFractionDigits: 2 })} Bs`;
-      restanteTexto = '0.00 Bs'; // Al ser cambio de moneda directo, se asume completado o manejado en Bs
-    } else {
-      const costoTotal = parseFloat(cliente.costo || 0);
-      const abono = parseFloat(monto || 0);
-      const restante = Math.max(0, costoTotal - abono);
-      
-      textoMontoVisual = `$${abono.toFixed(2)} COP`;
-      costoTotalTexto = `$${costoTotal.toFixed(2)} COP`;
-      abonoTexto = `$${abono.toFixed(2)} COP`;
-      restanteTexto = `$${restante.toFixed(2)} COP`;
-    }
+    const costoTotal = parseFloat(cliente.costo || 0);
+    const abono = parseFloat(monto || 0);
+    const restante = Math.max(0, costoTotal - abono);
+    const divisaVisual = enBs ? 'Bs' : 'COP';
     
-    const esMontoAbonoParcial = !esBolivares && (Math.max(0, parseFloat(cliente.costo || 0) - parseFloat(monto || 0)) > 0);
     canvas.width = 480;
-    canvas.height = esMontoAbonoParcial ? 640 : 600;
+    canvas.height = restante > 0 ? 640 : 600;
 
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -678,7 +692,7 @@ function PagosView({ clientes, db }) {
 
     ctx.fillStyle = '#1B5E20';
     ctx.font = '900 34px sans-serif';
-    ctx.fillText(textoMontoVisual, 240, 192);
+    ctx.fillText(`$${parseFloat(monto || 0).toFixed(2)} ${divisaVisual}`, 240, 192);
 
     const drawRow = (label, value, y, valueColor = '#1B5E20') => {
       ctx.textAlign = 'left';
@@ -694,12 +708,12 @@ function PagosView({ clientes, db }) {
     
     drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 260);
     drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
-    drawRow('Costo Total', costoTotalTexto, 340, '#444444');
-    drawRow('Monto Abonado', abonoTexto, 380, '#1B5E20');
+    drawRow('Costo Total', `$${costoTotal.toFixed(2)} ${divisaVisual}`, 340, '#444444');
+    drawRow('Monto Abonado', `$${abono.toFixed(2)} ${divisaVisual}`, 380, '#1B5E20');
     
     let currentY = 420;
-    if (esMontoAbonoParcial) {
-      drawRow('Falta Restante', restanteTexto, currentY, '#C62828');
+    if (restante > 0) {
+      drawRow('Falta Restante', `$${restante.toFixed(2)} ${divisaVisual}`, currentY, '#C62828');
       currentY += 40;
     }
     
@@ -707,7 +721,7 @@ function PagosView({ clientes, db }) {
     currentY += 40;
     drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), currentY, '#C62828');
     currentY += 40;
-    drawRow('Referencia / Pago', referencia || (esBolivares ? 'TRANSFERENCIA / PAGO MÓVIL' : 'EFECTIVO / DIVISAS'), currentY, '#444444');
+    drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', currentY, '#444444');
     currentY += 50;
 
     ctx.strokeStyle = '#2E7D32';
@@ -736,21 +750,26 @@ function PagosView({ clientes, db }) {
     e.preventDefault();
     if (!selectedCliente) return;
 
+    // Si paga en bolívares, forzamos que el abono se registre igual al costo total (Pago Completo)
+    const montoFinal = pagoEnBolivares ? selectedCliente.costo : modalForm.montoPagado;
+
     try {
       await updateDoc(doc(db, 'clientes', selectedCliente.id), {
-        montoPagado: modalForm.montoPagado,
+        montoPagado: montoFinal,
         referenciaPago: modalForm.referenciaPago.toUpperCase(),
         fechaPago: modalForm.fechaPago,
         fechaVencimiento: modalForm.fechaVencimiento,
-        pagoCompletado: true
+        pagoCompletado: true,
+        esBolivares: pagoEnBolivares
       });
       
       generarImagenRecibo(
         selectedCliente, 
-        modalForm.montoPagado, 
+        montoFinal, 
         modalForm.referenciaPago.toUpperCase(), 
         modalForm.fechaPago, 
-        modalForm.fechaVencimiento
+        modalForm.fechaVencimiento,
+        pagoEnBolivares
       );
     } catch (err) {
       console.error("Error al registrar el pago técnico:", err);
@@ -761,29 +780,20 @@ function PagosView({ clientes, db }) {
   const enviarSquareConRecibo = () => {
     if (!selectedCliente) return;
     
-    const esBolivares = String(modalForm.montoPagado).toLowerCase().includes('bs');
-    let textoMensaje = '';
-
-    if (esBolivares) {
-      const numeroLimpio = parseFloat(String(modalForm.montoPagado).replace(/[^\d.]/g, '')) || 0;
-      const montoBsFormateado = `${numeroLimpio.toLocaleString('es-VE', { minimumFractionDigits: 2 })} Bs`;
-      
-      textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *${montoBsFormateado}* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n• *Plan Base:* ${selectedCliente.plan} Mbps\n• *Abonado Hoy:* ${montoBsFormateado}\n• *Estado:* ¡Totalmente Solventado! 🎉\n`;
+    const divisaText = pagoEnBolivares || selectedCliente.esBolivares ? 'Bs' : 'COP';
+    const costoTotal = parseFloat(selectedCliente.costo || 0);
+    const abono = parseFloat(modalForm.montoPagado || selectedCliente.montoPagado || 0);
+    const restante = Math.max(0, costoTotal - abono);
+    
+    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *$${abono.toFixed(2)} ${divisaText}* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n• *Costo del Plan:* $${costoTotal.toFixed(2)} ${divisaText}\n• *Abonado Hoy:* $${abono.toFixed(2)} ${divisaText}\n`;
+    
+    if (restante > 0) {
+      textoMensaje += `• *Falta Restante:* _$${restante.toFixed(2)} ${divisaText}_\n⚠️ _Recuerda cubrir el saldo pendiente a la brevedad._\n`;
     } else {
-      const costoTotal = parseFloat(selectedCliente.costo || 0);
-      const abono = parseFloat(modalForm.montoPagado || 0);
-      const restante = Math.max(0, costoTotal - abono);
-      
-      textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *$${abono.toFixed(2)} COP* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n• *Costo del Plan:* $${costoTotal.toFixed(2)} COP\n• *Abonado Hoy:* $${abono.toFixed(2)} COP\n`;
-      
-      if (restante > 0) {
-        textoMensaje += `• *Falta Restante:* _$${restante.toFixed(2)} COP_\n⚠️ _Recuerda cubrir el saldo pendiente a la brevedad._\n`;
-      } else {
-        textoMensaje += `• *Estado:* ¡Totalmente Solventado! 🎉\n`;
-      }
+      textoMensaje += `• *Estado:* ¡Totalmente Solventado! 🎉\n`;
     }
     
-    textoMensaje += `\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
+    textoMensaje += `\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
@@ -798,7 +808,8 @@ function PagosView({ clientes, db }) {
           fechaPago: '',
           referenciaPago: '',
           montoPagado: '',
-          pagoCompletado: false
+          pagoCompletado: false,
+          esBolivares: false
         });
       } catch (err) {
         console.error(err);
@@ -866,9 +877,12 @@ function PagosView({ clientes, db }) {
             const proximo = esProximoAVencer(c);
             
             const costoTotal = parseFloat(c.costo || 0);
-            const abonoEsBs = String(c.montoPagado).toLowerCase().includes('bs');
-            const abono = abonoEsBs ? 0 : parseFloat(c.montoPagado || 0);
-            const faltante = estadoActual === 'SOLVENTE' && !abonoEsBs ? Math.max(0, costoTotal - abono) : 0;
+            const abono = parseFloat(c.montoPagado || 0);
+            const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
+            
+            // Un cliente tiene deuda activa si ya pagó algo pero es menor que el costo total asignado
+            const tieneDeudaActiva = c.pagoCompletado && abono < costoTotal;
+            const faltante = tieneDeudaActiva ? Math.max(0, costoTotal - abono) : 0;
 
             return (
               <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
@@ -887,22 +901,27 @@ function PagosView({ clientes, db }) {
                           <Clock size={10}/> PRÓXIMO A VENCER
                         </span>
                       )}
+                      {tieneDeudaActiva && (
+                        <span className="bg-red-100 text-red-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                          CON SALDO PENDIENTE
+                        </span>
+                      )}
                     </div>
                     <div className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span>Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span></span>
                       <span>|</span>
-                      <span>Costo: <span className="text-gray-700 font-black">${c.costo}</span></span>
-                      {c.pagoCompletado && c.montoPagado && (
+                      <span>Costo: <span className="text-gray-700 font-black">${c.costo} {divisaSimbolo}</span></span>
+                      {c.pagoCompletado && abono > 0 && (
                         <>
                           <span>|</span>
-                          <span>Abonó: <span className="text-blue-700 font-black">{abonoEsBs ? c.montoPagado : `$${c.montoPagado}`}</span></span>
+                          <span>Abonó: <span className="text-blue-700 font-black">${c.montoPagado} {divisaSimbolo}</span></span>
                         </>
                       )}
                       {faltante > 0 && (
                         <>
                           <span>|</span>
                           <span className="text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded">
-                            Faltan: ${faltante.toFixed(0)} Restantes
+                            Faltan: ${faltante.toFixed(0)} {divisaSimbolo} Restantes
                           </span>
                         </>
                       )}
@@ -930,10 +949,22 @@ function PagosView({ clientes, db }) {
                     </button>
                   )}
 
-                  {estadoActual === 'SOLVENTE' && (
+                  {tieneDeudaActiva && (
+                    <button
+                      onClick={() => handleLiquidarSaldoDirecto(c)}
+                      className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black uppercase"
+                      title="Poner Pago Completo (Liquidar los restantes)"
+                    >
+                      <RefreshCw size={14} className="animate-spin-slow" />
+                      <span>PAGO COMPLETO</span>
+                    </button>
+                  )}
+
+                  {estadoActual === 'SOLVENTE' && !tieneDeudaActiva && (
                     <button
                       onClick={() => {
                         setSelectedCliente(c);
+                        setPagoEnBolivares(c.esBolivares || false);
                         setModalForm({
                           montoPagado: c.montoPagado || c.costo || '',
                           referenciaPago: c.referenciaPago || '',
@@ -942,7 +973,7 @@ function PagosView({ clientes, db }) {
                         });
                         setShowPaymentModal(true);
                         setTimeout(() => {
-                          generarImagenRecibo(c, c.montoPagado || c.costo, c.referenciaPago, c.fechaPago || obtenerFechaActualLocal(), c.fechaVencimiento);
+                          generarImagenRecibo(c, c.montoPagado || c.costo, c.referenciaPago, c.fechaPago || obtenerFechaActualLocal(), c.fechaVencimiento, c.esBolivares);
                         }, 250);
                       }}
                       className="px-3 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1.5 text-xs font-black"
@@ -953,7 +984,7 @@ function PagosView({ clientes, db }) {
                     </button>
                   )}
 
-                  {estadoActual === 'SOLVENTE' ? (
+                  {estadoActual === 'SOLVENTE' && !tieneDeudaActiva ? (
                     <button
                       onClick={() => handleClearPagoStatus(c)}
                       className="px-4 py-2.5 bg-green-600 text-white border border-green-600 shadow-md rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase"
@@ -961,7 +992,7 @@ function PagosView({ clientes, db }) {
                       <CheckSquare size={16} />
                       <span>SOLVENTE</span>
                     </button>
-                  ) : (
+                  ) : !tieneDeudaActiva ? (
                     <button
                       onClick={() => openPaymentModal(c)}
                       className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase"
@@ -969,7 +1000,7 @@ function PagosView({ clientes, db }) {
                       <Square size={16} />
                       <span>REGISTRAR PAGO</span>
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
@@ -1000,28 +1031,55 @@ function PagosView({ clientes, db }) {
                 {selectedCliente.nombre} {selectedCliente.apellido}
               </h3>
               <p className="text-xs text-gray-400 font-bold uppercase mt-1">
-                Plan base asignado: {selectedCliente.plan} Mbps - ${selectedCliente.costo}
+                Plan base asignado: {selectedCliente.plan} Mbps - ${selectedCliente.costo} {pagoEnBolivares ? 'Bs' : 'COP'}
               </p>
             </div>
 
             {!imageGenerated ? (
               <form onSubmit={handleSavePago} className="space-y-4">
+                
+                {/* INTERRUPTOR DINÁMICO DE BOLÍVARES */}
+                <div className="flex items-center justify-between p-3.5 bg-gray-50 border rounded-xl select-none">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-gray-700 uppercase">¿El cliente paga en Bolívares (Bs)?</span>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase">Los pagos en Bs son estrictamente completos</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={pagoEnBolivares} 
+                      onChange={(e) => {
+                        const checkState = e.target.checked;
+                        setPagoEnBolivares(checkState);
+                        if (checkState) {
+                          // Si se activa Bolívares, forzamos de inmediato el monto completo del plan asignado
+                          setModalForm({ ...modalForm, montoPagado: selectedCliente.costo || '' });
+                        }
+                      }}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-700"></div>
+                  </label>
+                </div>
+
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ($ o Bs)</label>
+                  <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ({pagoEnBolivares ? 'Bs' : '$ COP'})</label>
                   <div className="relative flex items-center">
                     <DollarSign size={16} className="absolute left-4 text-gray-400" />
                     <input 
                       type="text" 
+                      inputMode="decimal"
                       required
-                      placeholder="Ej. 50 o 1500 Bs"
-                      className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
-                      value={modalForm.montoPagado}
+                      disabled={pagoEnBolivares} // Bloqueado si es en bolívares para asegurar el pago completo
+                      placeholder="Ej. 50"
+                      className={`w-full pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 outline-none focus:border-green-500 ${pagoEnBolivares ? 'bg-green-50 border-green-200 text-green-800 cursor-not-allowed' : 'bg-gray-50'}`}
+                      value={pagoEnBolivares ? selectedCliente.costo : modalForm.montoPagado}
                       onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
                     />
                   </div>
-                  {modalForm.montoPagado && !modalForm.montoPagado.toLowerCase().includes('bs') && parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado) > 0 && (
+                  {!pagoEnBolivares && modalForm.montoPagado && parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado) > 0 && (
                     <span className="text-xs text-red-600 font-bold px-1 mt-0.5">
-                      ⚠️ Se registrará una deuda restante de: ${(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado)).toFixed(0)}
+                      ⚠️ Se registrará una deuda restante de: ${(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado)).toFixed(0)} COP
                     </span>
                   )}
                 </div>
@@ -1030,7 +1088,7 @@ function PagosView({ clientes, db }) {
                   <label className="text-[10px] font-black text-gray-500 uppercase px-1">Referencia o Transacción</label>
                   <input 
                     type="text" 
-                    placeholder="Ej. PAGO MOVIL / EFECTIVO"
+                    placeholder={pagoEnBolivares ? "Ej. PAGO MÓVIL / TRANSFERENCIA BS" : "Ej. PAGO MOVIL / EFECTIVO"}
                     className="w-full bg-gray-50 px-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
                     value={modalForm.referenciaPago}
                     onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value})}
@@ -1388,7 +1446,8 @@ function FtthView({ clientes, db }) {
           {clientesFtth.map((c, index) => {
             const estadoActual = getDynamicStatus(c);
             const estadoPago = obtenerEstadoCliente(c);
-            const costoAMostrar = estadoPago === 'SOLVENTE' ? `$${parseFloat(c.costo || 0).toFixed(2)}` : '$0.00';
+            const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
+            const costoAMostrar = estadoPago === 'SOLVENTE' ? `$${parseFloat(c.costo || 0).toFixed(2)} ${divisaSimbolo}` : '$0.00';
 
             return (
               <div 
@@ -1479,7 +1538,7 @@ function ClientesView({ clientes, nodos, db }) {
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
     costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false,
     estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false,
-    fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: ''
+    fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false
   });
 
   const filtered = clientes.filter(c => {
@@ -1513,7 +1572,7 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), datosFinales);
       else await addDoc(collection(db, 'clientes'), { ...datosFinales, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '' });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
@@ -1568,10 +1627,10 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="space-y-3">
         {filtered.map(c => {
           const costoTotal = parseFloat(c.costo || 0);
-          const abonoEsBs = String(c.montoPagado).toLowerCase().includes('bs');
-          const abono = abonoEsBs ? 0 : parseFloat(c.montoPagado || 0);
+          const abono = parseFloat(c.montoPagado || 0);
           const estadoActual = obtenerEstadoCliente(c);
-          const faltante = estadoActual === 'SOLVENTE' && !abonoEsBs ? Math.max(0, costoTotal - abono) : 0;
+          const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
+          const faltante = estadoActual === 'SOLVENTE' ? Math.max(0, costoTotal - abono) : 0;
 
           return (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
@@ -1595,11 +1654,11 @@ function ClientesView({ clientes, nodos, db }) {
               <div className="col-span-2 w-full text-center">
                 <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
                 <span className="font-bold text-gray-800 text-sm block">
-                  {c.exonerado ? '$0 (Cortesía)' : `$${c.costo}`}
+                  {c.exonerado ? '$0 (Cortesía)' : `$${c.costo} ${divisaSimbolo}`}
                 </span>
                 {faltante > 0 && (
                   <span className="text-[10px] text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
-                    Faltan: ${faltante.toFixed(0)}
+                    Faltan: ${faltante.toFixed(0)} {divisaSimbolo}
                   </span>
                 )}
                 {c.fechaVencimiento && !c.exonerado && (
@@ -1715,7 +1774,7 @@ function ClientesView({ clientes, nodos, db }) {
                   inputMode="decimal"
                   className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
                   value={formData.señal} 
-                  onChange={e => setFormData({...formData, señal} || '')} 
+                  onChange={e => setFormData({...formData, señal: e.target.value})} 
                 />
                 <input 
                   placeholder="Señal Remota" 
