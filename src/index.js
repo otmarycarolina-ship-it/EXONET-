@@ -609,6 +609,11 @@ function PagosView({ clientes, db }) {
     
     const estado = obtenerEstadoCliente(c);
     if (filtroPago === 'PENDIENTES') return estado === 'PENDIENTE' && !esProximoAVencer(c);
+    if (filtroPago === 'SALDO_PENDIENTE') {
+      const costoTotal = parseFloat(c.costo || 0);
+      const abono = parseFloat(c.montoPagado || 0);
+      return c.pagoCompletado && abono < costoTotal;
+    }
     if (filtroPago === 'VENCER') return esProximoAVencer(c);
     if (filtroPago === 'SOLVENTES') return estado === 'SOLVENTE' && !esProximoAVencer(c);
     return true;
@@ -851,6 +856,12 @@ function PagosView({ clientes, db }) {
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
               >
                 Vencidos ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'PENDIENTE' && !esProximoAVencer(c)).length})
+              </button>
+              <button 
+                onClick={() => setFiltroPago('SALDO_PENDIENTE')} 
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SALDO_PENDIENTE' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-400 hover:text-amber-500'}`}
+              >
+                Saldo Pendiente ({clientesDePago.filter(c => c.pagoCompletado && parseFloat(c.montoPagado || 0) < parseFloat(c.costo || 0)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('VENCER')} 
