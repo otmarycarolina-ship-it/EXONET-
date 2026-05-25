@@ -667,7 +667,7 @@ function PagosView({ clientes, db }) {
   };
 
   const enviarRecordatorioAmigable = (cliente) => {
-    const textoMensaje = `¡Hola! *${cliente.nombre}* *Te saludamos desde el área de atención para tu conexión de internet.*⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
+    const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
@@ -702,6 +702,7 @@ function PagosView({ clientes, db }) {
 
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'black 32px sans-serif';
+    ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
     ctx.fillText('EXONET', 240, 55);
 
@@ -821,21 +822,16 @@ function PagosView({ clientes, db }) {
     const abonoFormateado = pagoEnBolivares || selectedCliente.esBolivares ? rawAbono : parseFloat(rawAbono).toFixed(2);
     const costoTotal = parseFloat(selectedCliente.costo || 0);
     
-    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO* 🌐\n\nEstimado(a) *${selectedCliente.nombre} ${selectedCliente.apellido}*, tu abono de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n📊 *Resumen de Cuenta:*\n`;
+    let textoMensaje = `EXONET - NOTIFICACIÓN DE PAGO 🌐\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu abono de ${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText} ha sido procesado de manera exitosa.\n\n`;
     
     if (!pagoEnBolivares && !selectedCliente.esBolivares) {
       const restante = Math.max(0, costoTotal - parseFloat(rawAbono));
-      textoMensaje += `• *Costo del Plan:* $${costoTotal.toFixed(2)} ${divisaText}\n• *Abonado Hoy:* $${abonoFormateado} ${divisaText}\n`;
       if (restante > 0) {
-        textoMensaje += `• *Falta Restante:* _$${restante.toFixed(2)} ${divisaText}_\n⚠️ _Recuerda cubrir el saldo pendiente a la brevedad._\n`;
-      } else {
-        textoMensaje += `• *Estado:* ¡Totalmente Solventado! 🎉\n`;
+        textoMensaje += `📊 Resumen de Cuenta:\n• Costo del Plan: $${costoTotal.toFixed(2)} ${divisaText}\n• Abonado Hoy: $${abonoFormateado} ${divisaText}\n• Falta Restante: _$${restante.toFixed(2)} ${divisaText}_\n⚠️ Por favor, recuerda cubrir el saldo pendiente lo más pronto posible.\n\n`;
       }
-    } else {
-      textoMensaje += `• *Monto Recibido:* ${abonoFormateado} ${divisaText}\n• *Estado:* ¡Totalmente Solventado! 🎉\n`;
     }
     
-    textoMensaje += `\n📅 *Detalles de Cobertura*\n• *Fecha de pago:* ${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}\n• *Próximo Vencimiento:* ${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
+    textoMensaje += `📅 Detalles de Cobertura\n• Fecha de pago: ${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}\n• Próximo Vencimiento: ${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
@@ -1272,7 +1268,7 @@ function PrestamosView({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos de parte de *EXONET*, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n*¡Gracias por tu preferencia!* 🌐`;
+    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos de parte de EXONET, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n¡Gracias por tu preferencia! 🌐`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
@@ -1351,7 +1347,7 @@ function PrestamosView({ clientes, db }) {
                 
                 {c.estadoPrestamo === 'PENDIENTE DE RETIRAR' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Orden de Retiro *EXONET*: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
+                    onClick={() => handleWhatsApp(c, `Orden de Retiro EXONET: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
                     className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                     title="Reportar Retiro"
                   >
@@ -1362,7 +1358,7 @@ function PrestamosView({ clientes, db }) {
 
                 {c.estadoPrestamo === 'REVISIÓN' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Soporte *EXONET*: Chequeo de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.\nPor favor, revisen si hay algún problema y reporten las novedades.`, false)}
+                    onClick={() => handleWhatsApp(c, `Soporte EXONET: Chequeo de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.\nPor favor, revisen si hay algún problema y reporten las novedades.`, false)}
                     className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                     title="Mandar a Revisión"
                   >
@@ -1406,6 +1402,7 @@ function PrestamosView({ clientes, db }) {
   );
 }
 
+// --- CONFIGURACIÓN DE PESTAÑA FIBRA ---
 function FtthView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
@@ -1415,7 +1412,7 @@ function FtthView({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    const defaultMsg = `*Hola*, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago *ha vencido*. Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de *fibra óptica* sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
+    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de fibra óptica sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
@@ -1516,7 +1513,7 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra *(FTTH)* \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ *Nota para el técnico:* Hay que desconectar y traerse el módem de fibra *(ONU)*, su cargador y los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador y los accesorios que se usaron para instalarlo.`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
@@ -1527,7 +1524,7 @@ function FtthView({ clientes, db }) {
 
                   {c.estadoFTTH === 'REVISIÓN' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `🛠️ Soporte *FTTH*: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem *(ONU)* está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
+                      onClick={() => handleWhatsApp(c, `🛠️ Soporte FTTH: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem (ONU) está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
                       className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                       title="Mandar a Revisión"
                     >
