@@ -130,11 +130,9 @@ const formatearFechaPantalla = (fechaStr) => {
 const obtenerEstadoCliente = (cliente) => {
   if (cliente.exonerado) return 'SOLVENTE';
   
-  // Si falta saldo por pagar del costo total (en el caso de pesos), el estado visual sigue siendo PENDIENTE en el control general
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
   
-  // Si el pago es en Bolívares, se considera liquidado sin contrastar contra la escala numérica base de la moneda alternativa
   if (cliente.pagoCompletado && cliente.esBolivares) return 'SOLVENTE';
   if (cliente.pagoCompletado && abono < costoTotal) return 'PENDIENTE';
 
@@ -170,11 +168,13 @@ const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
   
-  // Si es Bolívares se respeta el formato de texto exacto para mantener ceros manuales
   const montoFormateado = cliente.esBolivares ? String(cliente.montoPagado || 0) : parseFloat(cliente.montoPagado || cliente.costo || 0).toFixed(2);
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
   const restante = !cliente.esBolivares ? Math.max(0, costoTotal - abono) : 0;
+  
+  // Determinar si es pago completo (en pesos si cubrió el total, o si es en bolívares)
+  const esPagoCompleto = cliente.esBolivares || (abono >= costoTotal);
   
   const html = `
     <html>
@@ -220,10 +220,12 @@ const handleGenerarRecibo = (cliente) => {
               <td class="value">$${costoTotal.toFixed(2)} ${moneda}</td>
             </tr>
             ` : ''}
+            ${!esPagoCompleto ? `
             <tr>
               <td class="label">Monto Abonado</td>
               <td class="value">${cliente.esBolivares ? '' : '$'}${montoFormateado} ${moneda}</td>
             </tr>
+            ` : ''}
             ${restante > 0 ? `
             <tr>
               <td class="label" style="color: #c62828;">Saldo Restante Pendiente</td>
@@ -243,7 +245,10 @@ const handleGenerarRecibo = (cliente) => {
               <td class="value">${cliente.referenciaPago || 'Efectivo / Divisas'}</td>
             </tr>
           </table>
-          <div class="footer-msg">¡Gracias por tu solvencia y preferencia! Conexión Estable Siempre.</div>
+          <div class="footer-msg">
+            ¡Gracias por tu pago de mensualidad! <br>
+            Cualquier inconveniente reportar al soporte técnico de la empresa EXONET.
+          </div>
         </div>
       </body>
     </html>
@@ -617,7 +622,7 @@ function PagosView({ clientes, db }) {
     const estado = obtenerEstadoCliente(c);
     if (filtroPago === 'PENDIENTES') return estado === 'PENDIENTE' && !esProximoAVencer(c);
     if (filtroPago === 'SALDO_PENDIENTE') {
-      if (c.esBolivares) return false; // En bolívares no aplica escala de saldo restante
+      if (c.esBolivares) return false;
       const costoTotal = parseFloat(c.costo || 0);
       const abono = parseFloat(c.montoPagado || 0);
       return c.pagoCompletado && abono < costoTotal;
@@ -675,13 +680,19 @@ function PagosView({ clientes, db }) {
     
     const costoTotal = parseFloat(cliente.costo || 0);
     const divisaVisual = enBs ? 'Bs' : 'COP';
-    
-    // Si es Bs se lee como string directo para no descartar ceros ni puntos manuales
     const abonoVisual = enBs ? String(monto || 0) : parseFloat(monto || 0).toFixed(2);
     const restante = !enBs ? Math.max(0, costoTotal - parseFloat(monto || 0)) : 0;
     
+    // Determinar si es pago completo
+    const esPagoCompleto = enBs || (parseFloat(monto || 0) >= costoTotal);
+    
+    // El tamaño cambia dinámicamente si falta restante o si se quita el monto abonado
+    let canvasHeight = 620;
+    if (restante > 0 && !enBs) canvasHeight = 660;
+    if (esPagoCompleto) canvasHeight = 580;
+
     canvas.width = 480;
-    canvas.height = restante > 0 ? 640 : 600;
+    canvas.height = canvasHeight;
 
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -723,13 +734,18 @@ function PagosView({ clientes, db }) {
     drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 260);
     drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
     
+    let currentY = 340;
     if (!enBs) {
-      drawRow('Costo Total', `$${costoTotal.toFixed(2)} ${divisaVisual}`, 340, '#444444');
+      drawRow('Costo Total', `$${costoTotal.toFixed(2)} ${divisaVisual}`, currentY, '#444444');
+      currentY += 40;
     }
     
-    drawRow('Monto Abonado', `${enBs ? '' : '$'}${abonoVisual} ${divisaVisual}`, enBs ? 340 : 380, '#1B5E20');
+    // Solo dibuja la fila si NO es pago completo
+    if (!esPagoCompleto) {
+      drawRow('Monto Abonado', `${enBs ? '' : '$'}${abonoVisual} ${divisaVisual}`, currentY, '#1B5E20');
+      currentY += 40;
+    }
     
-    let currentY = enBs ? 380 : 420;
     if (restante > 0 && !enBs) {
       drawRow('Falta Restante', `$${restante.toFixed(2)} ${divisaVisual}`, currentY, '#C62828');
       currentY += 40;
@@ -740,7 +756,7 @@ function PagosView({ clientes, db }) {
     drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), currentY, '#C62828');
     currentY += 40;
     drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', currentY, '#444444');
-    currentY += 50;
+    currentY += 45;
 
     ctx.strokeStyle = '#2E7D32';
     ctx.setLineDash([6, 4]);
@@ -750,16 +766,19 @@ function PagosView({ clientes, db }) {
     ctx.stroke();
     ctx.setLineDash([]);
     
-    currentY += 40;
+    currentY += 30;
     ctx.fillStyle = '#666666';
     ctx.font = 'italic 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, currentY);
+    ctx.fillText('¡Gracias por tu pago de mensualidad!', 240, currentY);
     
-    currentY += 25;
+    currentY += 20;
     ctx.font = 'bold 11px sans-serif';
     ctx.fillStyle = '#2E7D32';
-    ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, currentY);
+    ctx.fillText('Cualquier inconveniente reportar al soporte técnico', 240, currentY);
+    
+    currentY += 15;
+    ctx.fillText('de la empresa EXONET.', 240, currentY);
 
     setImageGenerated(canvas.toDataURL('image/jpeg'));
   };
@@ -1066,8 +1085,7 @@ function PagosView({ clientes, db }) {
             {!imageGenerated ? (
               <form onSubmit={handleSavePago} className="space-y-4">
                 
-                {/* INTERRUPTOR DINÁMICO DE BOLÍVARES AJUSTADO */}
-                <div className="flex items-center justify-between p-3.5 bg-gray-50 p-4 border rounded-xl select-none">
+                <div className="flex items-center justify-between p-3.5 bg-gray-50 border rounded-xl select-none">
                   <div className="flex flex-col">
                     <span className="text-xs font-black text-gray-700 uppercase">Pago en bolívares (Bs)</span>
                   </div>
