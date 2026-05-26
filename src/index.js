@@ -573,7 +573,7 @@ export default function App() {
         </button>
         <button onClick={() => setActiveTab('NODOS')} className="p-2 flex flex-col items-center">
           <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
-          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>NODOS</span>
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>REPARTIDORES</span>
         </button>
         <button onClick={() => setActiveTab('PRESTAMOS')} className="p-2 flex flex-col items-center">
           <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
@@ -1863,7 +1863,7 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
-// --- CONFIGURACIÓN DE PESTAÑA NODOS ---
+// --- CONFIGURACIÓN DE PESTAÑA NODOS (REPARTIDORES) ---
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
@@ -1899,7 +1899,7 @@ function NodosView({ nodos, clientes, db }) {
         <body>
           <h1>EXONET - ${nodo.nombre} (${encabezadoMes})</h1>
           <div class="info">
-            <p>IP NODO: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
+            <p>IP REPARTIDOR: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
             <p>TOTAL CLIENTES: ${clientesNodo.length}</p>
           </div>
           <table>
@@ -1943,7 +1943,7 @@ function NodosView({ nodos, clientes, db }) {
     <div className="max-w-5xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
       <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
-        <input placeholder="Nombre Nodo" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
+        <input placeholder="Nombre Repartidor" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
         <input placeholder="IP" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
         <input placeholder="Frecuencia (MHz)" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
         <button onClick={handleAdd} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold">AÑADIR</button>
@@ -1972,7 +1972,7 @@ function NodosView({ nodos, clientes, db }) {
                     </button>
                     <button 
                       onClick={() => {
-                        if (window.confirm(`¿Deseas eliminar el nodo ${n.nombre}? Esta acción desconectará visualmente a sus clientes de este nodo.`)) {
+                        if (window.confirm(`¿Deseas eliminar el repartidor ${n.nombre}? Esta acción desconectará visualmente a sus clientes.`)) {
                           deleteDoc(doc(db, 'nodos', n.id));
                         }
                       }} 
@@ -2095,7 +2095,7 @@ function SoporteView({ clientes, db }) {
         />
         <div className="flex flex-col md:flex-row gap-4">
           <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"><Send size={24}/> ENVIAR POR TELEGRAM</button>
-          <button type="button" onClick={handlePrint} className="bg-gray-100 text-gray-700 py-5 px-8 rounded-2xl font-black shadow-md flex items-center justify-center gap-3 hover:bg-gray-200 active:scale-95 transition-transform"><Printer size={24}/> IMPRIMIR</button>
+          <button type="button" onClick={handlePrint} className="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 py-5 px-8 rounded-2xl font-black shadow-sm flex items-center justify-center gap-3 active:scale-95 transition-transform"><Printer size={24}/> IMPRIMIR</button>
         </div>
       </form>
     </div>
