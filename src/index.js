@@ -101,13 +101,13 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   if (!fechaInicioStr) return '';
   const parts = fechaInicioStr.split('-');
   const ano = parseInt(parts[0], 10);
-  const mes = parseInt(parts[1], 10) - 1; // Base 0 en JS (0 = Enero)
+  const mes = parseInt(parts[1], 10) - 1; 
   const dia = parseInt(parts[2], 10);
   
   const fechaPago = new Date(ano, mes, dia);
   
   let anoVencimiento = fechaPago.getFullYear();
-  let mesVencimiento = fechaPago.getMonth() + 1; // Siguiente mes
+  let mesVencimiento = fechaPago.getMonth() + 1; 
   
   if (mesVencimiento > 11) {
     mesVencimiento = 0;
@@ -115,7 +115,7 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   }
   
   const rMes = String(mesVencimiento + 1).padStart(2, '0');
-  const rDia = '04'; // El corte es estricto el día 4
+  const rDia = '04'; 
   return `${anoVencimiento}-${rMes}-${rDia}`;
 };
 
@@ -168,7 +168,6 @@ const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
   
-  // Respetar la cadena de texto literal introducida para no perder ceros a la derecha ni decimales manuales
   const montoFormateado = cliente.montoPagado ? String(cliente.montoPagado) : String(cliente.costo || 0);
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
@@ -214,7 +213,7 @@ const handleGenerarRecibo = (cliente) => {
               <td class="label">Plan Contratado</td>
               <td class="value">${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}</td>
             </tr>
-            ${!cliente.esBolivares ? `
+            ${!esPagoCompleto && !cliente.esBolivares ? `
             <tr>
               <td class="label">Costo Total Plan</td>
               <td class="value">$${costoTotal.toFixed(2)} ${moneda}</td>
@@ -615,7 +614,6 @@ function PagosView({ clientes, db }) {
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
-  // BUSCADOR MEJORADO: Permite buscar de forma indistinta por Nombre, Apellido o ambos
   const filteredClientes = clientesDePago.filter(c => {
     const nombreCompleto = `${c.nombre} ${c.apellido}`.toLowerCase();
     const cumpleBusqueda = nombreCompleto.includes(search.toLowerCase());
@@ -675,7 +673,6 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
-  // RECAUDACIÓN CON ENFOQUE EN CEROS EXACTOS: Toma el valor de tipo string directo del input para procesarlo en el canvas
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc, enBs) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -684,7 +681,6 @@ function PagosView({ clientes, db }) {
     const costoTotal = parseFloat(cliente.costo || 0);
     const divisaVisual = enBs ? 'Bs' : 'COP';
     
-    // Mantiene la representación literal en texto introducida por el usuario
     const abonoVisual = monto ? String(monto) : String(cliente.costo || 0);
     const restante = !enBs ? Math.max(0, costoTotal - parseFloat(monto || 0)) : 0;
     
@@ -692,7 +688,7 @@ function PagosView({ clientes, db }) {
     
     let canvasHeight = 620;
     if (restante > 0 && !enBs) canvasHeight = 660;
-    if (esPagoCompleto) canvasHeight = 580;
+    if (esPagoCompleto) canvasHeight = 540; // Se reduce al quitar filas innecesarias
 
     canvas.width = 480;
     canvas.height = canvasHeight;
@@ -739,13 +735,12 @@ function PagosView({ clientes, db }) {
     drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
     
     let currentY = 340;
-    if (!enBs) {
+    
+    // MODIFICACIÓN: Si no es pago completo y no es bolívares, dibuja el desglose financiero normal
+    if (!esPagoCompleto && !enBs) {
       drawRow('Costo Total', `$${costoTotal.toFixed(2)} ${divisaVisual}`, currentY, '#444444');
       currentY += 40;
-    }
-    
-    if (!esPagoCompleto) {
-      drawRow('Monto Abonado', `${enBs ? '' : '$'}${abonoVisual} ${divisaVisual}`, currentY, '#1B5E20');
+      drawRow('Monto Abonado', `$${abonoVisual} ${divisaVisual}`, currentY, '#1B5E20');
       currentY += 40;
     }
     
@@ -787,8 +782,13 @@ function PagosView({ clientes, db }) {
     e.preventDefault();
     if (!selectedCliente) return;
 
-    // Guarda el valor textual exacto del formulario del modal (manteniendo ceros del input)
     const montoFinal = String(modalForm.montoPagado);
+    
+    // CORRECCIÓN: Validación de montos mayores o iguales a 1000
+    if (parseFloat(montoFinal) < 1000) {
+      alert("Error: El monto ingresado debe ser de 1000 en adelante (Operación en unidades de millar).");
+      return;
+    }
 
     try {
       await updateDoc(doc(db, 'clientes', selectedCliente.id), {
@@ -819,10 +819,11 @@ function PagosView({ clientes, db }) {
     
     const divisaText = pagoEnBolivares || selectedCliente.esBolivares ? 'Bs' : 'COP';
     const rawAbono = modalForm.montoPagado || selectedCliente.montoPagado || '0';
-    const abonoFormateado = String(rawAbono); // Evita truncamientos de ceros manuales para el mensaje de texto
+    const abonoFormateado = String(rawAbono); 
     const costoTotal = parseFloat(selectedCliente.costo || 0);
     
-    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu abono de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
+    // MODIFICACIÓN: Se cambió "tu abono de..." por "tu pago de..."
+    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
     
     if (!pagoEnBolivares && !selectedCliente.esBolivares) {
       const restante = Math.max(0, costoTotal - parseFloat(rawAbono));
@@ -834,7 +835,7 @@ function PagosView({ clientes, db }) {
     textoMensaje += `*📅 Detalles de Cobertura*\n• Fecha de pago: *${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}*\n• Próximo Vencimiento: *${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}*\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    const url = `https://wa.me/${numeroLimplio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
 
@@ -923,7 +924,6 @@ function PagosView({ clientes, db }) {
             const costoTotal = parseFloat(c.costo || 0);
             const abono = parseFloat(c.montoPagado || 0);
             
-            // Renderización con ceros intactos en pantalla
             const abonoVisualPantalla = c.montoPagado ? String(c.montoPagado) : '0';
             const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
             
@@ -942,7 +942,6 @@ function PagosView({ clientes, db }) {
                           FIBRA
                         </span>
                       )}
-                      {/* ETIQUETA ADICIONAL DE PRÉSTAMO SOLICITADA */}
                       {c.prestamo && (
                         <span className="bg-orange-100 text-orange-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                           PRÉSTAMO
@@ -966,7 +965,8 @@ function PagosView({ clientes, db }) {
                       {c.pagoCompletado && (
                         <>
                           {!c.esBolivares && <span>|</span>}
-                          <span>Abonó: <span className="text-blue-700 font-black">{c.esBolivares ? '' : '$'}${abonoVisualPantalla} {divisaSimbolo}</span></span>
+                          {/* CORRECCIÓN: Eliminado un signo de peso redundante en la visualización */}
+                          <span>Abonó: <span className="text-blue-700 font-black">{c.esBolivares ? '' : '$'}{abonoVisualPantalla} {divisaSimbolo}</span></span>
                         </>
                       )}
                       {faltante > 0 && (
@@ -1117,12 +1117,11 @@ function PagosView({ clientes, db }) {
                   <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ({pagoEnBolivares ? 'Bs' : '$ COP'})</label>
                   <div className="relative flex items-center">
                     <DollarSign size={16} className="absolute left-4 text-gray-400" />
-                    {/* Atributo type cambiado a 'text' con inputMode 'decimal' para conservar ceros a la derecha y puntos tal como se escriban */}
                     <input 
                       type="text" 
                       inputMode="decimal"
                       required
-                      placeholder="Ej. 50.00"
+                      placeholder="Mínimo 1000"
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 outline-none focus:border-green-500"
                       value={modalForm.montoPagado}
                       onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
@@ -1490,9 +1489,7 @@ function FtthView({ clientes, db }) {
           {clientesFtth.map((c, index) => {
             const estadoActual = getDynamicStatus(c);
             const estadoPago = obtenerEstadoCliente(c);
-            const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
             
-            // Garantiza que se dibuje el texto literal con ceros si está solvente
             const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${c.montoPagado} Bs` : `$${c.montoPagado || c.costo} COP`) : '$0.00';
 
             return (
@@ -1588,7 +1585,6 @@ function ClientesView({ clientes, nodos, db }) {
     fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false
   });
 
-  // BUSCADOR MEJORADO: Permite buscar de forma indistinta por Nombre, Apellido, IP, etc.
   const filtered = clientes.filter(c => {
     const nombreCompleto = `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase();
     const cumpleBusqueda = nombreCompleto.includes(search.toLowerCase());
@@ -1610,6 +1606,12 @@ function ClientesView({ clientes, nodos, db }) {
 
     const finalCosto = formData.costo ? formData.costo.trim() : '';
     const esExoneradoAutomatico = finalCosto === '' || finalCosto === '0';
+
+    // CORRECCIÓN: Validación estricta para números mayores o iguales a 1000 al crear/editar
+    if (!esExoneradoAutomatico && parseFloat(finalCosto) < 1000) {
+      alert("Error: Las cifras de costo comercial deben ser de 1000 en adelante (Operaciones en unidades de millar).");
+      return;
+    }
 
     const datosFinales = {
       ...formData,
