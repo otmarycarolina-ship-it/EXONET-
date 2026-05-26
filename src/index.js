@@ -191,7 +191,7 @@ const handleGenerarRecibo = (cliente) => {
           .details-table td { padding: 8px 0; font-size: 13px; color: #444; }
           .details-table td.label { color: #888; font-weight: bold; text-transform: uppercase; font-size: 11px; }
           .details-table td.value { text-align: right; font-weight: bold; color: #1B5E20; }
-          .footer-msg { text-align: center; font-size: 11px; color: #777; font-style: italic; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; }
+          .footer-msg { text-align: center; font-size: 12px; color: #1B5E20; font-weight: bold; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; line-height: 1.5; }
           @media print {
             body { background: white; padding: 0; }
             .recibo-card { border: none; box-shadow: none; width: 100%; }
@@ -246,8 +246,8 @@ const handleGenerarRecibo = (cliente) => {
             </tr>
           </table>
           <div class="footer-msg">
-            ¡Gracias por tu pago de mensualidad! <br>
-            Cualquier inconveniente reportar al soporte técnico de la empresa EXONET.
+            ¡Gracias por tu solvencia y preferencia!<br>
+            CONEXIÓN ESTABLE SIEMPRE.
           </div>
         </div>
       </body>
@@ -768,18 +768,15 @@ function PagosView({ clientes, db }) {
     ctx.setLineDash([]);
     
     currentY += 30;
-    ctx.fillStyle = '#666666';
-    ctx.font = 'italic 12px sans-serif';
+    ctx.fillStyle = '#1B5E20';
+    ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('¡Gracias por tu pago de mensualidad!', 240, currentY);
+    ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, currentY);
     
     currentY += 20;
-    ctx.font = 'bold 11px sans-serif';
+    ctx.font = '900 12px sans-serif';
     ctx.fillStyle = '#2E7D32';
-    ctx.fillText('Cualquier inconveniente reportar al soporte técnico', 240, currentY);
-    
-    currentY += 15;
-    ctx.fillText('de la empresa EXONET.', 240, currentY);
+    ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, currentY);
 
     setImageGenerated(canvas.toDataURL('image/jpeg'));
   };
@@ -822,16 +819,16 @@ function PagosView({ clientes, db }) {
     const abonoFormateado = pagoEnBolivares || selectedCliente.esBolivares ? rawAbono : parseFloat(rawAbono).toFixed(2);
     const costoTotal = parseFloat(selectedCliente.costo || 0);
     
-    let textoMensaje = `EXONET - NOTIFICACIÓN DE PAGO 🌐\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu abono de ${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText} ha sido procesado de manera exitosa.\n\n`;
+    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu abono de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
     
     if (!pagoEnBolivares && !selectedCliente.esBolivares) {
       const restante = Math.max(0, costoTotal - parseFloat(rawAbono));
       if (restante > 0) {
-        textoMensaje += `📊 Resumen de Cuenta:\n• Costo del Plan: $${costoTotal.toFixed(2)} ${divisaText}\n• Abonado Hoy: $${abonoFormateado} ${divisaText}\n• Falta Restante: _$${restante.toFixed(2)} ${divisaText}_\n⚠️ Por favor, recuerda cubrir el saldo pendiente lo más pronto posible.\n\n`;
+        textoMensaje += `*📊 Resumen de Cuenta:*\n• Costo del Plan: *$${costoTotal.toFixed(2)} ${divisaText}*\n• Abonado Hoy: *$${abonoFormateado} ${divisaText}*\n• Falta Restante: _*$${restante.toFixed(2)} ${divisaText}*_\n⚠️ Por favor, recuerda cubrir el saldo pendiente lo más pronto posible.\n\n`;
       }
     }
     
-    textoMensaje += `📅 Detalles de Cobertura\n• Fecha de pago: ${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}\n• Próximo Vencimiento: ${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}\n\n¡Gracias por mantener tu servicio al día! 😉`;
+    textoMensaje += `*📅 Detalles de Cobertura*\n• Fecha de pago: *${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}*\n• Próximo Vencimiento: *${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}*\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
@@ -1109,7 +1106,8 @@ function PagosView({ clientes, db }) {
                   <div className="relative flex items-center">
                     <DollarSign size={16} className="absolute left-4 text-gray-400" />
                     <input 
-                      type="text" 
+                      type="number" 
+                      step="any"
                       required
                       placeholder="Ej. 50"
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 outline-none focus:border-green-500"
@@ -1128,7 +1126,7 @@ function PagosView({ clientes, db }) {
                   <label className="text-[10px] font-black text-gray-500 uppercase px-1">Referencia o Transacción</label>
                   <input 
                     type="text" 
-                    placeholder="Ej. PAGO MÓVIL"
+                    placeholder="pago móvil / efectivo"
                     className="w-full bg-gray-50 px-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
                     value={modalForm.referenciaPago}
                     onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value})}
@@ -1167,14 +1165,6 @@ function PagosView({ clientes, db }) {
                       value={modalForm.fechaVencimiento}
                       onChange={e => setModalForm({...modalForm, fechaVencimiento: e.target.value})}
                     />
-                  </div>
-                </div>
-
-                <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-[11px] font-medium text-green-800 flex flex-col gap-0.5">
-                  <div className="font-bold uppercase tracking-wider text-[9px] text-green-600">Regla Estricta de Control:</div>
-                  <div>• Cobertura calculada: Mes corriente completo.</div>
-                  <div className="font-bold mt-1 text-red-700">
-                    • Suspensión Programada: {formatearFechaPantalla(modalForm.fechaVencimiento)}
                   </div>
                 </div>
 
