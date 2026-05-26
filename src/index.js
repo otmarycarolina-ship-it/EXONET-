@@ -168,12 +168,12 @@ const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
   
-  const montoFormateado = cliente.esBolivares ? String(cliente.montoPagado || 0) : parseFloat(cliente.montoPagado || cliente.costo || 0).toFixed(2);
+  // Respetar la cadena de texto literal introducida para no perder ceros a la derecha ni decimales manuales
+  const montoFormateado = cliente.montoPagado ? String(cliente.montoPagado) : String(cliente.costo || 0);
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
   const restante = !cliente.esBolivares ? Math.max(0, costoTotal - abono) : 0;
   
-  // Determinar si es pago completo (en pesos si cubrió el total, o si es en bolívares)
   const esPagoCompleto = cliente.esBolivares || (abono >= costoTotal);
   
   const html = `
@@ -615,8 +615,10 @@ function PagosView({ clientes, db }) {
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
+  // BUSCADOR MEJORADO: Permite buscar de forma indistinta por Nombre, Apellido o ambos
   const filteredClientes = clientesDePago.filter(c => {
-    const cumpleBusqueda = `${c.nombre} ${c.apellido}`.toLowerCase().includes(search.toLowerCase());
+    const nombreCompleto = `${c.nombre} ${c.apellido}`.toLowerCase();
+    const cumpleBusqueda = nombreCompleto.includes(search.toLowerCase());
     if (!cumpleBusqueda) return false;
     
     const estado = obtenerEstadoCliente(c);
@@ -673,6 +675,7 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
+  // RECAUDACIÓN CON ENFOQUE EN CEROS EXACTOS: Toma el valor de tipo string directo del input para procesarlo en el canvas
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc, enBs) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -680,13 +683,13 @@ function PagosView({ clientes, db }) {
     
     const costoTotal = parseFloat(cliente.costo || 0);
     const divisaVisual = enBs ? 'Bs' : 'COP';
-    const abonoVisual = enBs ? String(monto || 0) : parseFloat(monto || 0).toFixed(2);
+    
+    // Mantiene la representación literal en texto introducida por el usuario
+    const abonoVisual = monto ? String(monto) : String(cliente.costo || 0);
     const restante = !enBs ? Math.max(0, costoTotal - parseFloat(monto || 0)) : 0;
     
-    // Determinar si es pago completo
     const esPagoCompleto = enBs || (parseFloat(monto || 0) >= costoTotal);
     
-    // El tamaño cambia dinámicamente si falta restante o si se quita el monto abonado
     let canvasHeight = 620;
     if (restante > 0 && !enBs) canvasHeight = 660;
     if (esPagoCompleto) canvasHeight = 580;
@@ -741,7 +744,6 @@ function PagosView({ clientes, db }) {
       currentY += 40;
     }
     
-    // Solo dibuja la fila si NO es pago completo
     if (!esPagoCompleto) {
       drawRow('Monto Abonado', `${enBs ? '' : '$'}${abonoVisual} ${divisaVisual}`, currentY, '#1B5E20');
       currentY += 40;
@@ -785,7 +787,8 @@ function PagosView({ clientes, db }) {
     e.preventDefault();
     if (!selectedCliente) return;
 
-    const montoFinal = modalForm.montoPagado;
+    // Guarda el valor textual exacto del formulario del modal (manteniendo ceros del input)
+    const montoFinal = String(modalForm.montoPagado);
 
     try {
       await updateDoc(doc(db, 'clientes', selectedCliente.id), {
@@ -816,7 +819,7 @@ function PagosView({ clientes, db }) {
     
     const divisaText = pagoEnBolivares || selectedCliente.esBolivares ? 'Bs' : 'COP';
     const rawAbono = modalForm.montoPagado || selectedCliente.montoPagado || '0';
-    const abonoFormateado = pagoEnBolivares || selectedCliente.esBolivares ? rawAbono : parseFloat(rawAbono).toFixed(2);
+    const abonoFormateado = String(rawAbono); // Evita truncamientos de ceros manuales para el mensaje de texto
     const costoTotal = parseFloat(selectedCliente.costo || 0);
     
     let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu abono de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
@@ -863,7 +866,7 @@ function PagosView({ clientes, db }) {
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
         <input 
-          placeholder="Buscar cliente para verificar control..." 
+          placeholder="Buscar cliente por nombre o apellido..." 
           className="bg-transparent w-full p-4 outline-none font-medium" 
           value={search} 
           onChange={e => setSearch(e.target.value)} 
@@ -919,6 +922,9 @@ function PagosView({ clientes, db }) {
             
             const costoTotal = parseFloat(c.costo || 0);
             const abono = parseFloat(c.montoPagado || 0);
+            
+            // Renderización con ceros intactos en pantalla
+            const abonoVisualPantalla = c.montoPagado ? String(c.montoPagado) : '0';
             const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
             
             const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abono < costoTotal;
@@ -934,6 +940,12 @@ function PagosView({ clientes, db }) {
                       {c.ftth && (
                         <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                           FIBRA
+                        </span>
+                      )}
+                      {/* ETIQUETA ADICIONAL DE PRÉSTAMO SOLICITADA */}
+                      {c.prestamo && (
+                        <span className="bg-orange-100 text-orange-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                          PRÉSTAMO
                         </span>
                       )}
                       {proximo && (
@@ -954,7 +966,7 @@ function PagosView({ clientes, db }) {
                       {c.pagoCompletado && (
                         <>
                           {!c.esBolivares && <span>|</span>}
-                          <span>Abonó: <span className="text-blue-700 font-black">{c.esBolivares ? '' : '$'}${c.montoPagado} {divisaSimbolo}</span></span>
+                          <span>Abonó: <span className="text-blue-700 font-black">{c.esBolivares ? '' : '$'}${abonoVisualPantalla} {divisaSimbolo}</span></span>
                         </>
                       )}
                       {faltante > 0 && (
@@ -1105,11 +1117,12 @@ function PagosView({ clientes, db }) {
                   <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ({pagoEnBolivares ? 'Bs' : '$ COP'})</label>
                   <div className="relative flex items-center">
                     <DollarSign size={16} className="absolute left-4 text-gray-400" />
+                    {/* Atributo type cambiado a 'text' con inputMode 'decimal' para conservar ceros a la derecha y puntos tal como se escriban */}
                     <input 
-                      type="number" 
-                      step="any"
+                      type="text" 
+                      inputMode="decimal"
                       required
-                      placeholder="Ej. 50"
+                      placeholder="Ej. 50.00"
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 outline-none focus:border-green-500"
                       value={modalForm.montoPagado}
                       onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
@@ -1478,7 +1491,9 @@ function FtthView({ clientes, db }) {
             const estadoActual = getDynamicStatus(c);
             const estadoPago = obtenerEstadoCliente(c);
             const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
-            const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${c.montoPagado} Bs` : `$${parseFloat(c.costo || 0).toFixed(2)} COP`) : '$0.00';
+            
+            // Garantiza que se dibuje el texto literal con ceros si está solvente
+            const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${c.montoPagado} Bs` : `$${c.montoPagado || c.costo} COP`) : '$0.00';
 
             return (
               <div 
@@ -1573,8 +1588,10 @@ function ClientesView({ clientes, nodos, db }) {
     fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false
   });
 
+  // BUSCADOR MEJORADO: Permite buscar de forma indistinta por Nombre, Apellido, IP, etc.
   const filtered = clientes.filter(c => {
-    const cumpleBusqueda = `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase().includes(search.toLowerCase());
+    const nombreCompleto = `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase();
+    const cumpleBusqueda = nombreCompleto.includes(search.toLowerCase());
     if (!cumpleBusqueda) return false;
 
     if (filtroRapido === 'DE_PAGO') return !c.exonerado;
@@ -1629,7 +1646,7 @@ function ClientesView({ clientes, nodos, db }) {
       
       <div className="bg-white mb-4 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
-        <input placeholder="Buscar abonado..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
+        <input placeholder="Buscar abonado por nombre o apellido..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-md gap-1">
@@ -1663,6 +1680,7 @@ function ClientesView({ clientes, nodos, db }) {
           const estadoActual = obtenerEstadoCliente(c);
           const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
           const faltante = estadoActual === 'SOLVENTE' && !c.esBolivares ? Math.max(0, costoTotal - abono) : 0;
+          const abonoVisualPantalla = c.montoPagado ? String(c.montoPagado) : '0';
 
           return (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
@@ -1686,7 +1704,7 @@ function ClientesView({ clientes, nodos, db }) {
               <div className="col-span-2 w-full text-center">
                 <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
                 <span className="font-bold text-gray-800 text-sm block">
-                  {c.exonerado ? '$0 (Cortesía)' : (c.esBolivares ? `${c.montoPagado} ${divisaSimbolo}` : `$${c.costo} ${divisaSimbolo}`)}
+                  {c.exonerado ? '$0 (Cortesía)' : (c.esBolivares ? `${abonoVisualPantalla} ${divisaSimbolo}` : `$${c.costo} ${divisaSimbolo}`)}
                 </span>
                 {faltante > 0 && (
                   <span className="text-[10px] text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
