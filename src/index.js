@@ -101,13 +101,13 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   if (!fechaInicioStr) return '';
   const parts = fechaInicioStr.split('-');
   const ano = parseInt(parts[0], 10);
-  const mes = parseInt(parts[1], 10) - 1; 
+  const mes = parseInt(parts[1], 10) - 1; // Base 0 en JS (0 = Enero)
   const dia = parseInt(parts[2], 10);
   
   const fechaPago = new Date(ano, mes, dia);
   
   let anoVencimiento = fechaPago.getFullYear();
-  let mesVencimiento = fechaPago.getMonth() + 1; 
+  let mesVencimiento = fechaPago.getMonth() + 1; // Siguiente mes
   
   if (mesVencimiento > 11) {
     mesVencimiento = 0;
@@ -115,7 +115,7 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   }
   
   const rMes = String(mesVencimiento + 1).padStart(2, '0');
-  const rDia = '04'; 
+  const rDia = '04'; // El corte es estricto el día 4
   return `${anoVencimiento}-${rMes}-${rDia}`;
 };
 
@@ -168,7 +168,8 @@ const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
   
-  const montoFormateado = cliente.montoPagado ? String(cliente.montoPagado) : String(cliente.costo || 0);
+  const abonoNum = parseFloat(cliente.montoPagado || cliente.costo || 0);
+  const montoFormateado = abonoNum.toFixed(3);
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
   const restante = !cliente.esBolivares ? Math.max(0, costoTotal - abono) : 0;
@@ -216,7 +217,7 @@ const handleGenerarRecibo = (cliente) => {
             ${!esPagoCompleto && !cliente.esBolivares ? `
             <tr>
               <td class="label">Costo Total Plan</td>
-              <td class="value">$${costoTotal.toFixed(2)} ${moneda}</td>
+              <td class="value">$${costoTotal.toFixed(3)} ${moneda}</td>
             </tr>
             ` : ''}
             ${!esPagoCompleto ? `
@@ -228,7 +229,7 @@ const handleGenerarRecibo = (cliente) => {
             ${restante > 0 ? `
             <tr>
               <td class="label" style="color: #c62828;">Saldo Restante Pendiente</td>
-              <td class="value" style="color: #c62828;">$${restante.toFixed(2)} ${moneda}</td>
+              <td class="value" style="color: #c62828;">$${restante.toFixed(3)} ${moneda}</td>
             </tr>
             ` : ''}
             <tr>
@@ -372,14 +373,14 @@ const handlePrintGeneral = (titulo, data) => {
               let estadoVisual = 'ACTIVO';
               let claseEstado = 'status-active';
               let claseFila = '';
-              let montoVisual = `$${parseFloat(c.costo || 0).toFixed(2)}`;
+              let montoVisual = `$${parseFloat(c.costo || 0).toFixed(3)}`;
 
               if (esFibra) {
                 if (estadoPago === 'PENDIENTE') {
                   estadoVisual = 'SIN SERVICIO';
                   claseEstado = 'status-suspended';
                   claseFila = 'class="row-suspended"';
-                  montoVisual = '$0.00';
+                  montoVisual = '$0.000';
                 } else if (c.estadoFTTH === 'REVISIÓN') {
                   estadoVisual = 'REVISIÓN';
                   claseEstado = 'status-review';
@@ -411,11 +412,11 @@ const handlePrintGeneral = (titulo, data) => {
             <table class="finanzas-tabla">
               <tr class="finanzas-total">
                 <td><strong>TOTAL RECAUDADO (ACTIVOS):</strong></td>
-                <td style="text-align: right; font-weight: 900;"><strong>$${totalActivos.toFixed(2)}</strong></td>
+                <td style="text-align: right; font-weight: 900;"><strong>$${totalActivos.toFixed(3)}</strong></td>
               </tr>
               <tr style="color: #666; font-size: 12px;">
                 <td>Total por Recaudar (Morosidad):</td>
-                <td style="text-align: right; font-weight: bold; color: #c62828;">$${totalPendientes.toFixed(2)}</td>
+                <td style="text-align: right; font-weight: bold; color: #c62828;">$${totalPendientes.toFixed(3)}</td>
               </tr>
             </table>
           </div>
@@ -636,8 +637,10 @@ function PagosView({ clientes, db }) {
     const fechaPagoInicial = obtenerFechaActualLocal();
     setSelectedCliente(cliente);
     setPagoEnBolivares(false);
+    
+    const costoBase = parseFloat(cliente.costo || 0);
     setModalForm({
-      montoPagado: cliente.costo || '',
+      montoPagado: costoBase.toFixed(3),
       referenciaPago: '',
       fechaPago: fechaPagoInicial,
       fechaVencimiento: calcularVencimientoLocal(fechaPagoInicial)
@@ -649,7 +652,8 @@ function PagosView({ clientes, db }) {
   const handleLiquidarSaldoDirecto = async (cliente) => {
     const fechaPagoActual = obtenerFechaActualLocal();
     const vencimientoCalculado = calcularVencimientoLocal(fechaPagoActual);
-    const costoTotal = cliente.costo || '0';
+    const costoTotalNum = parseFloat(cliente.costo || 0);
+    const costoTotal = costoTotalNum.toFixed(3);
 
     if (window.confirm(`¿Deseas registrar la liquidación completa de saldo para ${cliente.nombre} ${cliente.apellido} por un monto total de $${costoTotal} COP?`)) {
       try {
@@ -681,14 +685,15 @@ function PagosView({ clientes, db }) {
     const costoTotal = parseFloat(cliente.costo || 0);
     const divisaVisual = enBs ? 'Bs' : 'COP';
     
-    const abonoVisual = monto ? String(monto) : String(cliente.costo || 0);
+    const montoNum = parseFloat(monto || cliente.costo || 0);
+    const abonoVisual = montoNum.toFixed(3);
     const restante = !enBs ? Math.max(0, costoTotal - parseFloat(monto || 0)) : 0;
     
     const esPagoCompleto = enBs || (parseFloat(monto || 0) >= costoTotal);
     
     let canvasHeight = 620;
     if (restante > 0 && !enBs) canvasHeight = 660;
-    if (esPagoCompleto) canvasHeight = 540; // Se reduce al quitar filas innecesarias
+    if (esPagoCompleto) canvasHeight = 580;
 
     canvas.width = 480;
     canvas.height = canvasHeight;
@@ -735,17 +740,18 @@ function PagosView({ clientes, db }) {
     drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
     
     let currentY = 340;
-    
-    // MODIFICACIÓN: Si no es pago completo y no es bolívares, dibuja el desglose financiero normal
     if (!esPagoCompleto && !enBs) {
-      drawRow('Costo Total', `$${costoTotal.toFixed(2)} ${divisaVisual}`, currentY, '#444444');
+      drawRow('Costo Total', `$${costoTotal.toFixed(3)} ${divisaVisual}`, currentY, '#444444');
       currentY += 40;
-      drawRow('Monto Abonado', `$${abonoVisual} ${divisaVisual}`, currentY, '#1B5E20');
+    }
+    
+    if (!esPagoCompleto) {
+      drawRow('Monto Abonado', `${enBs ? '' : '$'}${abonoVisual} ${divisaVisual}`, currentY, '#1B5E20');
       currentY += 40;
     }
     
     if (restante > 0 && !enBs) {
-      drawRow('Falta Restante', `$${restante.toFixed(2)} ${divisaVisual}`, currentY, '#C62828');
+      drawRow('Falta Restante', `$${restante.toFixed(3)} ${divisaVisual}`, currentY, '#C62828');
       currentY += 40;
     }
     
@@ -782,13 +788,8 @@ function PagosView({ clientes, db }) {
     e.preventDefault();
     if (!selectedCliente) return;
 
-    const montoFinal = String(modalForm.montoPagado);
-    
-    // CORRECCIÓN: Validación de montos mayores o iguales a 1000
-    if (parseFloat(montoFinal) < 1000) {
-      alert("Error: El monto ingresado debe ser de 1000 en adelante (Operación en unidades de millar).");
-      return;
-    }
+    const parsedMonto = parseFloat(modalForm.montoPagado || 0);
+    const montoFinal = parsedMonto.toFixed(3);
 
     try {
       await updateDoc(doc(db, 'clientes', selectedCliente.id), {
@@ -818,24 +819,23 @@ function PagosView({ clientes, db }) {
     if (!selectedCliente) return;
     
     const divisaText = pagoEnBolivares || selectedCliente.esBolivares ? 'Bs' : 'COP';
-    const rawAbono = modalForm.montoPagado || selectedCliente.montoPagado || '0';
-    const abonoFormateado = String(rawAbono); 
+    const rawAbono = parseFloat(modalForm.montoPagado || selectedCliente.montoPagado || 0);
+    const abonoFormateado = rawAbono.toFixed(3);
     const costoTotal = parseFloat(selectedCliente.costo || 0);
     
-    // MODIFICACIÓN: Se cambió "tu abono de..." por "tu pago de..."
     let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
     
     if (!pagoEnBolivares && !selectedCliente.esBolivares) {
-      const restante = Math.max(0, costoTotal - parseFloat(rawAbono));
+      const restante = Math.max(0, costoTotal - rawAbono);
       if (restante > 0) {
-        textoMensaje += `*📊 Resumen de Cuenta:*\n• Costo del Plan: *$${costoTotal.toFixed(2)} ${divisaText}*\n• Abonado Hoy: *$${abonoFormateado} ${divisaText}*\n• Falta Restante: _*$${restante.toFixed(2)} ${divisaText}*_\n⚠️ Por favor, recuerda cubrir el saldo pendiente lo más pronto posible.\n\n`;
+        textoMensaje += `*📊 Resumen de Cuenta:*\n• Costo del Plan: *$${costoTotal.toFixed(3)} ${divisaText}*\n• Abonado Hoy: *$${abonoFormateado} ${divisaText}*\n• Falta Restante: _*$${restante.toFixed(3)} ${divisaText}*_\n⚠️ Por favor, recuerda cubrir el saldo pendiente lo más pronto posible.\n\n`;
       }
     }
     
     textoMensaje += `*📅 Detalles de Cobertura*\n• Fecha de pago: *${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}*\n• Próximo Vencimiento: *${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}*\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
     const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLimplio}?text=${encodeURIComponent(textoMensaje)}`;
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
 
@@ -924,7 +924,7 @@ function PagosView({ clientes, db }) {
             const costoTotal = parseFloat(c.costo || 0);
             const abono = parseFloat(c.montoPagado || 0);
             
-            const abonoVisualPantalla = c.montoPagado ? String(c.montoPagado) : '0';
+            const abonoVisualPantalla = c.montoPagado ? parseFloat(c.montoPagado).toFixed(3) : '0.000';
             const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
             
             const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abono < costoTotal;
@@ -961,11 +961,10 @@ function PagosView({ clientes, db }) {
                     <div className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span>Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span></span>
                       <span>|</span>
-                      {!c.esBolivares && <span>Costo: <span className="text-gray-700 font-black">${c.costo} COP</span></span>}
+                      {!c.esBolivares && <span>Costo: <span className="text-gray-700 font-black">${costoTotal.toFixed(3)} COP</span></span>}
                       {c.pagoCompletado && (
                         <>
-                          {!c.esBolivares && <span>|</span>}
-                          {/* CORRECCIÓN: Eliminado un signo de peso redundante en la visualización */}
+                          <span>|</span>
                           <span>Abonó: <span className="text-blue-700 font-black">{c.esBolivares ? '' : '$'}{abonoVisualPantalla} {divisaSimbolo}</span></span>
                         </>
                       )}
@@ -973,7 +972,7 @@ function PagosView({ clientes, db }) {
                         <>
                           <span>|</span>
                           <span className="text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded">
-                            Faltan: ${faltante.toFixed(0)} COP Restantes
+                            Faltan: ${faltante.toFixed(3)} COP Restantes
                           </span>
                         </>
                       )}
@@ -1017,8 +1016,9 @@ function PagosView({ clientes, db }) {
                       onClick={() => {
                         setSelectedCliente(c);
                         setPagoEnBolivares(c.esBolivares || false);
+                        const abonoBase = c.montoPagado ? parseFloat(c.montoPagado).toFixed(3) : '';
                         setModalForm({
-                          montoPagado: c.montoPagado || '',
+                          montoPagado: abonoBase,
                           referenciaPago: c.referenciaPago || '',
                           fechaPago: c.fechaPago || obtenerFechaActualLocal(),
                           fechaVencimiento: c.fechaVencimiento || calcularVencimientoLocal(c.fechaPago || obtenerFechaActualLocal())
@@ -1083,7 +1083,7 @@ function PagosView({ clientes, db }) {
                 {selectedCliente.nombre} {selectedCliente.apellido}
               </h3>
               <p className="text-xs text-gray-400 font-bold uppercase mt-1">
-                Plan base asignado: {selectedCliente.plan} Mbps - ${selectedCliente.costo} COP
+                Plan base asignado: {selectedCliente.plan} Mbps - ${parseFloat(selectedCliente.costo || 0).toFixed(3)} COP
               </p>
             </div>
 
@@ -1103,7 +1103,8 @@ function PagosView({ clientes, db }) {
                         const checkState = e.target.checked;
                         setPagoEnBolivares(checkState);
                         if (!checkState) {
-                          setModalForm({ ...modalForm, montoPagado: selectedCliente.costo || '' });
+                          const costoBase = parseFloat(selectedCliente.costo || 0);
+                          setModalForm({ ...modalForm, montoPagado: costoBase.toFixed(3) });
                         } else {
                           setModalForm({ ...modalForm, montoPagado: '' });
                         }
@@ -1121,7 +1122,7 @@ function PagosView({ clientes, db }) {
                       type="text" 
                       inputMode="decimal"
                       required
-                      placeholder="Mínimo 1000"
+                      placeholder="Ej. 50.000"
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 outline-none focus:border-green-500"
                       value={modalForm.montoPagado}
                       onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
@@ -1129,7 +1130,7 @@ function PagosView({ clientes, db }) {
                   </div>
                   {!pagoEnBolivares && modalForm.montoPagado && parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado) > 0 && (
                     <span className="text-xs text-red-600 font-bold px-1 mt-0.5">
-                      ⚠️ Se registrará una deuda restante de: ${(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado)).toFixed(0)} COP
+                      ⚠️ Se registrará una deuda restante de: ${(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado)).toFixed(3)} COP
                     </span>
                   )}
                 </div>
@@ -1141,7 +1142,7 @@ function PagosView({ clientes, db }) {
                     placeholder="pago móvil / efectivo"
                     className="w-full bg-gray-50 px-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
                     value={modalForm.referenciaPago}
-                    onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value})}
+                    onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value.toUpperCase()})}
                   />
                 </div>
 
@@ -1489,8 +1490,10 @@ function FtthView({ clientes, db }) {
           {clientesFtth.map((c, index) => {
             const estadoActual = getDynamicStatus(c);
             const estadoPago = obtenerEstadoCliente(c);
+            const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
             
-            const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${c.montoPagado} Bs` : `$${c.montoPagado || c.costo} COP`) : '$0.00';
+            const abonoNum = parseFloat(c.montoPagado || c.costo || 0);
+            const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${abonoNum.toFixed(3)} Bs` : `$${abonoNum.toFixed(3)} COP`) : '$0.000';
 
             return (
               <div 
@@ -1604,14 +1607,8 @@ function ClientesView({ clientes, nodos, db }) {
       return;
     }
 
-    const finalCosto = formData.costo ? formData.costo.trim() : '';
-    const esExoneradoAutomatico = finalCosto === '' || finalCosto === '0';
-
-    // CORRECCIÓN: Validación estricta para números mayores o iguales a 1000 al crear/editar
-    if (!esExoneradoAutomatico && parseFloat(finalCosto) < 1000) {
-      alert("Error: Las cifras de costo comercial deben ser de 1000 en adelante (Operaciones en unidades de millar).");
-      return;
-    }
+    const finalCosto = formData.costo ? parseFloat(formData.costo.trim()).toFixed(3) : '';
+    const esExoneradoAutomatico = finalCosto === '' || parseFloat(finalCosto) === 0;
 
     const datosFinales = {
       ...formData,
@@ -1682,7 +1679,7 @@ function ClientesView({ clientes, nodos, db }) {
           const estadoActual = obtenerEstadoCliente(c);
           const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
           const faltante = estadoActual === 'SOLVENTE' && !c.esBolivares ? Math.max(0, costoTotal - abono) : 0;
-          const abonoVisualPantalla = c.montoPagado ? String(c.montoPagado) : '0';
+          const abonoVisualPantalla = c.montoPagado ? parseFloat(c.montoPagado).toFixed(3) : '0.000';
 
           return (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
@@ -1706,11 +1703,11 @@ function ClientesView({ clientes, nodos, db }) {
               <div className="col-span-2 w-full text-center">
                 <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
                 <span className="font-bold text-gray-800 text-sm block">
-                  {c.exonerado ? '$0 (Cortesía)' : (c.esBolivares ? `${abonoVisualPantalla} ${divisaSimbolo}` : `$${c.costo} ${divisaSimbolo}`)}
+                  {c.exonerado ? '$0.000 (Cortesía)' : (c.esBolivares ? `${abonoVisualPantalla} ${divisaSimbolo}` : `$${costoTotal.toFixed(3)} ${divisaSimbolo}`)}
                 </span>
                 {faltante > 0 && (
                   <span className="text-[10px] text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
-                    Faltan: ${faltante.toFixed(0)} {divisaSimbolo}
+                    Faltan: ${faltante.toFixed(3)} {divisaSimbolo}
                   </span>
                 )}
                 {c.fechaVencimiento && !c.exonerado && (
