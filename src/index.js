@@ -126,12 +126,6 @@ const formatearFechaPantalla = (fechaStr) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
-// --- FUNCIÓN DE FORMATEO PARA MILES (Convierte 20 en 20,000 o 20.000) ---
-const formatearMiles = (monto) => {
-  const num = parseFloat(monto || 0);
-  return num.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-};
-
 // --- OBTENER ESTADO DINÁMICO ---
 const obtenerEstadoCliente = (cliente) => {
   if (cliente.exonerado) return 'SOLVENTE';
@@ -174,14 +168,18 @@ const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
   
-  const rawAbono = cliente.montoPagado ? parseFloat(cliente.montoPagado) : parseFloat(cliente.costo || 0);
+  // Respetar la cadena de texto literal introducida para no perder ceros a la derecha ni decimales manuales
+  const montoFormateado = cliente.montoPagado ? String(cliente.montoPagado) : String(cliente.costo || 0);
   const costoTotal = parseFloat(cliente.costo || 0);
-  const restante = !cliente.esBolivares ? Math.max(0, costoTotal - rawAbono) : 0;
+  const abono = parseFloat(cliente.montoPagado || 0);
+  const restante = !cliente.esBolivares ? Math.max(0, costoTotal - abono) : 0;
+  
+  const esPagoCompleto = cliente.esBolivares || (abono >= costoTotal);
   
   const html = `
     <html>
       <head>
-        <title>Recibo EXONET - ${cliente.nombre} ${cliente.apellido}</title>
+        <title>Recibo Exonet - ${cliente.nombre} ${cliente.apellido}</title>
         <style>
           body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 30px; color: #222; background: #f9f9f9; display: flex; justify-content: center; }
           .recibo-card { background: white; width: 450px; border: 1px solid #e0e0e0; border-radius: 16px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -206,7 +204,7 @@ const handleGenerarRecibo = (cliente) => {
             <div class="logo-title">EXONET</div>
             <div class="subtitle">Comprobante de Pago Digital</div>
           </div>
-          <div class="monto-box">${cliente.esBolivares ? '' : '$'}${formatearMiles(rawAbono)} ${moneda}</div>
+          <div class="monto-box">${cliente.esBolivares ? '' : '$'}${montoFormateado} ${moneda}</div>
           <table class="details-table">
             <tr>
               <td class="label">Abonado</td>
@@ -216,18 +214,22 @@ const handleGenerarRecibo = (cliente) => {
               <td class="label">Plan Contratado</td>
               <td class="value">${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}</td>
             </tr>
+            ${!cliente.esBolivares ? `
             <tr>
-              <td class="label">Monto Total Plan</td>
-              <td class="value">${cliente.esBolivares ? '' : '$'}${formatearMiles(costoTotal)} ${moneda}</td>
+              <td class="label">Costo Total Plan</td>
+              <td class="value">$${costoTotal.toFixed(2)} ${moneda}</td>
             </tr>
+            ` : ''}
+            ${!esPagoCompleto ? `
             <tr>
-              <td class="label" style="color: #1565c0;">Monto Abonado</td>
-              <td class="value" style="color: #1565c0;">${cliente.esBolivares ? '' : '$'}${formatearMiles(rawAbono)} ${moneda}</td>
+              <td class="label">Monto Abonado</td>
+              <td class="value">${cliente.esBolivares ? '' : '$'}${montoFormateado} ${moneda}</td>
             </tr>
+            ` : ''}
             ${restante > 0 ? `
             <tr>
               <td class="label" style="color: #c62828;">Saldo Restante Pendiente</td>
-              <td class="value" style="color: #c62828;">$${formatearMiles(restante)} ${moneda}</td>
+              <td class="value" style="color: #c62828;">$${restante.toFixed(2)} ${moneda}</td>
             </tr>
             ` : ''}
             <tr>
@@ -265,7 +267,7 @@ const handlePrintClientesFiltrados = (data) => {
   const html = `
     <html>
       <head>
-        <title>EXONET - LISTA GENERAL DE CLIENTES - ${encabezadoMes}</title>
+        <title>Exonet - LISTA GENERAL DE CLIENTES - ${encabezadoMes}</title>
         <style>
           body { font-family: sans-serif; padding: 20px; color: #333; }
           h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
@@ -295,7 +297,7 @@ const handlePrintClientesFiltrados = (data) => {
             `).join('')}
           </tbody>
         </table>
-        <div class="footer">Generado por Sistema de Gestión EXONET</div>
+        <div class="footer">Generado por Sistema de Gestión Exonet</div>
       </body>
     </html>
   `;
@@ -330,7 +332,7 @@ const handlePrintGeneral = (titulo, data) => {
   const html = `
     <html>
       <head>
-        <title>EXONET - ${titulo} - ${encabezadoMes}</title>
+        <title>Exonet - ${titulo} - ${encabezadoMes}</title>
         <style>
           body { font-family: sans-serif; padding: 20px; color: #333; }
           h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
@@ -371,14 +373,14 @@ const handlePrintGeneral = (titulo, data) => {
               let estadoVisual = 'ACTIVO';
               let claseEstado = 'status-active';
               let claseFila = '';
-              let montoVisual = `$${formatearMiles(c.costo || 0)}`;
+              let montoVisual = `$${parseFloat(c.costo || 0).toFixed(2)}`;
 
               if (esFibra) {
                 if (estadoPago === 'PENDIENTE') {
                   estadoVisual = 'SIN SERVICIO';
                   claseEstado = 'status-suspended';
                   claseFila = 'class="row-suspended"';
-                  montoVisual = '$0';
+                  montoVisual = '$0.00';
                 } else if (c.estadoFTTH === 'REVISIÓN') {
                   estadoVisual = 'REVISIÓN';
                   claseEstado = 'status-review';
@@ -410,17 +412,17 @@ const handlePrintGeneral = (titulo, data) => {
             <table class="finanzas-tabla">
               <tr class="finanzas-total">
                 <td><strong>TOTAL RECAUDADO (ACTIVOS):</strong></td>
-                <td style="text-align: right; font-weight: 900;"><strong>$${formatearMiles(totalActivos)}</strong></td>
+                <td style="text-align: right; font-weight: 900;"><strong>$${totalActivos.toFixed(2)}</strong></td>
               </tr>
               <tr style="color: #666; font-size: 12px;">
                 <td>Total por Recaudar (Morosidad):</td>
-                <td style="text-align: right; font-weight: bold; color: #c62828;">$${formatearMiles(totalPendientes)}</td>
+                <td style="text-align: right; font-weight: bold; color: #c62828;">$${totalPendientes.toFixed(2)}</td>
               </tr>
             </table>
           </div>
         ` : ''}
 
-        <div class="footer">Generado por Sistema de Gestión EXONET</div>
+        <div class="footer">Generado por Sistema de Gestión Exonet</div>
       </body>
     </html>
   `;
@@ -499,7 +501,7 @@ export default function App() {
   if (loading) return (
     <div style={{ backgroundColor: colors.bg }} className="min-h-screen flex flex-col items-center justify-center p-4">
       <Loader2 className="animate-spin text-green-700 mb-4" size={48} />
-      <p className="font-black text-green-800 tracking-widest uppercase text-xs">Protegiendo EXONET...</p>
+      <p className="font-black text-green-800 tracking-widest uppercase text-xs">Protegiendo Exonet...</p>
     </div>
   );
 
@@ -613,6 +615,7 @@ function PagosView({ clientes, db }) {
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
+  // BUSCADOR MEJORADO: Permite buscar de forma indistinta por Nombre, Apellido o ambos
   const filteredClientes = clientesDePago.filter(c => {
     const nombreCompleto = `${c.nombre} ${c.apellido}`.toLowerCase();
     const cumpleBusqueda = nombreCompleto.includes(search.toLowerCase());
@@ -650,7 +653,7 @@ function PagosView({ clientes, db }) {
     const vencimientoCalculado = calcularVencimientoLocal(fechaPagoActual);
     const costoTotal = cliente.costo || '0';
 
-    if (window.confirm(`¿Deseas registrar la liquidación completa de saldo para ${cliente.nombre} ${cliente.apellido} por un monto total de $${formatearMiles(costoTotal)} COP?`)) {
+    if (window.confirm(`¿Deseas registrar la liquidación completa de saldo para ${cliente.nombre} ${cliente.apellido} por un monto total de $${costoTotal} COP?`)) {
       try {
         await updateDoc(doc(db, 'clientes', cliente.id), {
           montoPagado: costoTotal,
@@ -672,6 +675,7 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
+  // RECAUDACIÓN CON ENFOQUE EN CEROS EXACTOS: Toma el valor de tipo string directo del input para procesarlo en el canvas
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc, enBs) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -680,10 +684,16 @@ function PagosView({ clientes, db }) {
     const costoTotal = parseFloat(cliente.costo || 0);
     const divisaVisual = enBs ? 'Bs' : 'COP';
     
-    const abonoVisual = parseFloat(monto || cliente.costo || 0);
-    const restante = !enBs ? Math.max(0, costoTotal - abonoVisual) : 0;
+    // Mantiene la representación literal en texto introducida por el usuario
+    const abonoVisual = monto ? String(monto) : String(cliente.costo || 0);
+    const restante = !enBs ? Math.max(0, costoTotal - parseFloat(monto || 0)) : 0;
+    
+    const esPagoCompleto = enBs || (parseFloat(monto || 0) >= costoTotal);
     
     let canvasHeight = 620;
+    if (restante > 0 && !enBs) canvasHeight = 660;
+    if (esPagoCompleto) canvasHeight = 580;
+
     canvas.width = 480;
     canvas.height = canvasHeight;
 
@@ -711,7 +721,7 @@ function PagosView({ clientes, db }) {
 
     ctx.fillStyle = '#1B5E20';
     ctx.font = '900 34px sans-serif';
-    ctx.fillText(`${enBs ? '' : '$'}${formatearMiles(abonoVisual)} ${divisaVisual}`, 240, 192);
+    ctx.fillText(`${enBs ? '' : '$'}${abonoVisual} ${divisaVisual}`, 240, 192);
 
     const drawRow = (label, value, y, valueColor = '#1B5E20') => {
       ctx.textAlign = 'left';
@@ -725,22 +735,31 @@ function PagosView({ clientes, db }) {
       ctx.fillText(value, 430, y);
     };
     
-    drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 250);
-    drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 290);
+    drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 260);
+    drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
     
-    // Mostramos siempre los montos estructurados solicitados
-    drawRow('Monto Total Plan', `${enBs ? '' : '$'}${formatearMiles(costoTotal)} ${divisaVisual}`, 330, '#444444');
-    drawRow('Monto Abonado', `${enBs ? '' : '$'}${formatearMiles(abonoVisual)} ${divisaVisual}`, 370, '#1565c0');
-    drawRow('Monto Restante', `${enBs ? '' : '$'}${formatearMiles(restante)} ${divisaVisual}`, 410, restante > 0 ? '#C62828' : '#1B5E20');
+    let currentY = 340;
+    if (!enBs) {
+      drawRow('Costo Total', `$${costoTotal.toFixed(2)} ${divisaVisual}`, currentY, '#444444');
+      currentY += 40;
+    }
     
-    let currentY = 450;
+    if (!esPagoCompleto) {
+      drawRow('Monto Abonado', `${enBs ? '' : '$'}${abonoVisual} ${divisaVisual}`, currentY, '#1B5E20');
+      currentY += 40;
+    }
+    
+    if (restante > 0 && !enBs) {
+      drawRow('Falta Restante', `$${restante.toFixed(2)} ${divisaVisual}`, currentY, '#C62828');
+      currentY += 40;
+    }
     
     drawRow('Fecha de Pago', formatearFechaPantalla(fPago), currentY);
-    currentY += 35;
+    currentY += 40;
     drawRow('Próximo Vencimiento', formatearFechaPantalla(fVenc), currentY, '#C62828');
-    currentY += 35;
+    currentY += 40;
     drawRow('Referencia / Pago', referencia || 'EFECTIVO / DIVISAS', currentY, '#444444');
-    currentY += 35;
+    currentY += 45;
 
     ctx.strokeStyle = '#2E7D32';
     ctx.setLineDash([6, 4]);
@@ -750,13 +769,13 @@ function PagosView({ clientes, db }) {
     ctx.stroke();
     ctx.setLineDash([]);
     
-    currentY += 25;
+    currentY += 30;
     ctx.fillStyle = '#1B5E20';
     ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('¡Gracias por tu solvencia y preferencia!', 240, currentY);
     
-    currentY += 18;
+    currentY += 20;
     ctx.font = '900 12px sans-serif';
     ctx.fillStyle = '#2E7D32';
     ctx.fillText('CONEXIÓN ESTABLE SIEMPRE.', 240, currentY);
@@ -768,6 +787,7 @@ function PagosView({ clientes, db }) {
     e.preventDefault();
     if (!selectedCliente) return;
 
+    // Guarda el valor textual exacto del formulario del modal (manteniendo ceros del input)
     const montoFinal = String(modalForm.montoPagado);
 
     try {
@@ -799,21 +819,21 @@ function PagosView({ clientes, db }) {
     
     const divisaText = pagoEnBolivares || selectedCliente.esBolivares ? 'Bs' : 'COP';
     const rawAbono = modalForm.montoPagado || selectedCliente.montoPagado || '0';
+    const abonoFormateado = String(rawAbono); // Evita truncamientos de ceros manuales para el mensaje de texto
     const costoTotal = parseFloat(selectedCliente.costo || 0);
     
-    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) cliente ${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${formatearMiles(rawAbono)} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
+    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu abono de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
     
     if (!pagoEnBolivares && !selectedCliente.esBolivares) {
       const restante = Math.max(0, costoTotal - parseFloat(rawAbono));
-      textoMensaje += `*📊 Resumen de Cuenta:*\n• Costo del Plan: *$${formatearMiles(costoTotal)} ${divisaText}*\n• Abonado Hoy: *$${formatearMiles(rawAbono)} ${divisaText}*\n• Falta Restante: _*$${formatearMiles(restante)} ${divisaText}*_\n`;
       if (restante > 0) {
-        textoMensaje += `⚠️ Por favor, recuerda cubrir el saldo pendiente lo más pronto posible.\n\n`;
+        textoMensaje += `*📊 Resumen de Cuenta:*\n• Costo del Plan: *$${costoTotal.toFixed(2)} ${divisaText}*\n• Abonado Hoy: *$${abonoFormateado} ${divisaText}*\n• Falta Restante: _*$${restante.toFixed(2)} ${divisaText}*_\n⚠️ Por favor, recuerda cubrir el saldo pendiente lo más pronto posible.\n\n`;
       }
     }
     
     textoMensaje += `*📅 Detalles de Cobertura*\n• Fecha de pago: *${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}*\n• Próximo Vencimiento: *${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}*\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
-    const numero Limpio = selectedCliente.telefono.replace(/[^\d]/g, '');
+    const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
@@ -903,7 +923,10 @@ function PagosView({ clientes, db }) {
             const costoTotal = parseFloat(c.costo || 0);
             const abono = parseFloat(c.montoPagado || 0);
             
+            // Renderización con ceros intactos en pantalla
+            const abonoVisualPantalla = c.montoPagado ? String(c.montoPagado) : '0';
             const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
+            
             const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abono < costoTotal;
             const faltante = tieneDeudaActiva ? Math.max(0, costoTotal - abono) : 0;
 
@@ -919,6 +942,7 @@ function PagosView({ clientes, db }) {
                           FIBRA
                         </span>
                       )}
+                      {/* ETIQUETA ADICIONAL DE PRÉSTAMO SOLICITADA */}
                       {c.prestamo && (
                         <span className="bg-orange-100 text-orange-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                           PRÉSTAMO
@@ -938,18 +962,18 @@ function PagosView({ clientes, db }) {
                     <div className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span>Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span></span>
                       <span>|</span>
-                      {!c.esBolivares && <span>Costo: <span className="text-gray-700 font-black">${formatearMiles(c.costo)} COP</span></span>}
+                      {!c.esBolivares && <span>Costo: <span className="text-gray-700 font-black">${c.costo} COP</span></span>}
                       {c.pagoCompletado && (
                         <>
                           {!c.esBolivares && <span>|</span>}
-                          <span>Abonó: <span className="text-blue-700 font-black">{c.esBolivares ? '' : '$'}${formatearMiles(abono)} {divisaSimbolo}</span></span>
+                          <span>Abonó: <span className="text-blue-700 font-black">{c.esBolivares ? '' : '$'}${abonoVisualPantalla} {divisaSimbolo}</span></span>
                         </>
                       )}
                       {faltante > 0 && (
                         <>
                           <span>|</span>
                           <span className="text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded">
-                            Faltan: ${formatearMiles(faltante)} COP Restantes
+                            Faltan: ${faltante.toFixed(0)} COP Restantes
                           </span>
                         </>
                       )}
@@ -1059,7 +1083,7 @@ function PagosView({ clientes, db }) {
                 {selectedCliente.nombre} {selectedCliente.apellido}
               </h3>
               <p className="text-xs text-gray-400 font-bold uppercase mt-1">
-                Plan base asignado: {selectedCliente.plan} Mbps - ${formatearMiles(selectedCliente.costo)} COP
+                Plan base asignado: {selectedCliente.plan} Mbps - ${selectedCliente.costo} COP
               </p>
             </div>
 
@@ -1093,11 +1117,12 @@ function PagosView({ clientes, db }) {
                   <label className="text-[10px] font-black text-gray-500 uppercase px-1">Monto Recibido ({pagoEnBolivares ? 'Bs' : '$ COP'})</label>
                   <div className="relative flex items-center">
                     <DollarSign size={16} className="absolute left-4 text-gray-400" />
+                    {/* Atributo type cambiado a 'text' con inputMode 'decimal' para conservar ceros a la derecha y puntos tal como se escriban */}
                     <input 
                       type="text" 
                       inputMode="decimal"
                       required
-                      placeholder="Ej. 50000"
+                      placeholder="Ej. 50.00"
                       className="w-full bg-gray-50 pl-10 pr-4 py-3.5 rounded-xl border font-bold text-gray-800 outline-none focus:border-green-500"
                       value={modalForm.montoPagado}
                       onChange={e => setModalForm({...modalForm, montoPagado: e.target.value})}
@@ -1105,7 +1130,7 @@ function PagosView({ clientes, db }) {
                   </div>
                   {!pagoEnBolivares && modalForm.montoPagado && parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado) > 0 && (
                     <span className="text-xs text-red-600 font-bold px-1 mt-0.5">
-                      ⚠️ Se registrará una deuda restante de: ${formatearMiles(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado))} COP
+                      ⚠️ Se registrará una deuda restante de: ${(parseFloat(selectedCliente.costo) - parseFloat(modalForm.montoPagado)).toFixed(0)} COP
                     </span>
                   )}
                 </div>
@@ -1169,7 +1194,7 @@ function PagosView({ clientes, db }) {
                 <p className="text-xs text-gray-500 font-bold uppercase">¡Imagen generada con éxito! Haz clic prolongado o clic derecho para guardarla / copiarla.</p>
                 
                 <div className="border rounded-2xl overflow-hidden shadow-inner max-w-xs mx-auto bg-gray-100">
-                  <img src={imageGenerated} alt="Recibo Digital EXONET" className="w-full h-auto object-contain mx-auto" />
+                  <img src={imageGenerated} alt="Recibo Digital Exonet" className="w-full h-auto object-contain mx-auto" />
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2">
@@ -1183,7 +1208,7 @@ function PagosView({ clientes, db }) {
 
                   <a 
                     href={imageGenerated} 
-                    download={`Recibo_EXONET_${selectedCliente.nombre}_${selectedCliente.apellido}.jpg`}
+                    download={`Recibo_Exonet_${selectedCliente.nombre}_${selectedCliente.apellido}.jpg`}
                     className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block"
                   >
                     Descargar en Dispositivo
@@ -1467,7 +1492,8 @@ function FtthView({ clientes, db }) {
             const estadoPago = obtenerEstadoCliente(c);
             const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
             
-            const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${formatearMiles(c.montoPagado)} ${divisaSimbolo}` : `$${formatearMiles(c.montoPagado || c.costo)} ${divisaSimbolo}`) : '$0';
+            // Garantiza que se dibuje el texto literal con ceros si está solvente
+            const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${c.montoPagado} Bs` : `$${c.montoPagado || c.costo} COP`) : '$0.00';
 
             return (
               <div 
@@ -1562,6 +1588,7 @@ function ClientesView({ clientes, nodos, db }) {
     fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false
   });
 
+  // BUSCADOR MEJORADO: Permite buscar de forma indistinta por Nombre, Apellido, IP, etc.
   const filtered = clientes.filter(c => {
     const nombreCompleto = `${c.nombre} ${c.apellido} ${c.ip}`.toLowerCase();
     const cumpleBusqueda = nombreCompleto.includes(search.toLowerCase());
@@ -1653,6 +1680,7 @@ function ClientesView({ clientes, nodos, db }) {
           const estadoActual = obtenerEstadoCliente(c);
           const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
           const faltante = estadoActual === 'SOLVENTE' && !c.esBolivares ? Math.max(0, costoTotal - abono) : 0;
+          const abonoVisualPantalla = c.montoPagado ? String(c.montoPagado) : '0';
 
           return (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
@@ -1676,11 +1704,11 @@ function ClientesView({ clientes, nodos, db }) {
               <div className="col-span-2 w-full text-center">
                 <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
                 <span className="font-bold text-gray-800 text-sm block">
-                  {c.exonerado ? '$0 (Cortesía)' : (c.esBolivares ? `${formatearMiles(abono)} ${divisaSimbolo}` : `${c.esBolivares ? '' : '$'}${formatearMiles(abono)} ${divisaSimbolo}`)}
+                  {c.exonerado ? '$0 (Cortesía)' : (c.esBolivares ? `${abonoVisualPantalla} ${divisaSimbolo}` : `$${c.costo} ${divisaSimbolo}`)}
                 </span>
                 {faltante > 0 && (
                   <span className="text-[10px] text-red-600 font-black bg-red-50 px-1.5 py-0.5 rounded inline-block mt-0.5">
-                    Faltan: ${formatearMiles(faltante)} {divisaSimbolo}
+                    Faltan: ${faltante.toFixed(0)} {divisaSimbolo}
                   </span>
                 )}
                 {c.fechaVencimiento && !c.exonerado && (
@@ -1853,7 +1881,7 @@ function NodosView({ nodos, clientes, db }) {
     const html = `
       <html>
         <head>
-          <title>EXONET - Lista de Clientes - ${nodo.nombre} - ${encabezadoMes}</title>
+          <title>Exonet - Lista de Clientes - ${nodo.nombre} - ${encabezadoMes}</title>
           <style>
             body { font-family: sans-serif; padding: 40px; color: #333; }
             h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; }
@@ -2011,7 +2039,7 @@ function SoporteView({ clientes, db }) {
     if(!cli) return alert("Selecciona un cliente");
     
     const text = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
-    window.open(`https://www.t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
     
     try {
       await addDoc(collection(db, 'soporte'), { 
