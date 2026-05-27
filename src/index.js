@@ -42,7 +42,8 @@ import {
   FileText,
   X,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Radio
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -553,7 +554,7 @@ export default function App() {
       <main className="p-4 md:p-10 max-w-[1400px] mx-auto">
         {activeTab === 'CLIENTES' && <ClientesView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'PAGOS' && <PagosView clientes={clientes} db={db} />}
-        {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} db={db} />}
+        {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
         {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
       </main>
@@ -1362,7 +1363,7 @@ function PrestamosView({ clientes, db }) {
                 {c.estadoPrestamo === 'REVISIÓN' && (
                   <button 
                     onClick={() => handleWhatsApp(c, `Soporte EXONET: Chequeo de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.\nPor favor, revisen si hay algún problema y reporten las novedades.`, false)}
-                    className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
+                    className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                     title="Mandar a Revisión"
                   >
                     <AlertCircle size={18} />
@@ -1757,7 +1758,7 @@ function ClientesView({ clientes, nodos, db }) {
                 <button 
                   onClick={() => {
                     if (window.confirm(`¿Estás seguro de que deseas eliminar al abonado ${c.nombre} ${c.apellido}?`)) {
-                      deleteDoc(doc(db, 'clientes', c.id));
+                      deleteDoc(doc(doc(db, 'clientes', c.id)));
                     }
                   }} 
                   className="p-2 bg-red-50 text-red-500 rounded-xl"
@@ -2029,75 +2030,225 @@ function NodosView({ nodos, clientes, db }) {
 }
 
 // --- CONFIGURACIÓN DE PESTAÑA SOPORTE ---
-function SoporteView({ clientes, db }) {
-  const [report, setReport] = useState({ clienteId: '', falla: 'Sin internet', comentario: '' });
+function SoporteView({ clientes, nodos, db }) {
+  const [reportType, setReportType] = useState('CLIENTE'); // Opciones: 'CLIENTE' o 'AP'
+  const [report, setReport] = useState({ targetId: '', falla: 'Sin internet', comentario: '' });
   
+  // Limpiar el destino del reporte cada vez que cambiamos de tipo de infraestructura
+  useEffect(() => {
+    setReport(prev => ({ ...prev, targetId: '' }));
+  }, [reportType]);
+
   const handleSend = async (e) => {
     e.preventDefault();
-    const cli = clientes.find(c => c.id === report.clienteId);
-    if(!cli) return alert("Selecciona un cliente");
+    if (!report.targetId) {
+      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente" : "Selecciona una AP / Nodo");
+    }
+
+    let textoTelegram = "";
+    let metadataGuardado = {};
+
+    if (reportType === 'CLIENTE') {
+      const cli = clientes.find(c => c.id === report.targetId);
+      textoTelegram = `🚨 *REPORTE EXONET - CLIENTE* 🚨\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n📍 NODO: ${cli?.ap || 'N/A'}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
+      metadataGuardado = {
+        tipoReporte: 'CLIENTE',
+        targetId: report.targetId,
+        nombreIdentificador: `${cli?.nombre} ${cli?.apellido}`
+      };
+    } else {
+      const nodo = nodos.find(n => n.id === report.targetId);
+      textoTelegram = `📡 *REPORTE EXONET - INFRAESTRUCTURA AP* 📡\n⚡ EQUIPO REVISADO: AP / NODO ${nodo?.nombre}\n🌐 IP REPARTIDOR: ${nodo?.ip || 'N/A'}\n⚠️ DIAGNÓSTICO: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
+      metadataGuardado = {
+        tipoReporte: 'AP',
+        targetId: report.targetId,
+        nombreIdentificador: `AP / NODO ${nodo?.nombre}`
+      };
+    }
     
-    const text = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(textoTelegram)}`, '_blank');
     
     try {
       await addDoc(collection(db, 'soporte'), { 
-        ...report, 
+        falla: report.falla,
+        comentario: report.comentario,
         timestamp: new Date().toLocaleString(), 
-        clienteNombre: `${cli?.nombre} ${cli?.apellido}` 
+        ...metadataGuardado
       });
-      setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
-    } catch (e) { alert("Sin permisos"); }
+      setReport({ targetId: '', falla: 'Sin internet', comentario: '' });
+    } catch (e) { 
+      alert("Sin permisos para escribir en la base de datos de soporte."); 
+    }
   };
 
   const handlePrint = () => {
-    const cli = clientes.find(c => c.id === report.clienteId);
-    if(!cli) return alert("Selecciona un cliente primero");
+    if (!report.targetId) {
+      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente primero" : "Selecciona una AP / Nodo primero");
+    }
+
+    let nombreEntidad = "";
+    let detalleExtra = "";
+
+    if (reportType === 'CLIENTE') {
+      const cli = clientes.find(c => c.id === report.targetId);
+      nombreEntidad = `Cliente: ${cli?.nombre} ${cli?.apellido}`;
+      detalleExtra = `Nodo Asociado: ${cli?.ap || 'N/A'}`;
+    } else {
+      const nodo = nodos.find(n => n.id === report.targetId);
+      nombreEntidad = `Equipo de Red: AP / NODO ${nodo?.nombre}`;
+      detalleExtra = `IP de Gestión: ${nodo?.ip || 'N/A'}`;
+    }
+
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<html><body style="font-family:sans-serif; padding:40px;"><h1>EXONET - REPORTE</h1><p>Cliente: ${cli.nombre} ${cli.apellido}</p><p>Falla: ${report.falla}</p><p>Nota: ${report.comentario}</p></body></html>`);
+    printWindow.document.write(`
+      <html>
+        <body style="font-family:sans-serif; padding:40px; color:#333;">
+          <h1 style="color:#2E7D32; border-bottom:2px solid #2E7D32; padding-bottom:10px;">EXONET - REPORTE DE SOPORTE TÉCNICO</h1>
+          <p style="font-size:16px; font-weight:bold;">Tipo de Incidencia: ${reportType === 'CLIENTE' ? 'SOPORTE USUARIO FINAL' : 'MANTENIMIENTO DE INFRAESTRUCTURA / AP'}</p>
+          <p style="font-size:14px; font-weight:bold; uppercase">${nombreEntidad}</p>
+          <p style="font-size:13px; color:#555;">${detalleExtra}</p>
+          <hr style="border:0; border-top:1px dashed #ccc; margin:20px 0;"/>
+          <p><strong>Falla / Categoría detectada:</strong> ${report.falla}</p>
+          <p><strong>Notas de Campo / Observaciones:</strong> ${report.comentario}</p>
+          <p style="margin-top:40px; font-size:11px; color:#999;">Fecha del Reporte: ${new Date().toLocaleString()}</p>
+        </body>
+      </html>
+    `);
     printWindow.document.close(); 
     printWindow.print();
-    setReport({ clienteId: '', falla: 'Sin internet', comentario: '' });
+    setReport({ targetId: '', falla: 'Sin internet', comentario: '' });
   };
 
   return (
     <div className="max-w-2xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
-      <form onSubmit={handleSend} className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
-        <select 
-          required 
-          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
-          value={report.clienteId} 
-          onChange={e => setReport({...report, clienteId: e.target.value})}
-        >
-          <option value="">-- SELECCIONAR CLIENTE --</option>
-          {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>)}
-        </select>
-        <select 
-          className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
-          value={report.falla} 
-          onChange={e => setReport({...report, falla: e.target.value})}
-        >
-          <option>Sin internet</option>
-          <option>Lentitud</option>
-          <option>Antena apagada</option>
-          <option>LAN0: 10Mbps</option>
-          <option>Problemas con las señales</option>
-          <option>Problema con el CPE</option>
-          <option>Actualización</option>
-          <option>Otro</option>
-        </select>
-        <textarea 
-          placeholder="Observaciones..." 
-          className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none focus:border-green-500" 
-          value={report.comentario} 
-          onChange={e => setReport({...report, comentario: e.target.value})} 
-        />
-        <div className="flex flex-col md:flex-row gap-4">
-          <button type="submit" style={{ backgroundColor: colors.sidebar }} className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"><Send size={24}/> ENVIAR POR TELEGRAM</button>
-          <button type="button" onClick={handlePrint} className="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 py-5 px-8 rounded-2xl font-black shadow-sm flex items-center justify-center gap-3 active:scale-95 transition-transform"><Printer size={24}/> IMPRIMIR</button>
+      
+      <div className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
+        
+        {/* Toggle de Segmentación del Tipo de Reporte */}
+        <div className="flex bg-gray-100 p-1.5 rounded-2xl border border-gray-200 gap-2">
+          <button
+            type="button"
+            onClick={() => setReportType('CLIENTE')}
+            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+              reportType === 'CLIENTE' 
+                ? 'bg-white text-green-800 shadow-md' 
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <Users size={16} />
+            Reporte de Cliente
+          </button>
+          <button
+            type="button"
+            onClick={() => setReportType('AP')}
+            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+              reportType === 'AP' 
+                ? 'bg-white text-green-800 shadow-md' 
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <Radio size={16} />
+            Reporte de AP / Nodo
+          </button>
         </div>
-      </form>
+
+        <form onSubmit={handleSend} className="space-y-6">
+          
+          {/* Desplegable Dinámico según Arquitectura de Información */}
+          {reportType === 'CLIENTE' ? (
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Abonado afectado</label>
+              <select 
+                required 
+                className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
+                value={report.targetId} 
+                onChange={e => setReport({...report, targetId: e.target.value})}
+              >
+                <option value="">-- SELECCIONAR CLIENTE --</option>
+                {clientes.map(c => (
+                  <option key={c.id} value={c.id}>{c.nombre} {c.apellido} ({c.ap})</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Estructura AP / Nodo Crítico</label>
+              <select 
+                required 
+                className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-green-800 outline-none focus:border-green-500" 
+                value={report.targetId} 
+                onChange={e => setReport({...report, targetId: e.target.value})}
+              >
+                <option value="">-- SELECCIONAR AP / NODO --</option>
+                {nodos.map(n => (
+                  <option key={n.id} value={n.id}>REPARTIDOR: {n.nombre} — (Frec: {n.frecuencia} MHz)</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Listado de Fallas Parametrizadas */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-500 uppercase px-1">Falla o Diagnóstico Base</label>
+            <select 
+              className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
+              value={report.falla} 
+              onChange={e => setReport({...report, falla: e.target.value})}
+            >
+              {reportType === 'CLIENTE' ? (
+                <>
+                  <option>Sin internet</option>
+                  <option>Lentitud</option>
+                  <option>Antena apagada</option>
+                  <option>LAN0: 10Mbps</option>
+                  <option>Problemas con las señales</option>
+                  <option>Problema con el CPE</option>
+                  <option>Actualización</option>
+                  <option>Otro</option>
+                </>
+              ) : (
+                <>
+                  <option>AP Caída / Desconectada</option>
+                  <option>Ruido Alto / Interferencia Espectral</option>
+                  <option>Reinicio por pérdidas de energía</option>
+                  <option>Saturación de Ancho de Banda</option>
+                  <option>Mantenimiento Preventivo</option>
+                  <option>Cambio de canal / Frecuencia</option>
+                  <option>Falla de Hardware / Puerto Ethernet LAN</option>
+                </>
+              )}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-500 uppercase px-1">Observaciones en Terreno</label>
+            <textarea 
+              placeholder={reportType === 'CLIENTE' ? "Ej. Router reseteado de fábrica..." : "Ej. Se observó alta atenuación en la zona sur debido a obstrucciones físicas..."}
+              className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none focus:border-green-500 font-medium text-gray-800" 
+              value={report.comentario} 
+              onChange={e => setReport({...report, comentario: e.target.value})} 
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4">
+            <button 
+              type="submit" 
+              style={{ backgroundColor: colors.sidebar }} 
+              className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"
+            >
+              <Send size={24}/> ENVIAR POR TELEGRAM
+            </button>
+            <button 
+              type="button" 
+              onClick={handlePrint} 
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 py-5 px-8 rounded-2xl font-black shadow-sm flex items-center justify-center gap-3 active:scale-95 transition-transform"
+            >
+              <Printer size={24}/> IMPRIMIR
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
