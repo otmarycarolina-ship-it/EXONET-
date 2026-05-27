@@ -673,7 +673,7 @@ function PagosView({ clientes, db }) {
 
   const enviarRecordatorioAmigable = (cliente) => {
     const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
-    const numero Limpio = cliente.telefono.replace(/[^\d]/g, '');
+    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
@@ -2050,7 +2050,7 @@ function SoporteView({ clientes, nodos, db }) {
 
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
-      textoTelegram = `🚨 *REPORTE EXONET - CLIENTE* 🚨\n👤 CLIENTE: ${cli?.nombre} ${cli?.apellido}\n📍 NODO: ${cli?.ap || 'N/A'}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
+      textoTelegram = `🚨 *REPORTE EXONET*\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
       metadataGuardado = {
         tipoReporte: 'CLIENTE',
         targetId: report.targetId,
@@ -2058,7 +2058,7 @@ function SoporteView({ clientes, nodos, db }) {
       };
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
-      textoTelegram = `📡 REPORTE EXONET - INFRAESTRUCTURA AP 📡\n⚡ REPARTIDOR REVISADO: AP / ${nodo?.nombre || 'P'}\n🌐 IP: ${nodo?.ip || ''}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
+      textoTelegram = `📡 *REPORTE EXONET - INFRAESTRUCTURA AP* 📡\n⚡ REPARTIDOR REVISADO: AP / ${nodo?.nombre || ''}\n🌐 IP: ${nodo?.ip || ''}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
       metadataGuardado = {
         tipoReporte: 'AP',
         targetId: report.targetId,
@@ -2109,7 +2109,7 @@ function SoporteView({ clientes, nodos, db }) {
           <p style="font-size:13px; color:#555;">${detalleExtra}</p>
           <hr style="border:0; border-top:1px dashed #ccc; margin:20px 0;"/>
           <p><strong>Falla / Categoría detectada:</strong> ${report.falla}</p>
-          <p><strong>Observaciones:</strong> ${report.comentario}</p>
+          <p><strong>Notas de Campo / Observaciones:</strong> ${report.comentario}</p>
           <p style="margin-top:40px; font-size:11px; color:#999;">Fecha del Reporte: ${new Date().toLocaleString()}</p>
         </body>
       </html>
@@ -2163,7 +2163,7 @@ function SoporteView({ clientes, nodos, db }) {
                 required 
                 className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
                 value={report.targetId} 
-                onChange => setReport({...report, targetId: e.target.value})}
+                onChange={e => setReport({...report, targetId: e.target.value})}
               >
                 <option value="">-- SELECCIONAR CLIENTE --</option>
                 {clientes.map(c => (
@@ -2178,7 +2178,7 @@ function SoporteView({ clientes, nodos, db }) {
                 required 
                 className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-green-800 outline-none focus:border-green-500" 
                 value={report.targetId} 
-                onChange => setReport({...report, targetId: e.target.value})}
+                onChange={e => setReport({...report, targetId: e.target.value})}
               >
                 <option value="">-- SELECCIONAR AP / NODO --</option>
                 {nodos.map(n => (
@@ -2194,41 +2194,26 @@ function SoporteView({ clientes, nodos, db }) {
             <select 
               className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
               value={report.falla} 
-              onChange => setReport({...report, falla: e.target.value})}
+              onChange={e => setReport({...report, falla: e.target.value})}
             >
-              {reportType === 'CLIENTE' ? (
-                <>
-                  <option>Sin internet</option>
-                  <option>Lentitud</option>
-                  <option>Antena apagada</option>
-                  <option>LAN0: 10Mbps</option>
-                  <option>Problemas con las señales</option>
-                  <option>Problema con el CPE</option>
-                  <option>Actualización</option>
-                  <option>Otro</option>
-                </>
-              ) : (
-                <>
-                  <option>AP caída / desconectada</option>
-                  <option>Cable 100 LAN0</option>
-                  <option>Obstrucción de frecuencia</option>
-                  <option>Cambio de frecuencia</option>
-                  <option>Rendimiento bajo</option>
-                  <option>Reinicio por pérdida de energía</option>
-                  <option>Actualización</option>
-                  <option>Otro</option>
-                </>
-              )}
+              <option>AP caída / desconectada</option>
+              <option>Cable 100 LAN0</option>
+              <option>Obstrucción de frecuencia</option>
+              <option>Cambio de frecuencia</option>
+              <option>Rendimiento bajo</option>
+              <option>Reinicio por pérdida de energía</option>
+              <option>Actualización</option>
+              <option>Otro</option>
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-black text-gray-500 uppercase px-1">Observaciones</label>
             <textarea 
-              placeholder="Observaciones..."
+              placeholder=""
               className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none focus:border-green-500 font-medium text-gray-800" 
               value={report.comentario} 
-              onChange => setReport({...report, comentario: e.target.value})} 
+              onChange={e => setReport({...report, comentario: e.target.value})} 
             />
           </div>
 
