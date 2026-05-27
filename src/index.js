@@ -2050,7 +2050,7 @@ function SoporteView({ clientes, nodos, db }) {
 
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
-      textoTelegram = `🚨 *REPORTE EXONET*\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
+      textoTelegram = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
       metadataGuardado = {
         tipoReporte: 'CLIENTE',
         targetId: report.targetId,
@@ -2058,7 +2058,7 @@ function SoporteView({ clientes, nodos, db }) {
       };
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
-      textoTelegram = `📡 *REPORTE EXONET - INFRAESTRUCTURA AP* 📡\n⚡ REPARTIDOR REVISADO: AP / ${nodo?.nombre || ''}\n🌐 IP: ${nodo?.ip || ''}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
+      textoTelegram = `📡 REPORTE EXONET - INFRAESTRUCTURA AP 📡\n⚡ REPARTIDOR REVISADO: AP / ${nodo?.nombre || ''}\n🌐 IP: ${nodo?.ip || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
       metadataGuardado = {
         tipoReporte: 'AP',
         targetId: report.targetId,
@@ -2196,14 +2196,29 @@ function SoporteView({ clientes, nodos, db }) {
               value={report.falla} 
               onChange={e => setReport({...report, falla: e.target.value})}
             >
-              <option>AP caída / desconectada</option>
-              <option>Cable 100 LAN0</option>
-              <option>Obstrucción de frecuencia</option>
-              <option>Cambio de frecuencia</option>
-              <option>Rendimiento bajo</option>
-              <option>Reinicio por pérdida de energía</option>
-              <option>Actualización</option>
-              <option>Otro</option>
+              {reportType === 'CLIENTE' ? (
+                <>
+                  <option>Sin internet</option>
+                  <option>Lentitud</option>
+                  <option>Antena apagada</option>
+                  <option>LAN0: 10Mbps</option>
+                  <option>Problemas con las señales</option>
+                  <option>Problema con el CPE</option>
+                  <option>Actualización</option>
+                  <option>Otro</option>
+                </>
+              ) : (
+                <>
+                  <option>AP caída / desconectada</option>
+                  <option>Cable 100 LAN0</option>
+                  <option>Obstrucción de frecuencia</option>
+                  <option>Cambio de frecuencia</option>
+                  <option>Rendimiento bajo</option>
+                  <option>Reinicio por pérdida de energía</option>
+                  <option>Actualización</option>
+                  <option>Otro</option>
+                </>
+              )}
             </select>
           </div>
 
