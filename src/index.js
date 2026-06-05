@@ -1,4 +1,3 @@
-```react
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
@@ -2399,5 +2398,3 @@ if (container) {
   const root = createRoot(container);
   root.render(<App />);
 }
-
-```
