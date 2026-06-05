@@ -61,6 +61,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'exonet-16b9b';
 
 const colors = {
   bg: '#E8F5E9',
@@ -442,13 +443,10 @@ export default function App() {
   const [nodos, setNodos] = useState([]);
   const [soporteList, setSoporteList] = useState([]);
 
-  // --- NUEVO ESTADO PARA GESTIÓN DE DISPOSITIVOS ACTIVOS ---
+  // --- NUEVOS ESTADOS PARA GESTIÓN DE DISPOSITIVOS REALES Y ACTIVOS ---
   const [showSessionsModal, setShowSessionsModal] = useState(false);
-  const [activeSessions, setActiveSessions] = useState([
-    { id: '1', label: 'Este dispositivo', desc: 'Tu teléfono actual', active: true, icon: '📱', time: 'Activo ahora' },
-    { id: '2', label: 'Computadora de la oficina', desc: 'Windows - Chrome', active: false, icon: '💻', time: 'Última actividad: hace 10 min' },
-    { id: '3', label: 'Computadora principal', desc: 'Windows - Edge', active: false, icon: '💻', time: 'Última actividad: ayer' }
-  ]);
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [myDeviceId, setMyDeviceId] = useState('');
   const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
 
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
@@ -493,6 +491,99 @@ export default function App() {
     return () => { unsubClientes(); unsubNodos(); unsubSoporte(); };
   }, [user]);
 
+  // --- NUEVA LÓGICA DE REGISTRO Y ESCUCHA DE SESIONES ACTIVAS (FIRESTORE) ---
+  useEffect(() => {
+    if (!user) return;
+
+    // Obtener o generar id del dispositivo actual
+    let deviceId = localStorage.getItem('exonet_device_id');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID() || Math.random().toString(36).substring(2) + Date.now();
+      localStorage.setItem('exonet_device_id', deviceId);
+    }
+    setMyDeviceId(deviceId);
+
+    const registrarYEscucharSesiones = async () => {
+      const ua = navigator.userAgent;
+      const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      let label = "Computadora principal";
+      let desc = "Windows - Edge";
+      let icon = "💻";
+
+      if (esCelular) {
+        label = "Este dispositivo (Tu teléfono actual)";
+        desc = ua.includes("iPhone") ? "iPhone - Safari" : "Teléfono - Chrome";
+        icon = "📱";
+      } else {
+        if (ua.includes("Chrome") && !ua.includes("Edg")) {
+          label = "Computadora de la oficina";
+          desc = "Windows - Chrome";
+        } else if (ua.includes("Edg")) {
+          label = "Computadora principal";
+          desc = "Windows - Edge";
+        } else {
+          label = "Computadora principal";
+          desc = "Windows - Navegador";
+        }
+      }
+
+      // Guardar registro de la sesión en Firestore en la subcolección correspondiente del usuario
+      const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
+      await setDoc(refDocSesion, {
+        id: deviceId,
+        label,
+        desc,
+        icon,
+        lastActive: Date.now()
+      }, { merge: true }).catch(e => console.error("Error registrando sesión:", e));
+
+      // Actualizar periódicamente cada 45 segundos para mantener viva la sesión
+      const keepAliveInterval = setInterval(async () => {
+        if (auth.currentUser) {
+          const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
+          await updateDoc(docVivo, { lastActive: Date.now() }).catch(() => {});
+        }
+      }, 45000);
+
+      // Escuchar las sesiones del usuario de forma reactiva
+      const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
+      const desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
+        const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        
+        // Comprobar si nuestra propia sesión sigue existiendo en el listado
+        const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
+
+        // Si hay sesiones pero la nuestra ya no está, fuimos cerrados remotamente
+        if (!todaviaExisto && snap.docs.length > 0) {
+          clearInterval(keepAliveInterval);
+          signOut(auth);
+          setUser(null);
+          setShowSessionsModal(false);
+          alert("Tu sesión ha sido cerrada remotamente desde otro dispositivo.");
+          return;
+        }
+
+        setActiveSessions(listaSesiones);
+      }, (err) => {
+        console.error("Error al escuchar cambios de sesión:", err);
+      });
+
+      return { desubscribirSesiones, keepAliveInterval };
+    };
+
+    let limpieza;
+    registrarYEscucharSesiones().then(res => {
+      limpieza = res;
+    });
+
+    return () => {
+      if (limpieza) {
+        if (limpieza.desubscribirSesiones) limpieza.desubscribirSesiones();
+        if (limpieza.keepAliveInterval) clearInterval(limpieza.keepAliveInterval);
+      }
+    };
+  }, [user]);
+
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
@@ -508,28 +599,51 @@ export default function App() {
     signOut(auth);
   };
 
-  // --- MANEJADORES DE SESIONES DISPOSITIVOS ---
-  const handleCloseSpecificSession = (id) => {
+  // --- MANEJADORES DE SESIONES DISPOSITIVOS SINCRONIZADAS CON FIRESTORE ---
+  const handleCloseSpecificSession = async (id) => {
+    if (!user) return;
     const target = activeSessions.find(s => s.id === id);
     if (!target) return;
 
-    if (target.active) {
-      // Si decide cerrar la sesión de su propio dispositivo actual, se desloguea
-      signOut(auth);
-      setShowSessionsModal(false);
-    } else {
-      // Remover de la lista remota
-      setActiveSessions(prev => prev.filter(s => s.id !== id));
+    try {
+      // Al borrarlo en Firestore, el dispositivo remoto cerrará sesión automáticamente en tiempo real
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id));
       setSessionSuccessMessage(`Se cerró la sesión correctamente en: ${target.label}`);
       setTimeout(() => setSessionSuccessMessage(''), 3500);
+    } catch (err) {
+      console.error("Error al cerrar sesión remota en Firestore:", err);
     }
   };
 
-  const handleCloseAllSessions = () => {
+  const handleCloseAllSessions = async () => {
+    if (!user) return;
     if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
-      signOut(auth);
-      setShowSessionsModal(false);
+      try {
+        // Borramos todos los registros de sesión en Firestore para forzar la salida de todos los navegadores
+        const promesas = activeSessions.map(sess => 
+          deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', sess.id))
+        );
+        await Promise.all(promesas);
+        signOut(auth);
+        setShowSessionsModal(false);
+      } catch (err) {
+        console.error("Error al cerrar todas las sesiones:", err);
+      }
     }
+  };
+
+  // Formateador dinámico y elegante del tiempo de última actividad
+  const formatearActividad = (session, currentDeviceId) => {
+    if (session.id === currentDeviceId) {
+      return "Activo ahora";
+    }
+    const difMs = Date.now() - (session.lastActive || Date.now());
+    const difMins = Math.floor(difMs / 60000);
+    if (difMins < 1) return "Última actividad: hace un momento";
+    if (difMins < 60) return `Última actividad: hace ${difMins} min`;
+    const difHoras = Math.floor(difMins / 60);
+    if (difHoras < 24) return `Última actividad: hace ${difHoras} horas`;
+    return "Última actividad: ayer";
   };
 
   if (loading) return (
@@ -658,47 +772,50 @@ export default function App() {
             )}
 
             <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-1">
-              {activeSessions.map((session) => (
-                <div 
-                  key={session.id} 
-                  className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
-                    session.active 
-                      ? 'bg-green-50 border-green-200' 
-                      : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl" role="img" aria-label="dispositivo">
-                      {session.icon}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-black text-gray-800 text-sm leading-tight">
-                          {session.label}
-                        </span>
-                        {session.active && (
-                          <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
-                            ACTIVO AHORA
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 font-semibold mt-0.5">{session.desc}</p>
-                      <p className={`text-[10px] font-bold mt-1 ${session.active ? 'text-green-700' : 'text-gray-400'}`}>
-                        {session.time}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleCloseSpecificSession(session.id)}
-                    className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
-                    title="Cerrar sesión en este dispositivo"
+              {activeSessions.map((session) => {
+                const esDispositivoActual = session.id === myDeviceId;
+                return (
+                  <div 
+                    key={session.id} 
+                    className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
+                      esDispositivoActual 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
+                    }`}
                   >
-                    <Trash2 size={14} />
-                    <span className="hidden sm:inline">Cerrar sesión aquí</span>
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl" role="img" aria-label="dispositivo">
+                        {session.icon || '💻'}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-black text-gray-800 text-sm leading-tight">
+                            {session.label}
+                          </span>
+                          {esDispositivoActual && (
+                            <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
+                              ACTIVO AHORA
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 font-semibold mt-0.5">{session.desc}</p>
+                        <p className={`text-[10px] font-bold mt-1 ${esDispositivoActual ? 'text-green-700' : 'text-gray-400'}`}>
+                          {formatearActividad(session, myDeviceId)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleCloseSpecificSession(session.id)}
+                      className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
+                      title="Cerrar sesión en este dispositivo"
+                    >
+                      <Trash2 size={14} />
+                      <span className="hidden sm:inline">Cerrar sesión aquí</span>
+                    </button>
+                  </div>
+                );
+              })}
 
               {activeSessions.length === 0 && (
                 <p className="text-center py-4 text-gray-400 font-bold italic text-sm">No hay sesiones activas registradas.</p>
@@ -1722,7 +1839,7 @@ function ClientesView({ clientes, nodos, db }) {
   const [filtroRapido, setFiltroRapido] = useState('DE_PAGO');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
-    nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
+    nombre: '', apellido: '', direccion: '', plan: '', telephone: '', 
     costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false,
     estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false,
     fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false
