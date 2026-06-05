@@ -1,3 +1,4 @@
+```react
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
@@ -442,6 +443,15 @@ export default function App() {
   const [nodos, setNodos] = useState([]);
   const [soporteList, setSoporteList] = useState([]);
 
+  // --- NUEVO ESTADO PARA GESTIÓN DE DISPOSITIVOS ACTIVOS ---
+  const [showSessionsModal, setShowSessionsModal] = useState(false);
+  const [activeSessions, setActiveSessions] = useState([
+    { id: '1', label: 'Este dispositivo', desc: 'Tu teléfono actual', active: true, icon: '📱', time: 'Activo ahora' },
+    { id: '2', label: 'Computadora de la oficina', desc: 'Windows - Chrome', active: false, icon: '💻', time: 'Última actividad: hace 10 min' },
+    { id: '3', label: 'Computadora principal', desc: 'Windows - Edge', active: false, icon: '💻', time: 'Última actividad: ayer' }
+  ]);
+  const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
+
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
 
   useEffect(() => {
@@ -499,6 +509,30 @@ export default function App() {
     signOut(auth);
   };
 
+  // --- MANEJADORES DE SESIONES DISPOSITIVOS ---
+  const handleCloseSpecificSession = (id) => {
+    const target = activeSessions.find(s => s.id === id);
+    if (!target) return;
+
+    if (target.active) {
+      // Si decide cerrar la sesión de su propio dispositivo actual, se desloguea
+      signOut(auth);
+      setShowSessionsModal(false);
+    } else {
+      // Remover de la lista remota
+      setActiveSessions(prev => prev.filter(s => s.id !== id));
+      setSessionSuccessMessage(`Se cerró la sesión correctamente en: ${target.label}`);
+      setTimeout(() => setSessionSuccessMessage(''), 3500);
+    }
+  };
+
+  const handleCloseAllSessions = () => {
+    if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
+      signOut(auth);
+      setShowSessionsModal(false);
+    }
+  };
+
   if (loading) return (
     <div style={{ backgroundColor: colors.bg }} className="min-h-screen flex flex-col items-center justify-center p-4">
       <Loader2 className="animate-spin text-green-700 mb-4" size={48} />
@@ -546,8 +580,20 @@ export default function App() {
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
-          <p className="text-[10px] text-white/40 font-bold mb-2 truncate">{user.email}</p>
-          <button onClick={handleLogout} className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-3 text-sm font-bold w-full"><LogOut size={18} /> CERRAR SESIÓN</button>
+          <p 
+            onClick={() => setShowSessionsModal(true)} 
+            className="text-[10px] text-white/40 hover:text-white transition-colors font-bold mb-2 truncate cursor-pointer flex items-center gap-1.5"
+            title="Ver Dispositivos Conectados"
+          >
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+            {user.email}
+          </p>
+          <button 
+            onClick={() => setShowSessionsModal(true)} 
+            className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-3 text-sm font-bold w-full"
+          >
+            <LogOut size={18} /> CERRAR SESIÓN
+          </button>
         </div>
       </aside>
 
@@ -580,11 +626,105 @@ export default function App() {
           <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
         </button>
-        <button onClick={handleLogout} className="p-2 flex flex-col items-center text-red-300">
+        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-300">
           <LogOut size={20} />
           <span className="text-[8px] font-bold mt-1">SALIR</span>
         </button>
       </nav>
+
+      {/* --- MODAL DE GESTIÓN DE DISPOSITIVOS ACTIVOS (ESTILO NETFLIX / GOOGLE) --- */}
+      {showSessionsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 md:p-8 shadow-2xl relative border border-green-100 my-8">
+            <button 
+              onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); }}
+              className="absolute right-6 top-6 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="mb-6">
+              <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">Seguridad & Sesión</span>
+              <h3 className="text-2xl font-black text-gray-800 uppercase leading-tight">Dispositivos conectados</h3>
+              <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+                Viendo dónde está abierta tu cuenta de Exonet.
+              </p>
+            </div>
+
+            {sessionSuccessMessage && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-100 text-green-800 text-xs font-bold rounded-xl flex items-center gap-2 animate-bounce">
+                <CheckSquare size={16} />
+                {sessionSuccessMessage}
+              </div>
+            )}
+
+            <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-1">
+              {activeSessions.map((session) => (
+                <div 
+                  key={session.id} 
+                  className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
+                    session.active 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl" role="img" aria-label="dispositivo">
+                      {session.icon}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-black text-gray-800 text-sm leading-tight">
+                          {session.label}
+                        </span>
+                        {session.active && (
+                          <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
+                            ACTIVO AHORA
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 font-semibold mt-0.5">{session.desc}</p>
+                      <p className={`text-[10px] font-bold mt-1 ${session.active ? 'text-green-700' : 'text-gray-400'}`}>
+                        {session.time}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleCloseSpecificSession(session.id)}
+                    className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
+                    title="Cerrar sesión en este dispositivo"
+                  >
+                    <Trash2 size={14} />
+                    <span className="hidden sm:inline">Cerrar sesión aquí</span>
+                  </button>
+                </div>
+              ))}
+
+              {activeSessions.length === 0 && (
+                <p className="text-center py-4 text-gray-400 font-bold italic text-sm">No hay sesiones activas registradas.</p>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <button 
+                onClick={handleCloseAllSessions}
+                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black text-sm rounded-2xl shadow-lg uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <LogOut size={16} />
+                <span>Cerrar sesión en todos los dispositivos</span>
+              </button>
+
+              <button 
+                onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); }}
+                className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block text-center"
+              >
+                Volver al Panel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2259,3 +2399,5 @@ if (container) {
   const root = createRoot(container);
   root.render(<App />);
 }
+
+```
