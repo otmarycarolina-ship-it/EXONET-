@@ -458,7 +458,7 @@ export default function App() {
   useEffect(() => {
     const timeInterval = setInterval(() => {
       setCurrentTimeState(Date.now());
-    }, 15000); // Actualiza cada 15 segundos
+    }, 15000); 
     return () => clearInterval(timeInterval);
   }, []);
 
@@ -536,7 +536,6 @@ export default function App() {
 
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
-      // Solo inicializa si no existe previamente para no sobreescribir nombres personalizados
       await setDoc(refDocSesion, {
         id: deviceId,
         label,
@@ -550,7 +549,7 @@ export default function App() {
           const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
           await updateDoc(docVivo, { lastActive: Date.now() }).catch(() => {});
         }
-      }, 15000); // Latido más rápido para control en tiempo real preciso
+      }, 15000); 
 
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       const desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
@@ -598,25 +597,13 @@ export default function App() {
     }
   };
 
-  // Cierre de sesión inmediato para el dispositivo actual
-  const handleLogoutInmediato = async () => {
-    if (user && myDeviceId) {
-      try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', myDeviceId));
-      } catch (err) {
-        console.error("Error al borrar sesión local en la salida:", err);
-      }
-    }
-    signOut(auth);
-  };
-
   const handleSaveCustomLabel = async (id) => {
     if (!user || !editingLabelText.trim()) return;
     try {
       const refDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id);
       await updateDoc(refDoc, {
         label: editingLabelText.trim(),
-        hasCustomName: true // Marca para ocultar el lápiz de edición permanente
+        hasCustomName: true 
       });
       setEditingSessionId(null);
       setEditingLabelText('');
@@ -641,6 +628,7 @@ export default function App() {
     }
   };
 
+  // CORREGIDO: Elimina absolutamente todos los registros de sesiones del usuario antes de desloguear
   const handleCloseAllSessions = async () => {
     if (!user) return;
     if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
@@ -725,8 +713,9 @@ export default function App() {
             <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
             {user.email}
           </p>
+          {/* CORREGIDO: Ahora abre el panel de control de sesiones en lugar de desloguear a ciegas */}
           <button 
-            onClick={handleLogoutInmediato} 
+            onClick={() => setShowSessionsModal(true)} 
             className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-3 text-sm font-bold w-full"
           >
             <LogOut size={18} /> CERRAR SESIÓN
@@ -763,7 +752,8 @@ export default function App() {
           <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
         </button>
-        <button onClick={handleLogoutInmediato} className="p-2 flex flex-col items-center text-red-500">
+        {/* CORREGIDO: Redirección al panel general en lugar de gatillar log-out instantáneo */}
+        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-500">
           <LogOut size={20} />
           <span className="text-[8px] font-bold mt-1">SALIR</span>
         </button>
@@ -841,7 +831,6 @@ export default function App() {
                                 ACTIVO AHORA
                               </span>
                             )}
-                            {/* Muestra el botón de editar solo si no tiene nombre personalizado guardado y no es el dispositivo actual */}
                             {!session.hasCustomName && !esDispositivoActual && (
                               <button 
                                 onClick={() => {
@@ -863,16 +852,15 @@ export default function App() {
                       </div>
                     </div>
 
-                    {!esDispositivoActual && (
-                      <button
-                        onClick={() => handleCloseSpecificSession(session.id)}
-                        className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
-                        title="Cerrar sesión remota"
-                      >
-                        <Trash2 size={14} />
-                        <span className="hidden sm:inline">Desconectar</span>
-                      </button>
-                    )}
+                    {/* Botón dinámico: Si es tu sesión actual, el botón dice 'Salir de este dispositivo', si es otro dice 'Desconectar' */}
+                    <button
+                      onClick={() => handleCloseSpecificSession(session.id)}
+                      className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
+                      title={esDispositivoActual ? "Cerrar solo tu sesión actual" : "Cerrar sesión remota"}
+                    >
+                      <Trash2 size={14} />
+                      <span className="hidden sm:inline">{esDispositivoActual ? "Salir de aquí" : "Desconectar"}</span>
+                    </button>
                   </div>
                 );
               })}
