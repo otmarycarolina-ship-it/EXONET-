@@ -449,7 +449,6 @@ export default function App() {
   const [myDeviceId, setMyDeviceId] = useState('');
   const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
 
-  // AJUSTE: Ambos correos habilitados y registrados en la lista autorizada
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
 
   useEffect(() => {
@@ -492,7 +491,7 @@ export default function App() {
     return () => { unsubClientes(); unsubNodos(); unsubSoporte(); };
   }, [user]);
 
-  // --- NUEVA LÓGICA DE REGISTRO Y ESCUCHA DE SESIONES ACTIVAS (FIRESTORE) ---
+  // --- LÓGICA DE REGISTRO Y ESCUCHA DE SESIONES ACTIVAS (FIRESTORE) ---
   useEffect(() => {
     if (!user) return;
 
@@ -511,7 +510,7 @@ export default function App() {
       let icon = "💻";
 
       if (esCelular) {
-        label = "Este dispositivo (Tu teléfono actual)";
+        label = "Teléfono Inteligente";
         desc = ua.includes("iPhone") ? "iPhone - Safari" : "Teléfono - Chrome";
         icon = "📱";
       } else {
@@ -528,13 +527,22 @@ export default function App() {
       }
 
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
+      
+      // Conservar el nombre personalizado de Firestore si ya fue editado anteriormente
       await setDoc(refDocSesion, {
         id: deviceId,
-        label,
         desc,
         icon,
-        lastActive: Date.now()
+        lastActive: Date.now(),
+        isEditable: true // Bandera que habilita cambiar de nombre una sola vez
       }, { merge: true }).catch(e => console.error("Error registrando sesión:", e));
+
+      // Si no existe un nombre guardado previamente en Firestore, asignarle el por defecto
+      onSnapshot(refDocSesion, (docSnap) => {
+        if (docSnap.exists() && !docSnap.data().label) {
+          updateDoc(refDocSesion, { label });
+        }
+      });
 
       const keepAliveInterval = setInterval(async () => {
         if (auth.currentUser) {
@@ -549,7 +557,6 @@ export default function App() {
         
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // AJUSTE: Desconexión remota limpia sin lanzar ventanas emergentes de "alert()"
         if (!todaviaExisto && snap.docs.length > 0) {
           clearInterval(keepAliveInterval);
           signOut(auth);
@@ -590,8 +597,17 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    signOut(auth);
+  // AJUSTE: Cerrar exclusivamente tu propia sesión sin afectar las demás de forma remota
+  const handleLogoutUnico = async () => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', myDeviceId));
+      signOut(auth);
+      setShowSessionsModal(false);
+    } catch (err) {
+      console.error("Error al salir de la sesión actual:", err);
+      signOut(auth);
+    }
   };
 
   const handleCloseSpecificSession = async (id) => {
@@ -621,6 +637,24 @@ export default function App() {
       } catch (err) {
         console.error("Error al cerrar todas las sesiones:", err);
       }
+    }
+  };
+
+  // AJUSTE: Permite renombrar el dispositivo una sola vez y apagar el permiso de edición posterior
+  const handleRenameSession = async (id, nombreActual) => {
+    if (!user) return;
+    const nuevoNombre = window.prompt("Introduce el nuevo nombre para este dispositivo:", nombreActual);
+    if (!nuevoNombre || nuevoNombre.trim() === "") return;
+
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id), {
+        label: nuevoNombre.trim(),
+        isEditable: false // Se remueve la opción de edición para siempre
+      });
+      setSessionSuccessMessage("Dispositivo renombrado correctamente.");
+      setTimeout(() => setSessionSuccessMessage(''), 3000);
+    } catch (err) {
+      console.error("Error al renombrar el dispositivo:", err);
     }
   };
 
@@ -693,7 +727,7 @@ export default function App() {
             {user.email}
           </p>
           <button 
-            onClick={() => setShowSessionsModal(true)} 
+            onClick={handleLogoutUnico} 
             className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-3 text-sm font-bold w-full"
           >
             <LogOut size={18} /> CERRAR SESIÓN
@@ -730,7 +764,7 @@ export default function App() {
           <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
         </button>
-        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-300">
+        <button onClick={handleLogoutUnico} className="p-2 flex flex-col items-center text-red-300">
           <LogOut size={20} />
           <span className="text-[8px] font-bold mt-1">SALIR</span>
         </button>
@@ -783,8 +817,18 @@ export default function App() {
                           <span className="font-black text-gray-800 text-sm leading-tight">
                             {session.label}
                           </span>
+                          {/* AJUSTE: Muestra el botón de editar nombre una única vez por sesión */}
+                          {session.isEditable !== false && (
+                            <button
+                              onClick={() => handleRenameSession(session.id, session.label)}
+                              className="text-green-600 hover:text-green-800 transition-colors p-0.5 ml-1"
+                              title="Asignar un nombre a este dispositivo (Solo una vez)"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
                           {esDispositivoActual && (
-                            <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
+                            <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase ml-1">
                               ACTIVO AHORA
                             </span>
                           )}
@@ -797,7 +841,7 @@ export default function App() {
                     </div>
 
                     <button
-                      onClick={() => handleCloseSpecificSession(session.id)}
+                      onClick={() => esDispositivoActual ? handleLogoutUnico() : handleCloseSpecificSession(session.id)}
                       className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
                       title="Cerrar sesión en este dispositivo"
                     >
@@ -814,6 +858,14 @@ export default function App() {
             </div>
 
             <div className="space-y-3">
+              {/* Botón añadido: Permite cerrar solo tu sesión actual desde la interfaz del modal */}
+              <button 
+                onClick={handleLogoutUnico}
+                className="w-full py-3 bg-green-700 hover:bg-green-800 text-white font-black text-xs rounded-xl shadow-md uppercase tracking-wider block text-center"
+              >
+                Cerrar solo mi sesión en este teléfono
+              </button>
+
               <button 
                 onClick={handleCloseAllSessions}
                 className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black text-sm rounded-2xl shadow-lg uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"
@@ -824,7 +876,7 @@ export default function App() {
 
               <button 
                 onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); }}
-                className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block text-center"
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block text-center"
               >
                 Volver al Panel
               </button>
@@ -920,8 +972,8 @@ function PagosView({ clientes, db }) {
 
   const enviarRecordatorioAmigable = (cliente) => {
     const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
-    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    const numero Llimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLlimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
 
