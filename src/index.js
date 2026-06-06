@@ -98,17 +98,18 @@ const obtenerEncabezadoMesActual = () => {
   return `${meses[d.getMonth()]} DE ${d.getFullYear()}`;
 };
 
+// NUEVA LÓGICA DE CORTE: Fuerza el vencimiento al día 4 del mes siguiente del pago
 const calcularVencimientoLocal = (fechaInicioStr) => {
   if (!fechaInicioStr) return '';
   const parts = fechaInicioStr.split('-');
   const ano = parseInt(parts[0], 10);
-  const mes = parseInt(parts[1], 10) - 1;
+  const mes = parseInt(parts[1], 10) - 1; // Base 0 en JS (0 = Enero)
   const dia = parseInt(parts[2], 10);
   
   const fechaPago = new Date(ano, mes, dia);
   
   let anoVencimiento = fechaPago.getFullYear();
-  let mesVencimiento = fechaPago.getMonth() + 1;
+  let mesVencimiento = fechaPago.getMonth() + 1; // Siguiente mes
   
   if (mesVencimiento > 11) {
     mesVencimiento = 0;
@@ -116,7 +117,7 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   }
   
   const rMes = String(mesVencimiento + 1).padStart(2, '0');
-  const rDia = '04';
+  const rDia = '04'; // El corte es estricto el día 4
   return `${anoVencimiento}-${rMes}-${rDia}`;
 };
 
@@ -127,6 +128,7 @@ const formatearFechaPantalla = (fechaStr) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
+// --- OBTENER ESTADO DINÁMICO ---
 const obtenerEstadoCliente = (cliente) => {
   if (cliente.exonerado) return 'SOLVENTE';
   
@@ -142,6 +144,7 @@ const obtenerEstadoCliente = (cliente) => {
   return hoyStr <= cliente.fechaVencimiento ? 'SOLVENTE' : 'PENDIENTE';
 };
 
+// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER ---
 const esProximoAVencer = (cliente) => {
   if (cliente.exonerado || !cliente.fechaVencimiento) return false;
   
@@ -162,6 +165,7 @@ const esProximoAVencer = (cliente) => {
   return diferenciaDias >= 0 && diferenciaDias <= 3;
 };
 
+// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
@@ -256,6 +260,7 @@ const handleGenerarRecibo = (cliente) => {
   printWindow.print();
 };
 
+// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
   const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
@@ -303,6 +308,7 @@ const handlePrintClientesFiltrados = (data) => {
   printWindow.print();
 };
 
+// --- UTILIDAD DE IMPRESIÓN GENERAL ---
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
   const esPagos = titulo.includes('PAGOS');
@@ -437,16 +443,24 @@ export default function App() {
   const [nodos, setNodos] = useState([]);
   const [soporteList, setSoporteList] = useState([]);
 
+  // --- ESTADOS PARA GESTIÓN DE DISPOSITIVOS ---
   const [showSessionsModal, setShowSessionsModal] = useState(false);
   const [activeSessions, setActiveSessions] = useState([]);
   const [myDeviceId, setMyDeviceId] = useState('');
   const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
-  
-  // Estados para la edición de nombres personalizados
   const [editingSessionId, setEditingSessionId] = useState(null);
-  const [customSessionName, setCustomSessionName] = useState('');
+  const [editingLabelText, setEditingLabelText] = useState('');
+  const [currentTimeState, setCurrentTimeState] = useState(Date.now());
 
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
+
+  // Efecto para actualizar los tiempos relativos de las sesiones en tiempo real
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTimeState(Date.now());
+    }, 15000); 
+    return () => clearInterval(timeInterval);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -488,7 +502,7 @@ export default function App() {
     return () => { unsubClientes(); unsubNodos(); unsubSoporte(); };
   }, [user]);
 
-  // --- ESCUCHA Y REGISTRO DE DISPOSITIVOS CON MANTENIMIENTO EN TIEMPO REAL ---
+  // --- LÓGICA DE REGISTRO Y ESCUCHA DE SESIONES ACTIVAS (FIRESTORE) ---
   useEffect(() => {
     if (!user) return;
 
@@ -502,34 +516,29 @@ export default function App() {
     const registrarYEscucharSesiones = async () => {
       const ua = navigator.userAgent;
       const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-      
-      let labelPredeterminado = "Computadora principal";
-      let desc = "Windows - Edge";
+      let label = "Computadora principal";
+      let desc = "Windows";
       let icon = "💻";
 
       if (esCelular) {
-        labelPredeterminado = "Teléfono";
-        desc = ua.includes("iPhone") ? "iPhone - Safari" : "Teléfono - Chrome";
+        label = "Teléfono";
+        desc = ua.includes("iPhone") ? "iPhone" : "Android";
         icon = "📱";
       } else {
         if (ua.includes("Chrome") && !ua.includes("Edg")) {
-          labelPredeterminado = "Computadora de la oficina";
-          desc = "Windows - Chrome";
-        } else if (ua.includes("Edg")) {
-          labelPredeterminado = "Computadora principal";
-          desc = "Windows - Edge";
+          label = "Computadora de la oficina";
+          desc = "Windows";
         } else {
-          labelPredeterminado = "Computadora principal";
-          desc = "Windows - Navegador";
+          label = "Computadora principal";
+          desc = "Windows";
         }
       }
 
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
-      // Combinamos con merge para no sobreescribir el label personalizado ya existente en la base de datos
       await setDoc(refDocSesion, {
         id: deviceId,
-        label: labelPredeterminado,
+        label,
         desc,
         icon,
         lastActive: Date.now()
@@ -540,11 +549,12 @@ export default function App() {
           const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
           await updateDoc(docVivo, { lastActive: Date.now() }).catch(() => {});
         }
-      }, 15000); // Actualiza cada 15 segundos para mayor precisión de tiempo real
+      }, 15000); 
 
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       const desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
         if (!todaviaExisto && snap.docs.length > 0) {
@@ -557,7 +567,7 @@ export default function App() {
 
         setActiveSessions(listaSesiones);
       }, (err) => {
-        console.error("Error en sesiones:", err);
+        console.error("Error al escuchar cambios de sesión:", err);
       });
 
       return { desubscribirSesiones, keepAliveInterval };
@@ -581,13 +591,27 @@ export default function App() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
+      console.error("Error al iniciar sesión:", error);
       setAuthError("Error al conectar con Google.");
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    signOut(auth);
+  const handleSaveCustomLabel = async (id) => {
+    if (!user || !editingLabelText.trim()) return;
+    try {
+      const refDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id);
+      await updateDoc(refDoc, {
+        label: editingLabelText.trim(),
+        hasCustomName: true 
+      });
+      setEditingSessionId(null);
+      setEditingLabelText('');
+      setSessionSuccessMessage("Nombre de dispositivo guardado.");
+      setTimeout(() => setSessionSuccessMessage(''), 2500);
+    } catch (err) {
+      console.error("Error al cambiar nombre de sesión:", err);
+    }
   };
 
   const handleCloseSpecificSession = async (id) => {
@@ -597,43 +621,27 @@ export default function App() {
 
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id));
-      if (id === myDeviceId) {
-        signOut(auth);
-        setUser(null);
-        setShowSessionsModal(false);
-      } else {
-        setSessionSuccessMessage(`Se cerró la sesión correctamente en: ${target.label}`);
-        setTimeout(() => setSessionSuccessMessage(''), 3500);
-      }
+      setSessionSuccessMessage(`Se cerró la sesión en: ${target.label}`);
+      setTimeout(() => setSessionSuccessMessage(''), 3500);
     } catch (err) {
-      console.error("Error al cerrar sesión remota:", err);
+      console.error("Error al cerrar sesión remota en Firestore:", err);
     }
   };
 
+  // CORREGIDO: Elimina absolutamente todos los registros de sesiones del usuario antes de desloguear
   const handleCloseAllSessions = async () => {
     if (!user) return;
-    try {
-      const promesas = activeSessions.map(sess => 
-        deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', sess.id))
-      );
-      await Promise.all(promesas);
-      signOut(auth);
-      setShowSessionsModal(false);
-    } catch (err) {
-      console.error("Error al cerrar todas las sesiones:", err);
-    }
-  };
-
-  // Guardar el nombre modificado en Firestore
-  const handleSaveCustomName = async (id) => {
-    if (!user || !customSessionName.trim()) return;
-    try {
-      const refDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id);
-      await updateDoc(refDoc, { label: customSessionName.trim() });
-      setEditingSessionId(null);
-      setCustomSessionName('');
-    } catch (err) {
-      console.error("Error guardando nombre personalizado:", err);
+    if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
+      try {
+        const promesas = activeSessions.map(sess => 
+          deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', sess.id))
+        );
+        await Promise.all(promesas);
+        signOut(auth);
+        setShowSessionsModal(false);
+      } catch (err) {
+        console.error("Error al cerrar todas las sesiones:", err);
+      }
     }
   };
 
@@ -641,7 +649,7 @@ export default function App() {
     if (session.id === currentDeviceId) {
       return "Activo ahora";
     }
-    const difMs = Date.now() - (session.lastActive || Date.now());
+    const difMs = currentTimeState - (session.lastActive || currentTimeState);
     const difMins = Math.floor(difMs / 60000);
     if (difMins < 1) return "Última actividad: hace un momento";
     if (difMins < 60) return `Última actividad: hace ${difMins} min`;
@@ -705,8 +713,9 @@ export default function App() {
             <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
             {user.email}
           </p>
+          {/* CORREGIDO: Ahora abre el panel de control de sesiones en lugar de desloguear a ciegas */}
           <button 
-            onClick={() => handleLogout()} 
+            onClick={() => setShowSessionsModal(true)} 
             className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-3 text-sm font-bold w-full"
           >
             <LogOut size={18} /> CERRAR SESIÓN
@@ -743,7 +752,8 @@ export default function App() {
           <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
         </button>
-        <button onClick={() => handleLogout()} className="p-2 flex flex-col items-center text-red-300">
+        {/* CORREGIDO: Redirección al panel general en lugar de gatillar log-out instantáneo */}
+        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-500">
           <LogOut size={20} />
           <span className="text-[8px] font-bold mt-1">SALIR</span>
         </button>
@@ -764,101 +774,93 @@ export default function App() {
               <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">Seguridad & Sesión</span>
               <h3 className="text-2xl font-black text-gray-800 uppercase leading-tight">Dispositivos conectados</h3>
               <p className="text-xs text-gray-400 font-bold uppercase mt-1">
-                Viendo dónde está abierta tu cuenta de Exonet en tiempo real.
+                Viendo dónde está abierta tu cuenta de Exonet.
               </p>
             </div>
 
             {sessionSuccessMessage && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-100 text-green-800 text-xs font-bold rounded-xl flex items-center gap-2">
+              <div className="mb-4 p-3 bg-green-50 border border-green-100 text-green-800 text-xs font-bold rounded-xl flex items-center gap-2 animate-bounce">
                 <CheckSquare size={16} />
                 {sessionSuccessMessage}
               </div>
             )}
 
-            <div className="space-y-4 mb-8 max-h-[320px] overflow-y-auto pr-1">
+            <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-1">
               {activeSessions.map((session) => {
                 const esDispositivoActual = session.id === myDeviceId;
+                const estaEditando = editingSessionId === session.id;
+
                 return (
                   <div 
                     key={session.id} 
-                    className={`p-4 rounded-2xl border transition-all flex flex-col gap-2 ${
+                    className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
                       esDispositivoActual 
                         ? 'bg-green-50 border-green-200' 
                         : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl" role="img" aria-label="dispositivo">
-                          {session.icon || '💻'}
-                        </span>
-                        <div>
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-2xl" role="img" aria-label="dispositivo">
+                        {session.icon || '💻'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        {estaEditando ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <input 
+                              type="text" 
+                              className="bg-white border text-sm font-bold px-2 py-1 rounded-lg outline-none w-full focus:border-green-500"
+                              value={editingLabelText}
+                              onChange={e => setEditingLabelText(e.target.value)}
+                              placeholder="Ej. Laptop de Carlos"
+                              maxLength={35}
+                            />
+                            <button 
+                              onClick={() => handleSaveCustomLabel(session.id)}
+                              className="bg-green-700 text-white text-xs font-bold px-2.5 py-1 rounded-lg"
+                            >
+                              OK
+                            </button>
+                          </div>
+                        ) : (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-black text-gray-800 text-sm leading-tight">
-                              {esDispositivoActual ? "Este dispositivo (Tu teléfono actual)" : session.label}
+                            <span className="font-black text-gray-800 text-sm leading-tight truncate">
+                              {esDispositivoActual ? `Tu teléfono actual` : session.label}
                             </span>
                             {esDispositivoActual && (
                               <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
                                 ACTIVO AHORA
                               </span>
                             )}
+                            {!session.hasCustomName && !esDispositivoActual && (
+                              <button 
+                                onClick={() => {
+                                  setEditingSessionId(session.id);
+                                  setEditingLabelText(session.label);
+                                }}
+                                className="text-gray-400 hover:text-green-700 p-0.5 transition-colors"
+                                title="Cambiar nombre una sola vez"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            )}
                           </div>
-                          <p className="text-xs text-gray-500 font-semibold mt-0.5">{session.desc}</p>
-                          <p className={`text-[10px] font-bold mt-1 ${esDispositivoActual ? 'text-green-700' : 'text-gray-400'}`}>
-                            {formatearActividad(session, myDeviceId)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Botón para habilitar la edición de nombre si NO es el dispositivo actual */}
-                        {!esDispositivoActual && editingSessionId !== session.id && (
-                          <button
-                            onClick={() => {
-                              setEditingSessionId(session.id);
-                              setCustomSessionName(session.label || '');
-                            }}
-                            className="p-2 text-gray-400 hover:text-green-700 bg-white border rounded-xl hover:shadow-sm transition-all"
-                            title="Editar nombre de este dispositivo"
-                          >
-                            <Pencil size={14} />
-                          </button>
                         )}
-
-                        <button
-                          onClick={() => handleCloseSpecificSession(session.id)}
-                          className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95"
-                          title="Cerrar sesión en este dispositivo"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <p className="text-xs text-gray-500 font-semibold mt-0.5">{session.desc ? `(${session.desc})` : '(Windows)'}</p>
+                        <p className={`text-[10px] font-bold mt-1 ${esDispositivoActual ? 'text-green-700' : 'text-gray-400'}`}>
+                          {formatearActividad(session, myDeviceId)}
+                        </p>
                       </div>
                     </div>
 
-                    {/* Input expandible para editar el alias del equipo */}
-                    {editingSessionId === session.id && (
-                      <div className="flex gap-2 pt-1 border-t border-dashed mt-1 animate-in slide-in-from-top-1">
-                        <input 
-                          type="text"
-                          className="flex-1 bg-white border rounded-xl px-3 py-1.5 text-xs font-bold outline-none focus:border-green-600"
-                          placeholder="Ej. Laptop de mi compañera..."
-                          value={customSessionName}
-                          onChange={e => setCustomSessionName(e.target.value)}
-                        />
-                        <button
-                          onClick={() => handleSaveCustomName(session.id)}
-                          className="bg-green-700 text-white px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider"
-                        >
-                          Listo
-                        </button>
-                        <button
-                          onClick={() => setEditingSessionId(null)}
-                          className="bg-gray-100 text-gray-500 px-2 py-1.5 rounded-xl text-xs font-bold"
-                        >
-                          X
-                        </button>
-                      </div>
-                    )}
+                    {/* Botón dinámico: Si es tu sesión actual, el botón dice 'Salir de este dispositivo', si es otro dice 'Desconectar' */}
+                    <button
+                      onClick={() => handleCloseSpecificSession(session.id)}
+                      className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
+                      title={esDispositivoActual ? "Cerrar solo tu sesión actual" : "Cerrar sesión remota"}
+                    >
+                      <Trash2 size={14} />
+                      <span className="hidden sm:inline">{esDispositivoActual ? "Salir de aquí" : "Desconectar"}</span>
+                    </button>
                   </div>
                 );
               })}
@@ -874,7 +876,7 @@ export default function App() {
                 className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black text-sm rounded-2xl shadow-lg uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"
               >
                 <LogOut size={16} />
-                <span>Cerrar todas las sesiones</span>
+                <span>Cerrar sesión en todos los dispositivos</span>
               </button>
 
               <button 
@@ -958,15 +960,18 @@ function PagosView({ clientes, db }) {
     const costoTotalNum = parseFloat(cliente.costo || 0);
     const costoTotal = costoTotalNum.toFixed(3);
 
-    try {
-      await updateDoc(doc(db, 'clientes', cliente.id), {
-        montoPagado: costoTotal,
-        fechaPago: fechaPagoActual,
-        fechaVencimiento: vencimientoCalculado,
-        pagoCompletado: true
-      });
-    } catch (err) {
-      console.error("Error al liquidar saldo directo:", err);
+    if (window.confirm(`¿Deseas registrar la liquidación completa de saldo para ${cliente.nombre} ${cliente.apellido} por un monto total de $${costoTotal} COP?`)) {
+      try {
+        await updateDoc(doc(db, 'clientes', cliente.id), {
+          montoPagado: costoTotal,
+          fechaPago: fechaPagoActual,
+          fechaVencimiento: vencimientoCalculado,
+          pagoCompletado: true
+        });
+        alert(`¡Servicio de ${cliente.nombre} completamente solventado con éxito!`);
+      } catch (err) {
+        console.error("Error al liquidar saldo directo:", err);
+      }
     }
   };
 
@@ -1110,7 +1115,8 @@ function PagosView({ clientes, db }) {
         pagoEnBolivares
       );
     } catch (err) {
-      console.error("Error al registrar el pago:", err);
+      console.error("Error al registrar el pago técnico:", err);
+      alert("Error al guardar registro en la base de datos.");
     }
   };
 
@@ -1139,17 +1145,19 @@ function PagosView({ clientes, db }) {
   };
 
   const handleClearPagoStatus = async (cliente) => {
-    try {
-      await updateDoc(doc(db, 'clientes', cliente.id), {
-        fechaVencimiento: '',
-        fechaPago: '',
-        referenciaPago: '',
-        montoPagado: '',
-        pagoCompletado: false,
-        esBolivares: false
-      });
-    } catch (err) {
-      console.error(err);
+    if (window.confirm(`¿Deseas restablecer y poner como PENDIENTE a ${cliente.nombre} ${cliente.apellido}?`)) {
+      try {
+        await updateDoc(doc(db, 'clientes', cliente.id), {
+          fechaVencimiento: '',
+          fechaPago: '',
+          referenciaPago: '',
+          montoPagado: '',
+          pagoCompletado: false,
+          esBolivares: false
+        });
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -1303,7 +1311,7 @@ function PagosView({ clientes, db }) {
                       className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black uppercase"
                       title="Poner Pago Completo (Liquidar los restantes)"
                     >
-                      <RefreshCw size={14} />
+                      <RefreshCw size={14} className="animate-spin-slow" />
                       <span>PAGO COMPLETO</span>
                     </button>
                   )}
@@ -1336,7 +1344,7 @@ function PagosView({ clientes, db }) {
                   {estadoActual === 'SOLVENTE' ? (
                     <button
                       onClick={() => handleClearPagoStatus(c)}
-                      className="px-4 py-2.5 bg-green-600 text-white border border-green-600 shadow-md rounded-xl flex items-center justify-center gap-2 transition-all text-xs font-black uppercase"
+                      className="px-4 py-2.5 bg-green-600 text-white border border-green-600 shadow-md rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase"
                     >
                       <CheckSquare size={16} />
                       <span>SOLVENTE</span>
@@ -1344,7 +1352,7 @@ function PagosView({ clientes, db }) {
                   ) : !tieneDeudaActiva ? (
                     <button
                       onClick={() => openPaymentModal(c)}
-                      className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 rounded-xl flex items-center justify-center gap-2 transition-all text-xs font-black uppercase"
+                      className="px-4 py-2.5 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-xs font-black uppercase"
                     >
                       <Square size={16} />
                       <span>REGISTRAR PAGO</span>
@@ -1481,14 +1489,14 @@ function PagosView({ clientes, db }) {
                 <button 
                   type="submit" 
                   style={{ backgroundColor: colors.sidebar }} 
-                  className="w-full py-4 text-white font-black text-sm rounded-xl shadow-lg uppercase tracking-wider mt-2 transition-transform"
+                  className="w-full py-4 text-white font-black text-sm rounded-xl shadow-lg uppercase tracking-wider mt-2 active:scale-95 transition-transform"
                 >
                   PROCESAR Y GENERAR IMAGEN
                 </button>
               </form>
             ) : (
               <div className="space-y-4 text-center animate-in zoom-in-95 duration-200">
-                <p className="text-xs text-gray-500 font-bold uppercase">¡Imagen generada con éxito! Haz clic prolongado o derecho para copiarla.</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">¡Imagen generada con éxito! Haz clic prolongado o clic derecho para guardarla / copiarla.</p>
                 
                 <div className="border rounded-2xl overflow-hidden shadow-inner max-w-xs mx-auto bg-gray-100">
                   <img src={imageGenerated} alt="Recibo Digital Exonet" className="w-full h-auto object-contain mx-auto" />
@@ -1497,7 +1505,7 @@ function PagosView({ clientes, db }) {
                 <div className="flex flex-col gap-2 pt-2">
                   <button
                     onClick={enviarSquareConRecibo}
-                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black text-sm rounded-xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2 transition-transform"
+                    className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black text-sm rounded-xl shadow-md uppercase tracking-wider flex items-center justify-center gap-2 transition-transform active:scale-95"
                   >
                     <MessageCircle size={18} />
                     <span>ENVIAR FACTURA POR WHATSAPP</span>
@@ -1527,6 +1535,7 @@ function PagosView({ clientes, db }) {
   );
 }
 
+// --- CONFIGURACIÓN DE PESTAÑA EQUIPOS ---
 function ItemManagementView({ clientes, db }) {
   const [subTab, setSubTab] = useState('INALAMBRICOS');
 
@@ -1608,7 +1617,7 @@ function PrestamosView({ clientes, db }) {
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos de Préstamo</h2>
         <button 
           onClick={() => handlePrintGeneral('LISTA DE EQUIPOS A PRÉSTAMO', enPrestamo)}
-          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 shadow-sm"
+          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
         >
           <Printer size={18} /> IMPRIMIR LISTA
         </button>
@@ -1647,7 +1656,7 @@ function PrestamosView({ clientes, db }) {
                 {c.estadoPrestamo === 'PENDIENTE DE RETIRAR' && (
                   <button 
                     onClick={() => handleWhatsApp(c, `Orden de Retiro EXONET: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
-                    className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 flex items-center gap-2"
+                    className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                     title="Reportar Retiro"
                   >
                     <Wrench size={18} />
@@ -1658,7 +1667,7 @@ function PrestamosView({ clientes, db }) {
                 {c.estadoPrestamo === 'REVISIÓN' && (
                   <button 
                     onClick={() => handleWhatsApp(c, `Soporte EXONET: Chequeo de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.\nPor favor, revisen si hay algún problema y reporten las novedades.`, false)}
-                    className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 flex items-center gap-2"
+                    className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                     title="Mandar a Revisión"
                   >
                     <AlertCircle size={18} />
@@ -1668,7 +1677,7 @@ function PrestamosView({ clientes, db }) {
 
                 <button 
                   onClick={() => handleWhatsApp(c, null, true)}
-                  className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200"
+                  className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
                   title="Enviar recordatorio estándar (Cobro)"
                 >
                   <MessageCircle size={20} />
@@ -1701,6 +1710,7 @@ function PrestamosView({ clientes, db }) {
   );
 }
 
+// --- CONFIGURACIÓN DE PESTAÑA FIBRA ---
 function FtthView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
@@ -1759,7 +1769,7 @@ function FtthView({ clientes, db }) {
         <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos de Fibra (FTTH)</h2>
         <button 
           onClick={() => handlePrintGeneral('LISTA DE EQUIPOS FTTH (FIBRA)', clientesFtth)}
-          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 shadow-sm"
+          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
         >
           <Printer size={18} /> IMPRIMIR LISTA
         </button>
@@ -1785,6 +1795,7 @@ function FtthView({ clientes, db }) {
           {clientesFtth.map((c, index) => {
             const estadoActual = getDynamicStatus(c);
             const estadoPago = obtenerEstadoCliente(c);
+            const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
             
             const abonoNum = parseFloat(c.montoPagado || c.costo || 0);
             const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${abonoNum.toFixed(3)} Bs` : `$${abonoNum.toFixed(3)} COP`) : '$0.000';
@@ -1813,7 +1824,7 @@ function FtthView({ clientes, db }) {
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
                       onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador y los accesorios que se usaron para instalarlo.`, false)}
-                      className="p-2 bg-red-100 text-red-600 rounded-xl flex items-center gap-2"
+                      className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
                       <Wrench size={18} />
@@ -1824,7 +1835,7 @@ function FtthView({ clientes, db }) {
                   {c.estadoFTTH === 'REVISIÓN' && (
                     <button 
                       onClick={() => handleWhatsApp(c, `🛠️ Soporte FTTH: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem (ONU) está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
-                      className="p-2 bg-orange-100 text-orange-600 rounded-xl flex items-center gap-2"
+                      className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                       title="Mandar a Revisión"
                     >
                       <AlertCircle size={18} />
@@ -1834,7 +1845,7 @@ function FtthView({ clientes, db }) {
 
                   <button 
                     onClick={() => handleWhatsApp(c, null, true)}
-                    className="p-2 bg-green-100 text-green-600 rounded-xl"
+                    className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
                     title="Enviar recordatorio estándar FTTH (Cobro)"
                   >
                     <MessageCircle size={20} />
@@ -1869,6 +1880,7 @@ function FtthView({ clientes, db }) {
   );
 }
 
+// --- VISTA GENERAL DE CLIENTES ---
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
@@ -1915,18 +1927,20 @@ function ClientesView({ clientes, nodos, db }) {
       setShowForm(false); setEditingId(null);
       setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false });
     } catch (err) {
-      alert("Error de permisos en la base de datos.");
+      alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
   };
 
   return (
     <div className="animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
+        <div className="flex items-center gap-4">
+          <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
+        </div>
         <div className="flex gap-2">
           <button 
             onClick={() => handlePrintClientesFiltrados(clientes)}
-            className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50"
+            className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all"
           >
             <Printer size={20} /> IMPRIMIR LISTA
           </button>
@@ -1942,24 +1956,24 @@ function ClientesView({ clientes, nodos, db }) {
       <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-md gap-1">
         <button 
           onClick={() => setFiltroRapido('TODOS')}
-          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider"
-          style={filtroRapido === 'TODOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {color: colors.sidebar}}
+          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          style={filtroRapido === 'TODOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
-          Todos ({clientes.length})
+          [ Todos ({clientes.length}) ]
         </button>
         <button 
           onClick={() => setFiltroRapido('DE_PAGO')}
-          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider"
-          style={filtroRapido === 'DE_PAGO' ? {backgroundColor: colors.sidebar, color: '#fff'} : {color: colors.sidebar}}
+          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          style={filtroRapido === 'DE_PAGO' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
-          De Pago ({totalDePago})
+          [ Clientes De Pago ({totalDePago}) ]
         </button>
         <button 
           onClick={() => setFiltroRapido('EXONERADOS')}
-          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider"
-          style={filtroRapido === 'EXONERADOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {color: colors.sidebar}}
+          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          style={filtroRapido === 'EXONERADOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
-          Exonerados ({clientes.filter(c => c.exonerado).length})
+          [ Exonerados ({clientes.filter(c => c.exonerado).length}) ]
         </button>
       </div>
 
@@ -1978,14 +1992,14 @@ function ClientesView({ clientes, nodos, db }) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
                   {c.exonerado && (
-                    <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
                       <Gift size={10} /> EXONERADO
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
-                {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1">EQUIPO A PRÉSTAMO</p>}
-                {c.ftth && <p className="text-[10px] text-blue-600 font-bold mt-1">FIBRA ÓPTICA (FTTH)</p>}
+                {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
+                {c.ftth && <p className="text-[10px] text-blue-600 font-bold mt-1 flex items-center gap-1">FIBRA ÓPTICA (FTTH)</p>}
               </div>
               <div className="col-span-2 w-full text-center">
                 <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
@@ -2023,13 +2037,13 @@ function ClientesView({ clientes, nodos, db }) {
                     const cleanNum = num.replace(/[^\d+]/g, '');
                     if (!cleanNum) return null;
                     return (
-                      <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all">
-                        <span className="text-gray-600 font-black text-[11px] font-mono">{num.trim()}</span>
+                      <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
+                        <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
                         <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
-                          <a href={`tel:${cleanNum}`} className="text-blue-500" title="Llamar">
+                          <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
                             <Phone size={18} strokeWidth={2.5} />
                           </a>
-                          <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500" title="WhatsApp">
+                          <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp">
                             <MessageCircle size={18} strokeWidth={2.5} />
                           </a>
                         </div>
@@ -2059,6 +2073,13 @@ function ClientesView({ clientes, nodos, db }) {
             </div>
           );
         })}
+
+        {filtered.length === 0 && (
+          <div className="bg-white p-20 text-center rounded-2xl border">
+            <Users size={48} className="mx-auto text-gray-200 mb-4" />
+            <p className="text-gray-400 font-bold italic">No hay abonados en esta categoría para mostrar.</p>
+          </div>
+        )}
       </div>
 
       {showForm && (
@@ -2070,26 +2091,68 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
               <input placeholder="Dirección" className="md:col-span-2 bg-gray-50 p-4 rounded-xl border" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
               <input placeholder="Plan (Mbps)" type="text" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
-              <input placeholder="Costo ($)" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
-              <input placeholder="IP" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
               
-              <select required className="bg-gray-50 p-4 rounded-xl border outline-none" value={formData.ap} onChange={e => setFormData({...formData, ap: e.target.value})}>
+              <input 
+                placeholder="Costo ($)" 
+                type="text" 
+                inputMode="decimal" 
+                className="bg-gray-50 p-4 rounded-xl border" 
+                value={formData.costo} 
+                onChange={e => setFormData({...formData, costo: e.target.value})} 
+              />
+              
+              <input 
+                placeholder="IP" 
+                type="text"
+                inputMode="decimal"
+                className="bg-gray-50 p-4 rounded-xl border font-mono" 
+                value={formData.ip} 
+                onChange={e => setFormData({...formData, ip: e.target.value})} 
+              />
+              
+              <select 
+                required 
+                className="bg-gray-50 p-4 rounded-xl border focus:border-green-500 outline-none" 
+                value={formData.ap} 
+                onChange={e => setFormData({...formData, ap: e.target.value})}
+              >
                 <option value="">-- SELECCIONAR NODO (OBLIGATORIO) --</option>
                 {nodos.map(n => <option key={n.id} value={n.nombre}>{n.nombre}</option>)}
               </select>
 
               <input placeholder="Teléfono" type="text" inputMode="tel" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
               <div className="flex gap-2">
-                <input placeholder="Señal Local" type="text" inputMode="decimal" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señal} onChange={e => setFormData({...formData, señal: e.target.value})} />
-                <input placeholder="Señal Remota" type="text" inputMode="decimal" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señalRemota} onChange={e => setFormData({...formData, señalRemota: e.target.value})} />
+                <input 
+                  placeholder="Señal Local" 
+                  type="text"
+                  inputMode="decimal"
+                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
+                  value={formData.señal} 
+                  onChange={e => setFormData({...formData, señal: e.target.value})} 
+                />
+                <input 
+                  placeholder="Señal Remota" 
+                  type="text"
+                  inputMode="decimal"
+                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
+                  value={formData.señalRemota} 
+                  onChange={e => setFormData({...formData, señalRemota: e.target.value})} 
+                />
               </div>
 
               <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer">
+                <div 
+                  onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} 
+                  className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none"
+                >
                   {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
                   <span className="font-bold text-gray-700 text-sm">Equipos a préstamo</span>
                 </div>
-                <div onClick={() => setFormData({...formData, ftth: !formData.ftth, prestamo: false})} className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer">
+
+                <div 
+                  onClick={() => setFormData({...formData, ftth: !formData.ftth, prestamo: false})} 
+                  className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
+                >
                   {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
                   <span className="font-bold text-gray-700 text-sm">FTTH (Fibra Óptica)</span>
                 </div>
@@ -2105,6 +2168,7 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
+// --- CONFIGURACIÓN DE PESTAÑA NODOS ---
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
@@ -2134,6 +2198,7 @@ function NodosView({ nodos, clientes, db }) {
             .sig-container { display: flex; flex-direction: column; align-items: center; }
             .sig-labels { font-size: 8px; color: #999; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px; }
             .sig-values { font-weight: 900; font-size: 16px; letter-spacing: -1px; }
+            .sig-values span { color: #ddd; margin: 0 4px; font-weight: normal; }
           </style>
         </head>
         <body>
@@ -2162,7 +2227,7 @@ function NodosView({ nodos, clientes, db }) {
                   <td>
                     <div class="sig-container">
                       <div class="sig-labels">LOCAL REMOTA</div>
-                      <div class="sig-values">${c.señal || '0'} / ${c.señalRemota || '0'} <small style="font-size: 10px; color: #999;">dBm</small></div>
+                      <div class="sig-values">${c.señal || '0'}<span>/</span>${c.señalRemota || '0'} <small style="font-size: 10px; color: #999;">dBm</small></div>
                     </div>
                   </td>
                   <td>${c.telefono}</td>
@@ -2207,16 +2272,16 @@ function NodosView({ nodos, clientes, db }) {
                     <p style={{ color: colors.sidebar }} className="text-2xl font-black">{clientesNodo.length}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600">
+                    <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600 transition-colors">
                       <Printer size={22} />
                     </button>
                     <button 
                       onClick={() => {
-                        if (window.confirm(`¿Deseas eliminar el repartidor ${n.nombre}?`)) {
+                        if (window.confirm(`¿Deseas eliminar el repartidor ${n.nombre}? Esta acción desconectará visualmente a sus clientes.`)) {
                           deleteDoc(doc(db, 'nodos', n.id));
                         }
                       }} 
-                      className="p-2 text-gray-300 hover:text-red-500"
+                      className="p-2 text-gray-300 hover:text-red-500 transition-colors"
                     >
                       <Trash2 size={22} />
                     </button>
@@ -2225,7 +2290,7 @@ function NodosView({ nodos, clientes, db }) {
               </div>
               <div className="p-6 space-y-3">
                 {clientesNodo.map(c => (
-                  <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-2xl gap-3 border border-transparent hover:border-green-200">
+                  <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-2xl gap-3 border border-transparent hover:border-green-200 transition-all">
                     <div className="flex-1">
                       <p className="font-black text-gray-800 uppercase text-sm">{c.nombre} {c.apellido}</p>
                       <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-[11px] text-green-700 font-bold hover:underline flex items-center gap-1">{c.ip} <ExternalLink size={9} /></a>
@@ -2245,11 +2310,13 @@ function NodosView({ nodos, clientes, db }) {
                        </div>
                        {c.prestamo && (
                          <div className="bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
+                           <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
                            <span>PRÉSTAMO</span>
                          </div>
                        )}
                        {c.ftth && (
                          <div className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
+                           <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
                            <span>FTTH</span>
                          </div>
                        )}
@@ -2266,6 +2333,7 @@ function NodosView({ nodos, clientes, db }) {
   );
 }
 
+// --- CONFIGURACIÓN DE PESTAÑA SOPORTE ---
 function SoporteView({ clientes, nodos, db }) {
   const [reportType, setReportType] = useState('CLIENTE');
   const [report, setReport] = useState({ targetId: '', falla: 'Sin internet', comentario: '' });
@@ -2312,7 +2380,7 @@ function SoporteView({ clientes, nodos, db }) {
       });
       setReport({ targetId: '', falla: 'Sin internet', comentario: '' });
     } catch (e) { 
-      console.error(e);
+      alert("Sin permisos para escribir en la base de datos de soporte."); 
     }
   };
 
@@ -2394,7 +2462,7 @@ function SoporteView({ clientes, nodos, db }) {
               <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Abonado afectado</label>
               <select 
                 required 
-                className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none" 
+                className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
                 value={report.targetId} 
                 onChange={e => setReport({...report, targetId: e.target.value})}
               >
@@ -2409,7 +2477,7 @@ function SoporteView({ clientes, nodos, db }) {
               <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Estructura AP / Nodo Crítico</label>
               <select 
                 required 
-                className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-green-800 outline-none" 
+                className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-green-800 outline-none focus:border-green-500" 
                 value={report.targetId} 
                 onChange={e => setReport({...report, targetId: e.target.value})}
               >
@@ -2424,7 +2492,7 @@ function SoporteView({ clientes, nodos, db }) {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-black text-gray-500 uppercase px-1">Falla o Diagnóstico Base</label>
             <select 
-              className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none" 
+              className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-gray-700 outline-none focus:border-green-500" 
               value={report.falla} 
               onChange={e => setReport({...report, falla: e.target.value})}
             >
@@ -2457,7 +2525,8 @@ function SoporteView({ clientes, nodos, db }) {
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-black text-gray-500 uppercase px-1">Observaciones</label>
             <textarea 
-              className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none font-medium text-gray-800" 
+              placeholder=""
+              className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none focus:border-green-500 font-medium text-gray-800" 
               value={report.comentario} 
               onChange={e => setReport({...report, comentario: e.target.value})} 
             />
@@ -2467,14 +2536,14 @@ function SoporteView({ clientes, nodos, db }) {
             <button 
               type="submit" 
               style={{ backgroundColor: colors.sidebar }} 
-              className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 transition-transform"
+              className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"
             >
               <Send size={24}/> ENVIAR POR TELEGRAM
             </button>
             <button 
               type="button" 
               onClick={handlePrint} 
-              className="bg-gray-100 text-gray-700 border border-gray-200 py-5 px-8 rounded-2xl font-black shadow-sm flex items-center justify-center gap-3 transition-transform"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 py-5 px-8 rounded-2xl font-black shadow-sm flex items-center justify-center gap-3 active:scale-95 transition-transform"
             >
               <Printer size={24}/> IMPRIMIR
             </button>
