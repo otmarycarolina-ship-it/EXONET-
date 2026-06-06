@@ -449,6 +449,7 @@ export default function App() {
   const [myDeviceId, setMyDeviceId] = useState('');
   const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
 
+  // AJUSTE: Ambos correos habilitados y registrados en la lista autorizada
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
 
   useEffect(() => {
@@ -495,7 +496,6 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
-    // Obtener o generar id del dispositivo actual
     let deviceId = localStorage.getItem('exonet_device_id');
     if (!deviceId) {
       deviceId = crypto.randomUUID() || Math.random().toString(36).substring(2) + Date.now();
@@ -527,7 +527,6 @@ export default function App() {
         }
       }
 
-      // Guardar registro de la sesión en Firestore en la subcolección correspondiente del usuario
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       await setDoc(refDocSesion, {
         id: deviceId,
@@ -537,7 +536,6 @@ export default function App() {
         lastActive: Date.now()
       }, { merge: true }).catch(e => console.error("Error registrando sesión:", e));
 
-      // Actualizar periódicamente cada 45 segundos para mantener viva la sesión
       const keepAliveInterval = setInterval(async () => {
         if (auth.currentUser) {
           const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
@@ -545,21 +543,18 @@ export default function App() {
         }
       }, 45000);
 
-      // Escuchar las sesiones del usuario de forma reactiva
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       const desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         
-        // Comprobar si nuestra propia sesión sigue existiendo en el listado
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // Si hay sesiones pero la nuestra ya no está, fuimos cerrados remotamente
+        // AJUSTE: Desconexión remota limpia sin lanzar ventanas emergentes de "alert()"
         if (!todaviaExisto && snap.docs.length > 0) {
           clearInterval(keepAliveInterval);
           signOut(auth);
           setUser(null);
           setShowSessionsModal(false);
-          alert("Tu sesión ha sido cerrada remotamente desde otro dispositivo.");
           return;
         }
 
@@ -599,14 +594,12 @@ export default function App() {
     signOut(auth);
   };
 
-  // --- MANEJADORES DE SESIONES DISPOSITIVOS SINCRONIZADAS CON FIRESTORE ---
   const handleCloseSpecificSession = async (id) => {
     if (!user) return;
     const target = activeSessions.find(s => s.id === id);
     if (!target) return;
 
     try {
-      // Al borrarlo en Firestore, el dispositivo remoto cerrará sesión automáticamente en tiempo real
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id));
       setSessionSuccessMessage(`Se cerró la sesión correctamente en: ${target.label}`);
       setTimeout(() => setSessionSuccessMessage(''), 3500);
@@ -619,7 +612,6 @@ export default function App() {
     if (!user) return;
     if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
       try {
-        // Borramos todos los registros de sesión en Firestore para forzar la salida de todos los navegadores
         const promesas = activeSessions.map(sess => 
           deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', sess.id))
         );
@@ -632,7 +624,6 @@ export default function App() {
     }
   };
 
-  // Formateador dinámico y elegante del tiempo de última actividad
   const formatearActividad = (session, currentDeviceId) => {
     if (session.id === currentDeviceId) {
       return "Activo ahora";
@@ -745,7 +736,7 @@ export default function App() {
         </button>
       </nav>
 
-      {/* --- MODAL DE GESTIÓN DE DISPOSITIVOS ACTIVOS (ESTILO NETFLIX / GOOGLE) --- */}
+      {/* --- MODAL DE GESTIÓN DE DISPOSITIVOS ACTIVOS --- */}
       {showSessionsModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 md:p-8 shadow-2xl relative border border-green-100 my-8">
@@ -2120,7 +2111,7 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
-// --- CONFIGURACIÓN DE PESTAÑA NODOS (REPARTIDORES) ---
+// --- CONFIGURACIÓN DE PESTAÑA NODOS ---
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
@@ -2287,10 +2278,9 @@ function NodosView({ nodos, clientes, db }) {
 
 // --- CONFIGURACIÓN DE PESTAÑA SOPORTE ---
 function SoporteView({ clientes, nodos, db }) {
-  const [reportType, setReportType] = useState('CLIENTE'); // Opciones: 'CLIENTE' o 'AP'
+  const [reportType, setReportType] = useState('CLIENTE');
   const [report, setReport] = useState({ targetId: '', falla: 'Sin internet', comentario: '' });
   
-  // Limpiar el destino del reporte cada vez que cambiamos de tipo de infraestructura
   useEffect(() => {
     setReport(prev => ({ ...prev, targetId: '' }));
   }, [reportType]);
@@ -2381,7 +2371,6 @@ function SoporteView({ clientes, nodos, db }) {
       
       <div className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
         
-        {/* Toggle de Segmentación del Tipo de Reporte */}
         <div className="flex bg-gray-100 p-1.5 rounded-2xl border border-gray-200 gap-2">
           <button
             type="button"
@@ -2411,7 +2400,6 @@ function SoporteView({ clientes, nodos, db }) {
 
         <form onSubmit={handleSend} className="space-y-6">
           
-          {/* Desplegable Dinámico según Arquitectura de Información */}
           {reportType === 'CLIENTE' ? (
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Abonado afectado</label>
@@ -2444,7 +2432,6 @@ function SoporteView({ clientes, nodos, db }) {
             </div>
           )}
 
-          {/* Listado de Fallas Parametrizadas */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-black text-gray-500 uppercase px-1">Falla o Diagnóstico Base</label>
             <select 
