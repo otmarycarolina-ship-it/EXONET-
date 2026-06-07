@@ -557,6 +557,7 @@ export default function App() {
         
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
+        // MODIFICADO: Expulsión remota forzada instantánea, no importa si la app está en uso o cerrada
         if (!todaviaExisto && snap.docs.length > 0) {
           clearInterval(keepAliveInterval);
           signOut(auth);
@@ -602,8 +603,7 @@ export default function App() {
     try {
       const refDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id);
       await updateDoc(refDoc, {
-        label: editingLabelText.trim(),
-        hasCustomName: true 
+        label: editingLabelText.trim()
       });
       setEditingSessionId(null);
       setEditingLabelText('');
@@ -628,7 +628,6 @@ export default function App() {
     }
   };
 
-  // CORREGIDO: Elimina absolutamente todos los registros de sesiones del usuario antes de desloguear
   const handleCloseAllSessions = async () => {
     if (!user) return;
     if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
@@ -713,7 +712,6 @@ export default function App() {
             <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
             {user.email}
           </p>
-          {/* CORREGIDO: Ahora abre el panel de control de sesiones en lugar de desloguear a ciegas */}
           <button 
             onClick={() => setShowSessionsModal(true)} 
             className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-3 text-sm font-bold w-full"
@@ -752,7 +750,6 @@ export default function App() {
           <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
         </button>
-        {/* CORREGIDO: Redirección al panel general en lugar de gatillar log-out instantáneo */}
         <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-500">
           <LogOut size={20} />
           <span className="text-[8px] font-bold mt-1">SALIR</span>
@@ -824,39 +821,37 @@ export default function App() {
                         ) : (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-black text-gray-800 text-sm leading-tight truncate">
-                              {esDispositivoActual ? `Tu teléfono actual` : session.label}
+                              {esDispositivoActual ? `📱 (Tu teléfono actual)` : `${session.icon || '💻'} ${session.label}`}
                             </span>
                             {esDispositivoActual && (
                               <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
                                 ACTIVO AHORA
                               </span>
                             )}
-                            {!session.hasCustomName && !esDispositivoActual && (
-                              <button 
-                                onClick={() => {
-                                  setEditingSessionId(session.id);
-                                  setEditingLabelText(session.label);
-                                }}
-                                className="text-gray-400 hover:text-green-700 p-0.5 transition-colors"
-                                title="Cambiar nombre una sola vez"
-                              >
-                                <Pencil size={12} />
-                              </button>
-                            )}
+                            {/* MODIFICADO: El botón de edición permanece siempre disponible para cambios futuros */}
+                            <button 
+                              onClick={() => {
+                                setEditingSessionId(session.id);
+                                setEditingLabelText(session.label);
+                              }}
+                              className="text-gray-400 hover:text-green-700 p-0.5 transition-colors"
+                              title="Modificar nombre de este dispositivo"
+                            >
+                              <Pencil size={12} />
+                            </button>
                           </div>
                         )}
-                        <p className="text-xs text-gray-500 font-semibold mt-0.5">{session.desc ? `(${session.desc})` : '(Windows)'}</p>
+                        <p className="text-xs text-gray-500 font-semibold mt-0.5">Sistemas: ({session.desc || 'Windows'})</p>
                         <p className={`text-[10px] font-bold mt-1 ${esDispositivoActual ? 'text-green-700' : 'text-gray-400'}`}>
                           {formatearActividad(session, myDeviceId)}
                         </p>
                       </div>
                     </div>
 
-                    {/* Botón dinámico: Si es tu sesión actual, el botón dice 'Salir de este dispositivo', si es otro dice 'Desconectar' */}
                     <button
                       onClick={() => handleCloseSpecificSession(session.id)}
                       className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
-                      title={esDispositivoActual ? "Cerrar solo tu sesión actual" : "Cerrar sesión remota"}
+                      title={esDispositivoActual ? "Cerrar tu sesión" : "Desconectar remotamente"}
                     >
                       <Trash2 size={14} />
                       <span className="hidden sm:inline">{esDispositivoActual ? "Salir de aquí" : "Desconectar"}</span>
@@ -1823,7 +1818,7 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador y los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador and los accesorios que se usaron para instalarlo.`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
