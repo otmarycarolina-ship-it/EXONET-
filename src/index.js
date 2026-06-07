@@ -9,8 +9,7 @@ import {
   onSnapshot, 
   deleteDoc, 
   addDoc,
-  updateDoc,
-  getDoc
+  updateDoc 
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -99,17 +98,18 @@ const obtenerEncabezadoMesActual = () => {
   return `${meses[d.getMonth()]} DE ${d.getFullYear()}`;
 };
 
+// NUEVA LÓGICA DE CORTE: Fuerza el vencimiento al día 4 del mes siguiente del pago
 const calcularVencimientoLocal = (fechaInicioStr) => {
   if (!fechaInicioStr) return '';
   const parts = fechaInicioStr.split('-');
   const ano = parseInt(parts[0], 10);
-  const mes = parseInt(parts[1], 10) - 1; 
+  const mes = parseInt(parts[1], 10) - 1; // Base 0 en JS (0 = Enero)
   const dia = parseInt(parts[2], 10);
   
   const fechaPago = new Date(ano, mes, dia);
   
   let anoVencimiento = fechaPago.getFullYear();
-  let mesVencimiento = fechaPago.getMonth() + 1; 
+  let mesVencimiento = fechaPago.getMonth() + 1; // Siguiente mes
   
   if (mesVencimiento > 11) {
     mesVencimiento = 0;
@@ -117,7 +117,7 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   }
   
   const rMes = String(mesVencimiento + 1).padStart(2, '0');
-  const rDia = '04'; 
+  const rDia = '04'; // El corte es estricto el día 4
   return `${anoVencimiento}-${rMes}-${rDia}`;
 };
 
@@ -128,6 +128,7 @@ const formatearFechaPantalla = (fechaStr) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
+// --- OBTENER ESTADO DINÁMICO ---
 const obtenerEstadoCliente = (cliente) => {
   if (cliente.exonerado) return 'SOLVENTE';
   
@@ -143,6 +144,7 @@ const obtenerEstadoCliente = (cliente) => {
   return hoyStr <= cliente.fechaVencimiento ? 'SOLVENTE' : 'PENDIENTE';
 };
 
+// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER ---
 const esProximoAVencer = (cliente) => {
   if (cliente.exonerado || !cliente.fechaVencimiento) return false;
   
@@ -163,6 +165,7 @@ const esProximoAVencer = (cliente) => {
   return diferenciaDias >= 0 && diferenciaDias <= 3;
 };
 
+// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
@@ -257,6 +260,7 @@ const handleGenerarRecibo = (cliente) => {
   printWindow.print();
 };
 
+// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
   const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
@@ -304,6 +308,7 @@ const handlePrintClientesFiltrados = (data) => {
   printWindow.print();
 };
 
+// --- UTILIDAD DE IMPRESIÓN GENERAL ---
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
   const esPagos = titulo.includes('PAGOS');
@@ -449,6 +454,7 @@ export default function App() {
 
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
 
+  // Efecto para actualizar los tiempos relativos de las sesiones en tiempo real
   useEffect(() => {
     const timeInterval = setInterval(() => {
       setCurrentTimeState(Date.now());
@@ -508,30 +514,27 @@ export default function App() {
     setMyDeviceId(deviceId);
 
     const registrarYEscucharSesiones = async () => {
-      const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
-      
-      // SOLUCIÓN AL BORRADO DE NOMBRE: Comprobar primero si ya tiene una etiqueta asignada en la DB
-      const snapActual = await getDoc(refDocSesion).catch(() => null);
-      let label = snapActual && snapActual.exists() ? snapActual.data().label : null;
-      let desc = snapActual && snapActual.exists() ? snapActual.data().desc : null;
-      let icon = snapActual && snapActual.exists() ? snapActual.data().icon : null;
+      const ua = navigator.userAgent;
+      const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      let label = "Computadora principal";
+      let desc = "Windows";
+      let icon = "💻";
 
-      if (!label) {
-        const ua = navigator.userAgent;
-        const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-        label = "Computadora principal";
-        desc = "Windows";
-        icon = "💻";
-
-        if (esCelular) {
-          label = "Teléfono";
-          desc = ua.includes("iPhone") ? "iPhone" : "Android";
-          icon = "📱";
-        } else if (ua.includes("Chrome") && !ua.includes("Edg")) {
+      if (esCelular) {
+        label = "Teléfono";
+        desc = ua.includes("iPhone") ? "iPhone" : "Android";
+        icon = "📱";
+      } else {
+        if (ua.includes("Chrome") && !ua.includes("Edg")) {
           label = "Computadora de la oficina";
+          desc = "Windows";
+        } else {
+          label = "Computadora principal";
           desc = "Windows";
         }
       }
+
+      const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
       await setDoc(refDocSesion, {
         id: deviceId,
@@ -554,8 +557,8 @@ export default function App() {
         
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // SOLUCIÓN EXPULSIÓN INMEDIATA: Desconectarse de forma estricta si el ID ya no está en la colección de Firestore.
-        if (!todaviaExisto) {
+        // MODIFICADO: Expulsión remota forzada instantánea, no importa si la app está en uso o cerrada
+        if (!todaviaExisto && snap.docs.length > 0) {
           clearInterval(keepAliveInterval);
           signOut(auth);
           setUser(null);
@@ -597,6 +600,10 @@ export default function App() {
 
   const handleSaveCustomLabel = async (id) => {
     if (!user || !editingLabelText.trim()) return;
+    
+    // Cambiamos el estado local inmediatamente para que el render sea instantáneo en pantalla
+    setActiveSessions(prev => prev.map(sess => sess.id === id ? { ...sess, label: editingLabelText.trim() } : sess));
+    
     try {
       const refDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id);
       await updateDoc(refDoc, {
@@ -622,22 +629,6 @@ export default function App() {
       setTimeout(() => setSessionSuccessMessage(''), 3500);
     } catch (err) {
       console.error("Error al cerrar sesión remota en Firestore:", err);
-    }
-  };
-
-  const handleCloseAllSessions = async () => {
-    if (!user) return;
-    if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
-      try {
-        const promesas = activeSessions.map(sess => 
-          deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', sess.id))
-        );
-        await Promise.all(promesas);
-        signOut(auth);
-        setShowSessionsModal(false);
-      } catch (err) {
-        console.error("Error al cerrar todas las sesiones:", err);
-      }
     }
   };
 
@@ -779,7 +770,7 @@ export default function App() {
               </div>
             )}
 
-            <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-1">
+            <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-1">
               {activeSessions.map((session) => {
                 const esDispositivoActual = session.id === myDeviceId;
                 const estaEditando = editingSessionId === session.id;
@@ -818,7 +809,7 @@ export default function App() {
                         ) : (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-black text-gray-800 text-sm leading-tight truncate">
-                              {esDispositivoActual ? `📱 (Tu teléfono actual)` : `${session.icon || '💻'} ${session.label}`}
+                              {esDispositivoActual ? `📱 (Tu teléfono actual) — ${session.label}` : `${session.icon || '💻'} ${session.label}`}
                             </span>
                             {esDispositivoActual && (
                               <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
@@ -863,16 +854,8 @@ export default function App() {
 
             <div className="space-y-3">
               <button 
-                onClick={handleCloseAllSessions}
-                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black text-sm rounded-2xl shadow-lg uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                <LogOut size={16} />
-                <span>Cerrar sesión en todos los dispositivos</span>
-              </button>
-
-              <button 
                 onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); setEditingSessionId(null); }}
-                className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block text-center"
+                className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block text-center"
               >
                 Volver al Panel
               </button>
