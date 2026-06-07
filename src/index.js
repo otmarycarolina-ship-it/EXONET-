@@ -98,18 +98,17 @@ const obtenerEncabezadoMesActual = () => {
   return `${meses[d.getMonth()]} DE ${d.getFullYear()}`;
 };
 
-// NUEVA LÓGICA DE CORTE: Fuerza el vencimiento al día 4 del mes siguiente del pago
 const calcularVencimientoLocal = (fechaInicioStr) => {
   if (!fechaInicioStr) return '';
   const parts = fechaInicioStr.split('-');
   const ano = parseInt(parts[0], 10);
-  const mes = parseInt(parts[1], 10) - 1; // Base 0 en JS (0 = Enero)
+  const mes = parseInt(parts[1], 10) - 1; 
   const dia = parseInt(parts[2], 10);
   
   const fechaPago = new Date(ano, mes, dia);
   
   let anoVencimiento = fechaPago.getFullYear();
-  let mesVencimiento = fechaPago.getMonth() + 1; // Siguiente mes
+  let mesVencimiento = fechaPago.getMonth() + 1; 
   
   if (mesVencimiento > 11) {
     mesVencimiento = 0;
@@ -117,7 +116,7 @@ const calcularVencimientoLocal = (fechaInicioStr) => {
   }
   
   const rMes = String(mesVencimiento + 1).padStart(2, '0');
-  const rDia = '04'; // El corte es estricto el día 4
+  const rDia = '04'; 
   return `${anoVencimiento}-${rMes}-${rDia}`;
 };
 
@@ -128,7 +127,6 @@ const formatearFechaPantalla = (fechaStr) => {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
 
-// --- OBTENER ESTADO DINÁMICO ---
 const obtenerEstadoCliente = (cliente) => {
   if (cliente.exonerado) return 'SOLVENTE';
   
@@ -144,7 +142,6 @@ const obtenerEstadoCliente = (cliente) => {
   return hoyStr <= cliente.fechaVencimiento ? 'SOLVENTE' : 'PENDIENTE';
 };
 
-// --- COMPROBAR SI ESTÁ PRÓXIMO A VENCER ---
 const esProximoAVencer = (cliente) => {
   if (cliente.exonerado || !cliente.fechaVencimiento) return false;
   
@@ -165,7 +162,6 @@ const esProximoAVencer = (cliente) => {
   return diferenciaDias >= 0 && diferenciaDias <= 3;
 };
 
-// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handleGenerarRecibo = (cliente) => {
   const printWindow = window.open('', '_blank');
   const moneda = cliente.esBolivares ? 'Bs' : 'COP';
@@ -260,7 +256,6 @@ const handleGenerarRecibo = (cliente) => {
   printWindow.print();
 };
 
-// --- IMPRESIÓN DE COMPROBANTE DIGITAL ---
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
   const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
@@ -308,7 +303,6 @@ const handlePrintClientesFiltrados = (data) => {
   printWindow.print();
 };
 
-// --- UTILIDAD DE IMPRESIÓN GENERAL ---
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
   const esPagos = titulo.includes('PAGOS');
@@ -454,7 +448,6 @@ export default function App() {
 
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
 
-  // Efecto para actualizar los tiempos relativos de las sesiones en tiempo real
   useEffect(() => {
     const timeInterval = setInterval(() => {
       setCurrentTimeState(Date.now());
@@ -557,9 +550,10 @@ export default function App() {
         
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // MODIFICADO: Expulsión remota forzada instantánea, no importa si la app está en uso o cerrada
+        // EXPULSIÓN REMOTA ABSOLUTA: Elimina registros del localStorage para desvincular el dispositivo de raíz
         if (!todaviaExisto && snap.docs.length > 0) {
           clearInterval(keepAliveInterval);
+          localStorage.removeItem('exonet_device_id'); // Borra rastro para que no re-conecte por debajo
           signOut(auth);
           setUser(null);
           setShowSessionsModal(false);
@@ -601,7 +595,6 @@ export default function App() {
   const handleSaveCustomLabel = async (id) => {
     if (!user || !editingLabelText.trim()) return;
     
-    // Cambiamos el estado local inmediatamente para que el render sea instantáneo en pantalla
     setActiveSessions(prev => prev.map(sess => sess.id === id ? { ...sess, label: editingLabelText.trim() } : sess));
     
     try {
@@ -796,7 +789,7 @@ export default function App() {
                               className="bg-white border text-sm font-bold px-2 py-1 rounded-lg outline-none w-full focus:border-green-500"
                               value={editingLabelText}
                               onChange={e => setEditingLabelText(e.target.value)}
-                              placeholder="Ej. Laptop de Carlos"
+                              placeholder="Ej. Mi Teléfono Personal"
                               maxLength={35}
                             />
                             <button 
@@ -809,11 +802,11 @@ export default function App() {
                         ) : (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-black text-gray-800 text-sm leading-tight truncate">
-                              {esDispositivoActual ? `📱 (Tu teléfono actual) — ${session.label}` : `${session.icon || '💻'} ${session.label}`}
+                              {esDispositivoActual ? `📱 ${session.label || 'Este dispositivo'}` : `${session.icon || '💻'} ${session.label}`}
                             </span>
                             {esDispositivoActual && (
                               <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
-                                ACTIVO AHORA
+                                TU TELÉFONO ACTUAL
                               </span>
                             )}
                             <button 
@@ -1509,7 +1502,6 @@ function PagosView({ clientes, db }) {
   );
 }
 
-// --- CONFIGURACIÓN DE PESTAÑA EQUIPOS ---
 function ItemManagementView({ clientes, db }) {
   const [subTab, setSubTab] = useState('INALAMBRICOS');
 
@@ -1684,7 +1676,6 @@ function PrestamosView({ clientes, db }) {
   );
 }
 
-// --- CONFIGURACIÓN DE PESTAÑA FIBRA ---
 function FtthView({ clientes, db }) {
   const [search, setSearch] = useState('');
 
@@ -1854,7 +1845,6 @@ function FtthView({ clientes, db }) {
   );
 }
 
-// --- VISTA GENERAL DE CLIENTES ---
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
@@ -2142,7 +2132,6 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
-// --- CONFIGURACIÓN DE PESTAÑA NODOS ---
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
@@ -2307,7 +2296,6 @@ function NodosView({ nodos, clientes, db }) {
   );
 }
 
-// --- CONFIGURACIÓN DE PESTAÑA SOPORTE ---
 function SoporteView({ clientes, nodos, db }) {
   const [reportType, setReportType] = useState('CLIENTE');
   const [report, setReport] = useState({ targetId: '', falla: 'Sin internet', comentario: '' });
