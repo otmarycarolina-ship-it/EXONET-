@@ -557,7 +557,7 @@ export default function App() {
         
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // MODIFICADO: Expulsión remota forzada instantánea, no importa si la app está en uso o cerrada
+        // MODIFICADO: Expulsión remota forzada instantánea para cierres individuales o masivos
         if (!todaviaExisto && snap.docs.length > 0) {
           clearInterval(keepAliveInterval);
           signOut(auth);
@@ -628,6 +628,8 @@ export default function App() {
     }
   };
 
+  // MODIFICADO: Ahora elimina de forma real y masiva todos los registros de la colección.
+  // Cualquier terminal colgado o app en segundo plano se cerrará de golpe al instante de ejecutarse.
   const handleCloseAllSessions = async () => {
     if (!user) return;
     if (window.confirm("¿Seguro que deseas cerrar la sesión en todos los dispositivos conectados? Tu dispositivo actual también se desconectará.")) {
@@ -639,7 +641,7 @@ export default function App() {
         signOut(auth);
         setShowSessionsModal(false);
       } catch (err) {
-        console.error("Error al cerrar todas las sesiones:", err);
+        console.error("Error al cerrar todas las sesiones masivamente:", err);
       }
     }
   };
@@ -828,7 +830,6 @@ export default function App() {
                                 ACTIVO AHORA
                               </span>
                             )}
-                            {/* MODIFICADO: El botón de edición permanece siempre disponible para cambios futuros */}
                             <button 
                               onClick={() => {
                                 setEditingSessionId(session.id);
@@ -972,7 +973,7 @@ function PagosView({ clientes, db }) {
 
   const enviarRecordatorioAmigable = (cliente) => {
     const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
-    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const numero Limpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
@@ -1440,7 +1441,7 @@ function PagosView({ clientes, db }) {
                   <input 
                     type="text" 
                     placeholder="pago móvil / efectivo"
-                    className="w-full bg-gray-50 px-4 py-3.5 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
+                    className="w-full bg-gray-50 p-4 rounded-xl border font-bold text-gray-800 focus:border-green-500 outline-none"
                     value={modalForm.referenciaPago}
                     onChange={e => setModalForm({...modalForm, referenciaPago: e.target.value.toUpperCase()})}
                   />
@@ -1818,7 +1819,7 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador and los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador y los accesorios que se usaron para instalarlo.`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
