@@ -9,7 +9,8 @@ import {
   onSnapshot, 
   deleteDoc, 
   addDoc,
-  updateDoc 
+  updateDoc,
+  getDoc
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -507,28 +508,33 @@ export default function App() {
     setMyDeviceId(deviceId);
 
     const registrarYEscucharSesiones = async () => {
-      const ua = navigator.userAgent;
-      const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
+      
+      // MODIFICADO: Primero verificamos si este dispositivo ya existe en la BD para conservar su nombre personalizado
+      const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
+      
       let label = "Computadora principal";
       let desc = "Windows";
       let icon = "💻";
 
-      if (esCelular) {
-        label = "Teléfono";
-        desc = ua.includes("iPhone") ? "iPhone" : "Android";
-        icon = "📱";
+      if (snapshotExistente && snapshotExistente.exists()) {
+        const datosViejos = snapshotExistente.data();
+        label = datosViejos.label || label;
+        desc = datosViejos.desc || desc;
+        icon = datosViejos.icon || icon;
       } else {
-        if (ua.includes("Chrome") && !ua.includes("Edg")) {
+        const ua = navigator.userAgent;
+        const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        if (esCelular) {
+          label = "Teléfono";
+          desc = ua.includes("iPhone") ? "iPhone" : "Android";
+          icon = "📱";
+        } else if (ua.includes("Chrome") && !ua.includes("Edg")) {
           label = "Computadora de la oficina";
-          desc = "Windows";
-        } else {
-          label = "Computadora principal";
           desc = "Windows";
         }
       }
 
-      const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
-      
       await setDoc(refDocSesion, {
         id: deviceId,
         label,
@@ -550,10 +556,9 @@ export default function App() {
         
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // EXPULSIÓN REMOTA ABSOLUTA: Elimina registros del localStorage para desvincular el dispositivo de raíz
         if (!todaviaExisto && snap.docs.length > 0) {
           clearInterval(keepAliveInterval);
-          localStorage.removeItem('exonet_device_id'); // Borra rastro para que no re-conecte por debajo
+          localStorage.removeItem('exonet_device_id'); 
           signOut(auth);
           setUser(null);
           setShowSessionsModal(false);
@@ -668,7 +673,7 @@ export default function App() {
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" alt="G" />
           ENTRAR CON GOOGLE
         </button>
-        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal autorizado</p>
+        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal authorized</p>
       </div>
     </div>
   );
@@ -771,70 +776,81 @@ export default function App() {
                 return (
                   <div 
                     key={session.id} 
-                    className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
+                    className={`p-5 rounded-3xl border transition-all flex items-center justify-between gap-4 ${
                       esDispositivoActual 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'bg-gray-50/50 border-gray-100 hover:border-gray-200'
+                        ? 'bg-green-50/50 border-green-200/60 shadow-sm' 
+                        : 'bg-gray-50/40 border-gray-100 hover:border-gray-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3 flex-1">
-                      <span className="text-2xl" role="img" aria-label="dispositivo">
+                    <div className="flex items-center gap-4 flex-1">
+                      {/* Icono de Teléfono / PC de gran tamaño adaptado a tu captura */}
+                      <div className="text-3xl filter drop-shadow-sm select-none">
                         {session.icon || '💻'}
-                      </span>
+                      </div>
+                      
                       <div className="flex-1 min-w-0">
                         {estaEditando ? (
                           <div className="flex items-center gap-2 mt-1">
                             <input 
                               type="text" 
-                              className="bg-white border text-sm font-bold px-2 py-1 rounded-lg outline-none w-full focus:border-green-500"
+                              className="bg-white border text-sm font-bold px-2 py-1.5 rounded-xl outline-none w-full focus:border-green-500 shadow-inner"
                               value={editingLabelText}
                               onChange={e => setEditingLabelText(e.target.value)}
-                              placeholder="Ej. Mi Teléfono Personal"
+                              placeholder="Ej. Carolina Teléfono"
                               maxLength={35}
                             />
                             <button 
                               onClick={() => handleSaveCustomLabel(session.id)}
-                              className="bg-green-700 text-white text-xs font-bold px-2.5 py-1 rounded-lg"
+                              className="bg-green-700 text-white text-xs font-black px-3 py-1.5 rounded-xl uppercase tracking-wider shadow-sm"
                             >
                               OK
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-black text-gray-800 text-sm leading-tight truncate">
-                              {esDispositivoActual ? `📱 ${session.label || 'Este dispositivo'}` : `${session.icon || '💻'} ${session.label}`}
-                            </span>
-                            {esDispositivoActual && (
-                              <span className="bg-green-700 text-white font-black text-[8px] px-1.5 py-0.5 rounded-md tracking-wider uppercase">
-                                TU TELÉFONO ACTUAL
+                          <div>
+                            {/* Visualización exacta de los nombres sin resetearse en reconexión */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-gray-800 text-base tracking-tight leading-snug">
+                                {esDispositivoActual ? (session.label || 'Tu teléfono actual') : session.label}
                               </span>
-                            )}
-                            <button 
-                              onClick={() => {
-                                setEditingSessionId(session.id);
-                                setEditingLabelText(session.label);
-                              }}
-                              className="text-gray-400 hover:text-green-700 p-0.5 transition-colors"
-                              title="Modificar nombre de este dispositivo"
-                            >
-                              <Pencil size={12} />
-                            </button>
+                              <button 
+                                onClick={() => {
+                                  setEditingSessionId(session.id);
+                                  setEditingLabelText(session.label);
+                                }}
+                                className="text-gray-400 hover:text-green-700 p-0.5 transition-colors"
+                                title="Cambiar nombre de dispositivo"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                            </div>
+                            
+                            {/* Badges de Estado ordenados abajo según tu imagen */}
+                            <div className="flex flex-col gap-0.5 mt-1">
+                              {esDispositivoActual && (
+                                <div className="mt-0.5">
+                                  <span className="bg-green-700 text-white font-black text-[8px] px-2 py-0.5 rounded-md tracking-wider uppercase inline-block">
+                                    ACTIVO AHORA
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-400 font-bold tracking-tight">({session.desc || 'Android'})</p>
+                              <p className={`text-xs font-medium tracking-tight ${esDispositivoActual ? 'text-green-700 font-bold' : 'text-gray-400'}`}>
+                                {formatearActividad(session, myDeviceId)}
+                              </p>
+                            </div>
                           </div>
                         )}
-                        <p className="text-xs text-gray-500 font-semibold mt-0.5">Sistemas: ({session.desc || 'Windows'})</p>
-                        <p className={`text-[10px] font-bold mt-1 ${esDispositivoActual ? 'text-green-700' : 'text-gray-400'}`}>
-                          {formatearActividad(session, myDeviceId)}
-                        </p>
                       </div>
                     </div>
 
+                    {/* Botón de Basura minimalista con fondo circular suave como en tu captura */}
                     <button
                       onClick={() => handleCloseSpecificSession(session.id)}
-                      className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded-xl transition-all flex items-center gap-1 text-[11px] font-black active:scale-95 whitespace-nowrap"
-                      title={esDispositivoActual ? "Cerrar tu sesión" : "Desconectar remotamente"}
+                      className="p-3 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100/50 rounded-2xl transition-all active:scale-90 shadow-sm flex items-center justify-center flex-shrink-0"
+                      title={esDispositivoActual ? "Salir de esta sesión" : "Desconectar remotamente"}
                     >
-                      <Trash2 size={14} />
-                      <span className="hidden sm:inline">{esDispositivoActual ? "Salir de aquí" : "Desconectar"}</span>
+                      <Trash2 size={16} strokeWidth={2.5} />
                     </button>
                   </div>
                 );
