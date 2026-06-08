@@ -496,7 +496,7 @@ export default function App() {
     return () => { unsubClientes(); unsubNodos(); unsubSoporte(); };
   }, [user]);
 
-  // --- LÓGICA DE REGISTRO Y ESCUCHA DE SESIONES ACTIVAS (FIRESTORE) ---
+  // --- LÓGICA DE REGISTRO Y ESCUCHA DE SESIONES ACTIVAS (CORREGIDA) ---
   useEffect(() => {
     if (!user) return;
 
@@ -512,8 +512,6 @@ export default function App() {
 
     const registrarYEscucharSesiones = async () => {
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
-      
-      // Intentamos recuperar los datos previos directamente de Firestore para conservar cambios de nombre previos
       const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
       
       let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora principal";
@@ -538,7 +536,6 @@ export default function App() {
         }
       }
 
-      // Guardamos localmente para asegurar persistencia extrema frente a fallos de red
       localStorage.setItem(`exonet_label_${deviceId}`, label);
 
       await setDoc(refDocSesion, {
@@ -549,21 +546,22 @@ export default function App() {
         lastActive: Date.now()
       }, { merge: true }).catch(e => console.error("Error registrando sesión:", e));
 
+      // Mantiene viva la sesión si la app está en primer plano
       keepAliveInterval = setInterval(async () => {
-        if (auth.currentUser) {
+        if (auth.currentUser && document.visibilityState === 'visible') {
           const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
           await updateDoc(docVivo, { lastActive: Date.now() }).catch(() => {});
         }
-      }, 15000); 
+      }, 10000); 
 
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
+      
+      // ESCUCHADOR EN TIEMPO REAL: Si borras el dispositivo, te saca al instante sin peros
       desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        
-        // CORRECCIÓN ESENCIAL: Solo auto-desconectamos si nuestra sesión fue explícitamente eliminada de forma remota, no por vacíos de carga
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        if (!todaviaExisto && snap.docs.length > 0) {
+        if (!todaviaExisto) {
           clearInterval(keepAliveInterval);
           localStorage.removeItem('exonet_device_id'); 
           signOut(auth);
@@ -580,9 +578,29 @@ export default function App() {
 
     registrarYEscucharSesiones();
 
+    // LIMPIEZA INMEDIATA CUANDO SE SALE DE LA APP (CIERRE DE PESTAÑA O NAVEGADOR)
+    const limpiarSesiónAlSalir = () => {
+      if (auth.currentUser && deviceId) {
+        const refDoc = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
+        deleteDoc(refDoc).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', limpiarSesiónAlSalir);
+    
+    // Si la visibilidad cambia por completo (Cierre en móviles / Background total)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Opcional: Podrías limpiar aquí, pero para evitar falsos cierres en llamadas lo dejamos en beforeunload
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       if (desubscribirSesiones) desubscribirSesiones();
       if (keepAliveInterval) clearInterval(keepAliveInterval);
+      window.removeEventListener('beforeunload', limpiarSesiónAlSalir);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user]);
 
@@ -602,7 +620,6 @@ export default function App() {
     
     const textoLimpio = editingLabelText.trim();
     
-    // Guardar inmediatamente en LocalStorage si es el dispositivo propio
     if (id === myDeviceId) {
       localStorage.setItem(`exonet_label_${id}`, textoLimpio);
     }
@@ -616,7 +633,7 @@ export default function App() {
       });
       setEditingSessionId(null);
       setEditingLabelText('');
-      setSessionSuccessMessage("Nombre de dispositivo guardado con éxito de forma permanente.");
+      setSessionSuccessMessage("Nombre de dispositivo guardado con éxito.");
       setTimeout(() => setSessionSuccessMessage(''), 2500);
     } catch (err) {
       console.error("Error al cambiar nombre de sesión:", err);
@@ -637,11 +654,11 @@ export default function App() {
         setUser(null);
         setShowSessionsModal(false);
       } else {
-        setSessionSuccessMessage(`Se cerró la sesión remota en de forma definitiva en: ${target.label}`);
+        setSessionSuccessMessage(`Se cerró la sesión en: ${target.label}`);
         setTimeout(() => setSessionSuccessMessage(''), 3500);
       }
     } catch (err) {
-      console.error("Error al cerrar sesión remota en Firestore:", err);
+      console.error("Error al cerrar sesión remota:", err);
     }
   };
 
@@ -777,7 +794,7 @@ export default function App() {
             </div>
 
             {sessionSuccessMessage && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-100 text-green-800 text-xs font-bold rounded-xl flex items-center gap-2 animate-bounce">
+              <div className="mb-4 p-3 bg-green-50 border border-green-100 text-green-800 text-xs font-bold rounded-xl flex items-center gap-2">
                 <CheckSquare size={16} />
                 {sessionSuccessMessage}
               </div>
@@ -868,7 +885,7 @@ export default function App() {
               })}
 
               {activeSessions.length === 0 && (
-                <p className="text-center py-4 text-gray-400 font-bold italic text-sm">Cargando sesiones desde la base de datos...</p>
+                <p className="text-center py-4 text-gray-400 font-bold italic text-sm">Cargando sesiones...</p>
               )}
             </div>
 
@@ -886,6 +903,8 @@ export default function App() {
     </div>
   );
 }
+
+// ... El resto de tus componentes (NavItem, PagosView, ItemManagementView, PrestamosView, FtthView, ClientesView, NodosView, SoporteView) se quedan exactamente igual abajo. Enlazo con la renderización:
 
 function NavItem({ active, onClick, icon, label }) {
   return (
@@ -1638,7 +1657,7 @@ function PrestamosView({ clientes, db }) {
               <div className="flex items-center gap-5">
                 <span className="text-gray-300 font-black text-xl">{index + 1}</span>
                 <div>
-                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
                   <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
                     <MapPin size={10}/> {c.direccion}
                   </p>
