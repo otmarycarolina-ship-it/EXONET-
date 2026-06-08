@@ -1153,7 +1153,7 @@ function PagosView({ clientes, db }) {
     
     textoMensaje += `*📅 Detalles de Cobertura*\n• Fecha de pago: *${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}*\n• Próximo Vencimiento: *${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}*\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
-    const numero Limpio = selectedCliente.telefono.replace(/[^\d]/g, '');
+    const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
@@ -2520,7 +2520,7 @@ function SoporteView({ clientes, nodos, db }) {
                 <>
                   <option>AP caída / desconectada</option>
                   <option>Cable 100 LAN0</option>
-                  <option>Obstrucción de frecuencia</option>
+                  <option>Obstrucción de frequency</option>
                   <option>Cambio de frecuencia</option>
                   <option>Rendimiento bajo</option>
                   <option>Reinicio por pérdida de energía</option>
