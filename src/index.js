@@ -10,8 +10,7 @@ import {
   deleteDoc, 
   addDoc,
   updateDoc,
-  getDoc,
-  getDocs
+  getDoc
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -440,8 +439,12 @@ export default function App() {
   const [soporteList, setSoporteList] = useState([]);
 
   // --- ESTADOS PARA GESTIÓN DE DISPOSITIVOS ---
-  const [showRadicalModal, setShowRadicalModal] = useState(false);
+  const [showSessionsModal, setShowSessionsModal] = useState(false);
+  const [activeSessions, setActiveSessions] = useState([]);
   const [myDeviceId, setMyDeviceId] = useState('');
+  const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editingLabelText, setEditingLabelText] = useState('');
   const [currentTimeState, setCurrentTimeState] = useState(Date.now());
 
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
@@ -514,7 +517,7 @@ export default function App() {
       localStorage.removeItem('exonet_device_id');
       signOut(auth).then(() => {
         setUser(null);
-        setShowRadicalModal(false);
+        setShowSessionsModal(false);
         window.location.reload(); // Recarga la pestaña para asegurar la limpieza total del estado
       }).catch(() => {
         setUser(null);
@@ -524,14 +527,23 @@ export default function App() {
 
     const registrarYEscucharSesiones = async () => {
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
-      const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
       
+      // BLINDAJE PREVIO ANTIPÁNICO / RECONEXIÓN DESDE APAGADO:
+      // Verificamos directo en la base de datos antes de registrar si la sesión fue eliminada mientras estuvo offline
+      const snapshotVerificacion = await getDoc(refDocSesion).catch(() => null);
+      if (snapshotVerificacion && !snapshotVerificacion.exists()) {
+        // Si el documento de sesión ya no existe en el servidor, significa que lo borraste remotamente.
+        // Lo sacamos de una vez sin registrar nada.
+        forzarDesconexionLocalCompleta();
+        return;
+      }
+
       let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora principal";
       let desc = "Windows";
       let icon = "💻";
 
-      if (snapshotExistente && snapshotExistente.exists()) {
-        const datosViejos = snapshotExistente.data();
+      if (snapshotVerificacion && snapshotVerificacion.exists()) {
+        const datosViejos = snapshotVerificacion.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -587,6 +599,8 @@ export default function App() {
           forzarDesconexionLocalCompleta();
           return;
         }
+
+        setActiveSessions(listaSesiones);
       }, (err) => {
         console.error("Error al escuchar cambios de sesión:", err);
       });
@@ -611,41 +625,66 @@ export default function App() {
     }
   };
 
-  // --- NUEVA LÓGICA RADICAL: ELIMINACIÓN MASIVA DE SESIONES DESDE FIRESTORE ---
-  const handleCerrarSesionTodosDispositivos = async () => {
-    if (!user) return;
+  const handleSaveCustomLabel = async (id) => {
+    if (!user || !editingLabelText.trim()) return;
+    
+    const textoLimpio = editingLabelText.trim();
+    
+    if (id === myDeviceId) {
+      localStorage.setItem(`exonet_label_${id}`, textoLoptio); // Mantiene consistencia de edición
+    }
+
+    setActiveSessions(prev => prev.map(sess => sess.id === id ? { ...sess, label: textoLimpio } : sess));
+    
     try {
-      const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
-      const snapSesiones = await getDocs(refColSesiones);
-      
-      // Borrar de forma secuencial/masiva cada documento de sesión en Firestore
-      const promesasBorrado = snapSesiones.docs.map(docSnap => deleteDoc(docSnap.ref));
-      await Promise.all(promesasPromesasBorrado);
-      
-      // Limpieza total del dispositivo que originó la orden
-      localStorage.removeItem('exonet_device_id');
-      await signOut(auth);
-      setUser(null);
-      setShowRadicalModal(false);
-      window.location.reload();
+      const refDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id);
+      await updateDoc(refDoc, {
+        label: textoLimpio
+      });
+      setEditingSessionId(null);
+      setEditingLabelText('');
+      setSessionSuccessMessage("Nombre de dispositivo guardado con éxito de forma permanente.");
+      setTimeout(() => setSessionSuccessMessage(''), 2500);
     } catch (err) {
-      console.error("Error al ejecutar cierre de sesión total:", err);
+      console.error("Error al cambiar nombre de sesión:", err);
     }
   };
 
-  const handleNormalSignOut = async () => {
+  const handleCloseSpecificSession = async (id) => {
+    if (!user) return;
+    const target = activeSessions.find(s => s.id === id);
+    
     try {
-      if (user && myDeviceId) {
-        // Borrar solo el dispositivo actual
-        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', myDeviceId));
+      // Borramos primero de Firestore para activar el trigger en tiempo real en el dispositivo remoto
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id));
+      
+      if (id === myDeviceId) {
+        localStorage.removeItem('exonet_device_id');
+        localStorage.removeItem(`exonet_label_${id}`);
+        await signOut(auth);
+        setUser(null);
+        setShowSessionsModal(false);
+        window.location.reload();
+      } else {
+        setSessionSuccessMessage(`Sesión remota eliminada de inmediato en: ${target ? target.label : id}`);
+        setTimeout(() => setSessionSuccessMessage(''), 3500);
       }
-      localStorage.removeItem('exonet_device_id');
-      await signOut(auth);
-      setUser(null);
-      window.location.reload();
     } catch (err) {
-      console.error("Error en cierre normal:", err);
+      console.error("Error al cerrar sesión remota en Firestore:", err);
     }
+  };
+
+  const formatearActividad = (session, currentDeviceId) => {
+    if (session.id === currentDeviceId) {
+      return "Activo ahora";
+    }
+    const difMs = currentTimeState - (session.lastActive || currentTimeState);
+    const difMins = Math.floor(difMs / 60000);
+    if (difMins < 1) return "Última actividad: hace un momento";
+    if (difMins < 60) return `Última actividad: hace ${difMins} min`;
+    const difHoras = Math.floor(difMins / 60);
+    if (difHoras < 24) return `Última actividad: hace ${difHoras} horas`;
+    return "Última actividad: ayer";
   };
 
   if (loading) return (
@@ -694,26 +733,20 @@ export default function App() {
           <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
         </nav>
-        <div className="mt-auto border-t border-white/10 pt-4 space-y-2">
+        <div className="mt-auto border-t border-white/10 pt-4">
           <p 
-            className="text-[10px] text-white/40 font-bold mb-2 truncate flex items-center gap-1.5"
+            onClick={() => setShowSessionsModal(true)} 
+            className="text-[10px] text-white/40 hover:text-white transition-colors font-bold mb-2 truncate cursor-pointer flex items-center gap-1.5"
+            title="Ver Dispositivos Conectados"
           >
-            <span className="w-2 h-2 rounded-full bg-green-400"></span>
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
             {user.email}
           </p>
           <button 
-            onClick={handleNormalSignOut} 
-            className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-2 text-xs font-bold w-full uppercase"
+            onClick={() => setShowSessionsModal(true)} 
+            className="flex items-center gap-3 text-white/60 hover:text-white transition-all p-3 text-sm font-bold w-full"
           >
-            <LogOut size={16} /> Cerrar sesión
-          </button>
-          
-          {/* BOTÓN RADICAL SECUNDARIO BIEN DEFINIDO */}
-          <button 
-            onClick={() => setShowRadicalModal(true)} 
-            className="flex items-center gap-3 text-red-300 hover:text-red-400 transition-all p-2 text-xs font-black w-full text-left"
-          >
-            ❌ Cerrar sesión en todos los dispositivos
+            <LogOut size={18} /> GESTIONAR SESIONES
           </button>
         </div>
       </aside>
@@ -747,38 +780,133 @@ export default function App() {
           <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
           <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
         </button>
-        <button onClick={() => setShowRadicalModal(true)} className="p-2 flex flex-col items-center text-red-600">
+        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-500">
           <LogOut size={20} />
-          <span className="text-[8px] font-black mt-1">CERRAR TODO</span>
+          <span className="text-[8px] font-bold mt-1">DISPOSITIVOS</span>
         </button>
       </nav>
 
-      {/* --- MODAL EMERGENTE DE CONFIRMACIÓN RADICAL --- */}
-      {showRadicalModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md rounded-[2rem] p-6 shadow-2xl relative border border-red-100 text-center">
-            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle size={32} />
+      {/* --- MODAL DE GESTIÓN DE DISPOSITIVOS ACTIVOS --- */}
+      {showSessionsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 md:p-8 shadow-2xl relative border border-green-100 my-8">
+            <button 
+              onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); setEditingSessionId(null); }}
+              className="absolute right-6 top-6 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="mb-6">
+              <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">Seguridad & Sesión</span>
+              <h3 className="text-2xl font-black text-gray-800 uppercase leading-tight">Dispositivos conectados</h3>
+              <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+                Viendo dónde está abierta tu cuenta de Exonet.
+              </p>
             </div>
-            
-            <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight mb-2">¿Estás seguro?</h3>
-            
-            <p className="text-sm text-gray-500 font-medium leading-relaxed mb-6">
-              Esta acción cerrará tu sesión en este teléfono, en todas las computadoras y demás dispositivos donde hayas ingresado. Deberás iniciar sesión nuevamente.
-            </p>
 
-            <div className="grid grid-cols-2 gap-3">
+            {sessionSuccessMessage && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-100 text-green-800 text-xs font-bold rounded-xl flex items-center gap-2 animate-bounce">
+                <CheckSquare size={16} />
+                {sessionSuccessMessage}
+              </div>
+            )}
+
+            <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-1">
+              {activeSessions.map((session) => {
+                const esDispositivoActual = session.id === myDeviceId;
+                const estaEditando = editingSessionId === session.id;
+
+                return (
+                  <div 
+                    key={session.id} 
+                    className={`p-5 rounded-3xl border transition-all flex items-center justify-between gap-4 ${
+                      esDispositivoActual 
+                        ? 'bg-green-50/50 border-green-200/60 shadow-sm' 
+                        : 'bg-gray-50/40 border-gray-100 hover:border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="text-3xl filter drop-shadow-sm select-none">
+                        {session.icon || '💻'}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        {estaEditando ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <input 
+                              type="text" 
+                              className="bg-white border text-sm font-bold px-2 py-1.5 rounded-xl outline-none w-full focus:border-green-500 shadow-inner"
+                              value={editingLabelText}
+                              onChange={e => setEditingLabelText(e.target.value)}
+                              placeholder="Ej. Otmary Celular"
+                              maxLength={35}
+                            />
+                            <button 
+                              onClick={() => handleSaveCustomLabel(session.id)}
+                              className="bg-green-700 text-white text-xs font-black px-3 py-1.5 rounded-xl uppercase tracking-wider shadow-sm"
+                            >
+                              OK
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-gray-800 text-base tracking-tight leading-snug">
+                                {session.label || (esDispositivoActual ? 'Tu dispositivo' : 'Dispositivo Desconocido')}
+                              </span>
+                              <button 
+                                onClick={() => {
+                                  setEditingSessionId(session.id);
+                                  setEditingLabelText(session.label);
+                                }}
+                                className="text-gray-400 hover:text-green-700 p-0.5 transition-colors"
+                                title="Cambiar nombre de dispositivo"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                            </div>
+                            
+                            <div className="flex flex-col gap-0.5 mt-1">
+                              {esDispositivoActual && (
+                                <div className="mt-0.5">
+                                  <span className="bg-green-700 text-white font-black text-[8px] px-2 py-0.5 rounded-md tracking-wider uppercase inline-block">
+                                    ACTIVO AHORA
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-400 font-bold tracking-tight">({session.desc || 'Dispositivo'})</p>
+                              <p className={`text-xs font-medium tracking-tight ${esDispositivoActual ? 'text-green-700 font-bold' : 'text-gray-400'}`}>
+                                {formatearActividad(session, myDeviceId)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleCloseSpecificSession(session.id)}
+                      className="p-3 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100/50 rounded-2xl transition-all active:scale-90 shadow-sm flex items-center justify-center flex-shrink-0"
+                      title={esDispositivoActual ? "Salir de esta sesión" : "Desconectar remotamente"}
+                    >
+                      <Trash2 size={16} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {activeSessions.length === 0 && (
+                <p className="text-center py-4 text-gray-400 font-bold italic text-sm">Cargando sesiones desde la base de datos...</p>
+              )}
+            </div>
+
+            <div className="space-y-3">
               <button 
-                onClick={() => setShowRadicalModal(false)}
-                className="py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider transition-colors"
+                onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); setEditingSessionId(null); }}
+                className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block text-center"
               >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleCerrarSesionTodosDispositivos}
-                className="py-3.5 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl uppercase tracking-wider transition-colors shadow-md"
-              >
-                Sí, cerrar en todos lados
+                Volver al Panel
               </button>
             </div>
           </div>
