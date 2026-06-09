@@ -500,8 +500,10 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
+    let yaExistiaId = true;
     let deviceId = localStorage.getItem('exonet_device_id');
     if (!deviceId) {
+      yaExistiaId = false;
       deviceId = crypto.randomUUID() || Math.random().toString(36).substring(2) + Date.now();
       localStorage.setItem('exonet_device_id', deviceId);
     }
@@ -528,22 +530,25 @@ export default function App() {
     const registrarYEscucharSesiones = async () => {
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
-      // BLINDAJE PREVIO ANTIPÁNICO / RECONEXIÓN DESDE APAGADO:
-      // Verificamos directo en la base de datos antes de registrar si la sesión fue eliminada mientras estuvo offline
-      const snapshotVerificacion = await getDoc(refDocSesion).catch(() => null);
-      if (snapshotVerificacion && !snapshotVerificacion.exists()) {
-        // Si el documento de sesión ya no existe en el servidor, significa que lo borraste remotamente.
-        // Lo sacamos de una vez sin registrar nada.
-        forzarDesconexionLocalCompleta();
-        return;
+      // SOLUCIÓN AL BUCLE INFINITO:
+      // Solo forzamos la verificación del getDoc del servidor si el ID ya existía previamente en LocalStorage.
+      // Si el ID es nuevo, significa que es un login limpio y saltamos este paso.
+      if (yaExistiaId) {
+        const snapshotVerificacion = await getDoc(refDocSesion).catch(() => null);
+        if (snapshotVerificacion && !snapshotVerificacion.exists()) {
+          forzarDesconexionLocalCompleta();
+          return;
+        }
       }
 
+      // Volvemos a obtener el snapshot para recuperar los textos guardados
+      const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
       let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora principal";
       let desc = "Windows";
       let icon = "💻";
 
-      if (snapshotVerificacion && snapshotVerificacion.exists()) {
-        const datosViejos = snapshotVerificacion.data();
+      if (snapshotExistente && snapshotExistente.exists()) {
+        const datosViejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -631,7 +636,7 @@ export default function App() {
     const textoLimpio = editingLabelText.trim();
     
     if (id === myDeviceId) {
-      localStorage.setItem(`exonet_label_${id}`, textoLoptio); // Mantiene consistencia de edición
+      localStorage.setItem(`exonet_label_${id}`, textoLimpio); // Mantiene consistencia de edición
     }
 
     setActiveSessions(prev => prev.map(sess => sess.id === id ? { ...sess, label: textoLimpio } : sess));
@@ -1844,7 +1849,7 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador y los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador and los accesorios que se usaron para instalarlo.`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
@@ -2280,7 +2285,7 @@ function NodosView({ nodos, clientes, db }) {
               <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/30">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
+                    h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
                     <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{n.frecuencia} MHz</span>
                   </div>
                   <a href={`http://${n.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-gray-400 mt-1 hover:text-green-600 flex items-center gap-1">{n.ip} <ExternalLink size={10} /></a>
