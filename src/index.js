@@ -512,7 +512,6 @@ export default function App() {
     let keepAliveInterval;
     let desubscribirSesiones;
 
-    // Función auxiliar para cerrar sesión de manera fulminante limpiando el almacenamiento local
     const forzarDesconexionLocalCompleta = () => {
       clearInterval(keepAliveInterval);
       if (desubscribirSesiones) desubscribirSesiones();
@@ -520,7 +519,7 @@ export default function App() {
       signOut(auth).then(() => {
         setUser(null);
         setShowSessionsModal(false);
-        window.location.reload(); // Recarga la pestaña para asegurar la limpieza total del estado
+        window.location.reload(); 
       }).catch(() => {
         setUser(null);
         window.location.reload();
@@ -530,9 +529,6 @@ export default function App() {
     const registrarYEscucharSesiones = async () => {
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
-      // SOLUCIÓN AL BUCLE INFINITO:
-      // Solo forzamos la verificación del getDoc del servidor si el ID ya existía previamente en LocalStorage.
-      // Si el ID es nuevo, significa que es un login limpio y saltamos este paso.
       if (yaExistiaId) {
         const snapshotVerificacion = await getDoc(refDocSesion).catch(() => null);
         if (snapshotVerificacion && !snapshotVerificacion.exists()) {
@@ -541,31 +537,45 @@ export default function App() {
         }
       }
 
-      // Volvemos a obtener el snapshot para recuperar los textos guardados
       const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
-      let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora principal";
+      
+      // SOLUCIÓN AL NOMBRE DEL DISPOSITIVO:
+      // Primero buscamos si este navegador ya tiene guardado un nombre en LocalStorage. 
+      // Si no hay nada, recurrimos al snapshot o a la detección automática por defecto.
+      let label = localStorage.getItem(`exonet_label_${deviceId}`);
       let desc = "Windows";
       let icon = "💻";
 
-      if (snapshotExistente && snapshotExistente.exists()) {
-        const datosViejos = snapshotExistente.data();
-        label = datosViejos.label || label;
-        desc = datosViejos.desc || desc;
-        icon = datosViejos.icon || icon;
+      if (!label) {
+        if (snapshotExistente && snapshotExistente.exists()) {
+          const datosViejos = snapshotExistente.data();
+          label = datosViejos.label || "Computadora principal";
+          desc = datosViejos.desc || desc;
+          icon = datosViejos.icon || icon;
+        } else {
+          const ua = navigator.userAgent;
+          const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+          if (esCelular) {
+            label = "Teléfono";
+            desc = ua.includes("iPhone") ? "iPhone" : "Android";
+            icon = "📱";
+          } else if (ua.includes("Chrome") && !ua.includes("Edg")) {
+            label = "Computadora de la oficina";
+            desc = "Windows";
+          } else {
+            label = "Computadora principal";
+          }
+        }
+        // Guardamos este primer valor detectado por seguridad
+        localStorage.setItem(`exonet_label_${deviceId}`, label);
       } else {
-        const ua = navigator.userAgent;
-        const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-        if (esCelular) {
-          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Teléfono";
-          desc = ua.includes("iPhone") ? "iPhone" : "Android";
-          icon = "📱";
-        } else if (ua.includes("Chrome") && !ua.includes("Edg")) {
-          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora de la oficina";
-          desc = "Windows";
+        // Si el localStorage ya tenía un nombre, forzamos que se mantengan los iconos correctos basados en su historial
+        if (snapshotExistente && snapshotExistente.exists()) {
+          const datosViejos = snapshotExistente.data();
+          desc = datosViejos.desc || desc;
+          icon = datosViejos.icon || icon;
         }
       }
-
-      localStorage.setItem(`exonet_label_${deviceId}`, label);
 
       await setDoc(refDocSesion, {
         id: deviceId,
@@ -582,11 +592,10 @@ export default function App() {
         }
       }, 15000); 
 
-      // CONTROL DE VISIBILIDAD: Si sale de la app o va a segundo plano, actualizamos para evitar registros fantasma
       const manejarCambioVisibilidad = async () => {
         if (document.hidden && auth.currentUser) {
           const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
-          await updateDoc(docVivo, { lastActive: Date.now() - 60000 }).catch(() => {}); // Retrasa artificialmente la última actividad
+          await updateDoc(docVivo, { lastActive: Date.now() - 60000 }).catch(() => {}); 
         }
       };
       document.addEventListener("visibilitychange", manejarCambioVisibilidad);
@@ -594,11 +603,8 @@ export default function App() {
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        
-        // CORRECCIÓN FULMINANTE: Verificamos si este dispositivo específico ha sido borrado del backend
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // Si la colección de sesiones responde y ya no figuramos en ella, nos desconectamos de inmediato sin peros
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
           forzarDesconexionLocalCompleta();
@@ -635,8 +641,12 @@ export default function App() {
     
     const textoLimpio = editingLabelText.trim();
     
+    // GUARDADO PERSISTENTE EXTREMO:
+    // Guardamos el alias en LocalStorage del dispositivo que se está modificando.
+    // Si estás editando remotamente la etiqueta de OTRO dispositivo de la lista,
+    // se guardará en la nube y el dispositivo remoto lo asimilará cuando se conecte.
     if (id === myDeviceId) {
-      localStorage.setItem(`exonet_label_${id}`, textoLimpio); // Mantiene consistencia de edición
+      localStorage.setItem(`exonet_label_${id}`, textoLimpio); 
     }
 
     setActiveSessions(prev => prev.map(sess => sess.id === id ? { ...sess, label: textoLimpio } : sess));
@@ -660,7 +670,6 @@ export default function App() {
     const target = activeSessions.find(s => s.id === id);
     
     try {
-      // Borramos primero de Firestore para activar el trigger en tiempo real en el dispositivo remoto
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id));
       
       if (id === myDeviceId) {
@@ -2435,7 +2444,7 @@ function SoporteView({ clientes, nodos, db }) {
           <p style="font-size:13px; color:#555;">${detalleExtra}</p>
           <hr style="border:0; border-top:1px dashed #ccc; margin:20px 0;"/>
           <p><strong>Falla / Categoría detectada:</strong> ${report.falla}</p>
-          <p><strong>Notas de Campo / Observaciones:</strong> ${report.comentario}</p>
+          <p><strong>Notes de Campo / Observaciones:</strong> ${report.comentario}</p>
           <p style="margin-top:40px; font-size:11px; color:#999;">Fecha del Reporte: ${new Date().toLocaleString()}</p>
         </body>
       </html>
