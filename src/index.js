@@ -423,9 +423,9 @@ const handlePrintGeneral = (titulo, data) => {
       </body>
     </html>
   `;
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.print();
+  handlePrintGeneral.window.document.write(html);
+  handlePrintGeneral.window.document.close();
+  handlePrintGeneral.window.print();
 };
 
 export default function App() {
@@ -541,9 +541,9 @@ export default function App() {
 
       // Volvemos a obtener el snapshot para recuperar los textos guardados
       const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
-      let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora principal";
-      let desc = "Windows";
-      let icon = "💻";
+      let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Tu teléfono actual";
+      let desc = "Android";
+      let icon = "📱";
 
       if (snapshotExistente && snapshotExistente.exists()) {
         const datosViejos = snapshotExistente.data();
@@ -554,12 +554,12 @@ export default function App() {
         const ua = navigator.userAgent;
         const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
         if (esCelular) {
-          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Teléfono";
+          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Tu teléfono actual";
           desc = ua.includes("iPhone") ? "iPhone" : "Android";
           icon = "📱";
         } else if (ua.includes("Chrome") && !ua.includes("Edg")) {
-          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora de la oficina";
-          desc = "Windows";
+          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Tu teléfono actual";
+          desc = "Android";
         }
       }
 
@@ -652,19 +652,6 @@ export default function App() {
     }
   };
 
-  const formatearActividad = (session, currentDeviceId) => {
-    if (session.id === currentDeviceId) {
-      return "Activo ahora";
-    }
-    const difMs = currentTimeState - (session.lastActive || currentTimeState);
-    const difMins = Math.floor(difMs / 60000);
-    if (difMins < 1) return "Última actividad: hace un momento";
-    if (difMins < 60) return `Última actividad: hace ${difMins} min`;
-    const difHoras = Math.floor(difMins / 60);
-    if (difHoras < 24) return `Última actividad: hace ${difHoras} horas`;
-    return "Última actividad: ayer";
-  };
-
   if (loading) return (
     <div style={{ backgroundColor: colors.bg }} className="min-h-screen flex flex-col items-center justify-center p-4">
       <Loader2 className="animate-spin text-green-700 mb-4" size={48} />
@@ -715,7 +702,7 @@ export default function App() {
           <p 
             onClick={() => setShowSessionsModal(true)} 
             className="text-[10px] text-white/40 hover:text-white transition-colors font-bold mb-2 truncate cursor-pointer flex items-center gap-1.5"
-            title="Ver Dispositivos Conectados"
+            title="Ver Dispositivos Connected"
           >
             <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
             {user.email}
@@ -799,29 +786,34 @@ export default function App() {
                     key={session.id} 
                     className={`p-5 rounded-3xl border transition-all flex items-center justify-between gap-4 ${
                       esDispositivoActual 
-                        ? 'bg-green-50/50 border-green-200/60 shadow-sm' 
+                        ? 'bg-green-50/30 border-green-200/50 shadow-sm' 
                         : 'bg-gray-50/40 border-gray-100 hover:border-gray-200'
                     }`}
                   >
                     <div className="flex items-center gap-4 flex-1">
-                      <div className="text-3xl filter drop-shadow-sm select-none">
-                        {session.icon || '💻'}
+                      {/* Icono de teléfono minimalista */}
+                      <div className="text-3xl select-none">
+                        📱
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-gray-800 text-base tracking-tight leading-snug">
-                              {session.label || (esDispositivoActual ? 'Tu dispositivo' : 'Dispositivo Desconocido')}
+                        <div className="flex flex-col gap-0.5">
+                          {/* Título principal superior */}
+                          <span className="font-bold text-gray-800 text-lg tracking-tight">
+                            Tu teléfono actual
+                          </span>
+                          
+                          {/* Badge de estado ACTIVO AHORA en verde */}
+                          <div className="flex items-center mt-0.5">
+                            <span className="bg-[#2E7D32] text-white text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full uppercase">
+                              ACTIVO AHORA
                             </span>
                           </div>
-                          
-                          <div className="flex flex-col gap-0.5 mt-1">
-                            <p className="text-xs text-gray-400 font-bold tracking-tight">({session.desc || 'Dispositivo'})</p>
-                            <p className={`text-xs font-medium tracking-tight ${esDispositivoActual ? 'text-green-700 font-bold' : 'text-gray-400'}`}>
-                              {formatearActividad(session, myDeviceId)}
-                            </p>
-                          </div>
+
+                          {/* Subtexto descriptivo inferior en gris */}
+                          <p className="text-xs text-gray-400 font-bold tracking-tight mt-1">
+                            (Android)
+                          </p>
                         </div>
                       </div>
                     </div>
