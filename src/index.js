@@ -44,8 +44,7 @@ import {
   X,
   Clock,
   RefreshCw,
-  Radio,
-  Map
+  Radio
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -696,7 +695,7 @@ export default function App() {
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" alt="G" />
           ENTRAR CON GOOGLE
         </button>
-        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal authorized</p>
+        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal autorizado</p>
       </div>
     </div>
   );
@@ -711,7 +710,6 @@ export default function App() {
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
           <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
-          <NavItem active={activeTab === 'ZONAS_WIFI'} onClick={() => setActiveTab('ZONAS_WIFI')} icon={<Map />} label="ZONAS WIFI" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
           <p 
@@ -737,42 +735,34 @@ export default function App() {
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
         {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
-        {activeTab === 'ZONAS_WIFI' && <ZonasWifiView />}
       </main>
 
-      {/* NAV INFERIOR MÓVIL OPTIMIZADO CON SCROLL HORIZONTAL Y CORTE VISUAL GRADIENTE */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50 shadow-lg relative after:content-[''] after:absolute after:right-0 after:top-0 after:bottom-0 after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none">
-        <nav className="flex overflow-x-auto p-2 gap-1 whitespace-nowrap scroll-smooth" style={{ scrollbarWidth: 'none' }}>
-          <button onClick={() => setActiveTab('CLIENTES')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Users color={activeTab === 'CLIENTES' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'CLIENTES' ? colors.sidebar : '#CCC' }}>CLIENTES</span>
-          </button>
-          <button onClick={() => setActiveTab('PAGOS')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <DollarSign color={activeTab === 'PAGOS' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'PAGOS' ? colors.sidebar : '#CCC' }}>PAGOS</span>
-          </button>
-          <button onClick={() => setActiveTab('SOPORTE')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Wrench color={activeTab === 'SOPORTE' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'SOPORTE' ? colors.sidebar : '#CCC' }}>SOPORTE</span>
-          </button>
-          <button onClick={() => setActiveTab('NODOS')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>REPARTIDORES</span>
-          </button>
-          <button onClick={() => setActiveTab('PRESTAMOS')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
-          </button>
-          <button onClick={() => setActiveTab('ZONAS_WIFI')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Map color={activeTab === 'ZONAS_WIFI' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'ZONAS_WIFI' ? colors.sidebar : '#CCC' }}>ZONAS WIFI</span>
-          </button>
-          <button onClick={() => setShowSessionsModal(true)} className="flex-shrink-0 px-4 py-2 flex flex-col items-center text-red-500 min-w-[75px]">
-            <LogOut size={20} />
-            <span className="text-[8px] font-black mt-1">DISPOSITIVOS</span>
-          </button>
-        </nav>
-      </div>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-4 z-50 shadow-lg">
+        <button onClick={() => setActiveTab('CLIENTES')} className="p-2 flex flex-col items-center">
+          <Users color={activeTab === 'CLIENTES' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'CLIENTES' ? colors.sidebar : '#CCC' }}>CLIENTES</span>
+        </button>
+        <button onClick={() => setActiveTab('PAGOS')} className="p-2 flex flex-col items-center">
+          <DollarSign color={activeTab === 'PAGOS' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PAGOS' ? colors.sidebar : '#CCC' }}>PAGOS</span>
+        </button>
+        <button onClick={() => setActiveTab('SOPORTE')} className="p-2 flex flex-col items-center">
+          <Wrench color={activeTab === 'SOPORTE' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'SOPORTE' ? colors.sidebar : '#CCC' }}>SOPORTE</span>
+        </button>
+        <button onClick={() => setActiveTab('NODOS')} className="p-2 flex flex-col items-center">
+          <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>REPARTIDORES</span>
+        </button>
+        <button onClick={() => setActiveTab('PRESTAMOS')} className="p-2 flex flex-col items-center">
+          <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
+        </button>
+        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-500">
+          <LogOut size={20} />
+          <span className="text-[8px] font-bold mt-1">DISPOSITIVOS</span>
+        </button>
+      </nav>
 
       {/* --- MODAL DE GESTIÓN DE DISPOSITIVOS ACTIVOS --- */}
       {showSessionsModal && (
@@ -867,62 +857,11 @@ export default function App() {
   );
 }
 
-// --- NUEVA VISTA DE PLANIFICACIÓN DE COBERTURA GEOGRÁFICA ---
-function ZonasWifiView() {
+function NavItem({ active, onClick, icon, label }) {
   return (
-    <div className="animate-in fade-in duration-500 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">Análisis de Infraestructura</span>
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Planificación de Zonas WiFi</h2>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2 bg-white p-4 rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden min-h-[460px] relative">
-          <iframe 
-            title="Mapa de Planificación Exonet"
-            width="100%" 
-            height="100%" 
-            className="rounded-[2rem] border-0 min-h-[420px]"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=-72.6000%2C10.5000%2C-71.5000%2C11.5000&amp;layer=mapnik"
-          />
-          <div className="absolute top-8 left-8 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl shadow-md border text-xs font-black text-green-800">
-            🗺️ MAPA DE COBERTURA (OPENSTREETMAP)
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-green-50">
-            <h3 className="font-black text-gray-800 uppercase text-sm mb-3 flex items-center gap-2">
-              <Radio size={18} className="text-green-700" /> Estados y Proyecciones
-            </h3>
-            <div className="space-y-3 text-xs font-bold uppercase">
-              <div className="flex items-center gap-3 p-2 bg-green-50 rounded-xl">
-                <span className="w-3 h-3 rounded-full bg-green-600 block"></span>
-                <span className="text-gray-700">🟢 Repartidor AP Activo</span>
-              </div>
-              <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-xl">
-                <span className="w-3 h-3 rounded-full bg-blue-500 block"></span>
-                <span className="text-gray-700">🔵 Cliente Enlazado</span>
-              </div>
-              <div className="flex items-center gap-3 p-2 bg-amber-50 rounded-xl">
-                <span className="w-3 h-3 rounded-full bg-amber-500 block"></span>
-                <span className="text-gray-700">🟡 Nueva Zona Proyectada</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-green-50">
-            <h3 className="font-black text-gray-800 uppercase text-sm mb-2">Recomendaciones Técnicas</h3>
-            <p className="text-xs text-gray-400 font-medium leading-relaxed">
-              Evalúa visualmente la distancia de los clientes respecto al nodo central. Ideal para prevenir la superposición de frecuencias en canales de 30 MHz y optimizar la línea de vista (LOS).
-            </p>
-            <div className="mt-4 pt-4 border-t border-dashed border-gray-100 flex items-center gap-2 text-[10px] font-black text-green-700">
-              <AlertCircle size={14} /> MAPA DE CONSULTA LIBRE Y GRATUITA
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <button onClick={onClick} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-bold text-sm ${active ? 'bg-white text-green-800 shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/10'}`}>
+      {React.isValidElement(icon) ? React.cloneElement(icon, { size: 20 }) : icon} <span>{label}</span>
+    </button>
   );
 }
 
