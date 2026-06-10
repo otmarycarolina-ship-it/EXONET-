@@ -443,8 +443,6 @@ export default function App() {
   const [activeSessions, setActiveSessions] = useState([]);
   const [myDeviceId, setMyDeviceId] = useState('');
   const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
-  const [editingSessionId, setEditingSessionId] = useState(null);
-  const [editingLabelText, setEditingLabelText] = useState('');
   const [currentTimeState, setCurrentTimeState] = useState(Date.now());
 
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
@@ -512,6 +510,7 @@ export default function App() {
     let keepAliveInterval;
     let desubscribirSesiones;
 
+    // Función auxiliar para cerrar sesión de manera fulminante limpiando el almacenamiento local
     const forzarDesconexionLocalCompleta = () => {
       clearInterval(keepAliveInterval);
       if (desubscribirSesiones) desubscribirSesiones();
@@ -519,7 +518,7 @@ export default function App() {
       signOut(auth).then(() => {
         setUser(null);
         setShowSessionsModal(false);
-        window.location.reload(); 
+        window.location.reload(); // Recarga la pestaña para asegurar la limpieza total del estado
       }).catch(() => {
         setUser(null);
         window.location.reload();
@@ -529,6 +528,9 @@ export default function App() {
     const registrarYEscucharSesiones = async () => {
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
+      // SOLUCIÓN AL BUCLE INFINITO:
+      // Solo forzamos la verificación del getDoc del servidor si el ID ya existía previamente en LocalStorage.
+      // Si el ID es nuevo, significa que es un login limpio y saltamos este paso.
       if (yaExistiaId) {
         const snapshotVerificacion = await getDoc(refDocSesion).catch(() => null);
         if (snapshotVerificacion && !snapshotVerificacion.exists()) {
@@ -537,45 +539,31 @@ export default function App() {
         }
       }
 
+      // Volvemos a obtener el snapshot para recuperar los textos guardados
       const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
-      
-      // SOLUCIÓN AL NOMBRE DEL DISPOSITIVO:
-      // Primero buscamos si este navegador ya tiene guardado un nombre en LocalStorage. 
-      // Si no hay nada, recurrimos al snapshot o a la detección automática por defecto.
-      let label = localStorage.getItem(`exonet_label_${deviceId}`);
+      let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora principal";
       let desc = "Windows";
       let icon = "💻";
 
-      if (!label) {
-        if (snapshotExistente && snapshotExistente.exists()) {
-          const datosViejos = snapshotExistente.data();
-          label = datosViejos.label || "Computadora principal";
-          desc = datosViejos.desc || desc;
-          icon = datosViejos.icon || icon;
-        } else {
-          const ua = navigator.userAgent;
-          const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-          if (esCelular) {
-            label = "Teléfono";
-            desc = ua.includes("iPhone") ? "iPhone" : "Android";
-            icon = "📱";
-          } else if (ua.includes("Chrome") && !ua.includes("Edg")) {
-            label = "Computadora de la oficina";
-            desc = "Windows";
-          } else {
-            label = "Computadora principal";
-          }
-        }
-        // Guardamos este primer valor detectado por seguridad
-        localStorage.setItem(`exonet_label_${deviceId}`, label);
+      if (snapshotExistente && snapshotExistente.exists()) {
+        const datosViejos = snapshotExistente.data();
+        label = datosViejos.label || label;
+        desc = datosViejos.desc || desc;
+        icon = datosViejos.icon || icon;
       } else {
-        // Si el localStorage ya tenía un nombre, forzamos que se mantengan los iconos correctos basados en su historial
-        if (snapshotExistente && snapshotExistente.exists()) {
-          const datosViejos = snapshotExistente.data();
-          desc = datosViejos.desc || desc;
-          icon = datosViejos.icon || icon;
+        const ua = navigator.userAgent;
+        const esCelular = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        if (esCelular) {
+          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Teléfono";
+          desc = ua.includes("iPhone") ? "iPhone" : "Android";
+          icon = "📱";
+        } else if (ua.includes("Chrome") && !ua.includes("Edg")) {
+          label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora de la oficina";
+          desc = "Windows";
         }
       }
+
+      localStorage.setItem(`exonet_label_${deviceId}`, label);
 
       await setDoc(refDocSesion, {
         id: deviceId,
@@ -592,10 +580,11 @@ export default function App() {
         }
       }, 15000); 
 
+      // CONTROL DE VISIBILIDAD: Si sale de la app o va a segundo plano, actualizamos para evitar registros fantasma
       const manejarCambioVisibilidad = async () => {
         if (document.hidden && auth.currentUser) {
           const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
-          await updateDoc(docVivo, { lastActive: Date.now() - 60000 }).catch(() => {}); 
+          await updateDoc(docVivo, { lastActive: Date.now() - 60000 }).catch(() => {}); // Retrasa artificialmente la última actividad
         }
       };
       document.addEventListener("visibilitychange", manejarCambioVisibilidad);
@@ -603,8 +592,11 @@ export default function App() {
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        
+        // CORRECCIÓN FULMINANTE: Verificamos si este dispositivo específico ha sido borrado del backend
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
+        // Si la colección de sesiones responde y ya no figuramos en ella, nos desconectamos de inmediato sin peros
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
           forzarDesconexionLocalCompleta();
@@ -636,40 +628,12 @@ export default function App() {
     }
   };
 
-  const handleSaveCustomLabel = async (id) => {
-    if (!user || !editingLabelText.trim()) return;
-    
-    const textoLimpio = editingLabelText.trim();
-    
-    // GUARDADO PERSISTENTE EXTREMO:
-    // Guardamos el alias en LocalStorage del dispositivo que se está modificando.
-    // Si estás editando remotamente la etiqueta de OTRO dispositivo de la lista,
-    // se guardará en la nube y el dispositivo remoto lo asimilará cuando se conecte.
-    if (id === myDeviceId) {
-      localStorage.setItem(`exonet_label_${id}`, textoLimpio); 
-    }
-
-    setActiveSessions(prev => prev.map(sess => sess.id === id ? { ...sess, label: textoLimpio } : sess));
-    
-    try {
-      const refDoc = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id);
-      await updateDoc(refDoc, {
-        label: textoLimpio
-      });
-      setEditingSessionId(null);
-      setEditingLabelText('');
-      setSessionSuccessMessage("Nombre de dispositivo guardado con éxito de forma permanente.");
-      setTimeout(() => setSessionSuccessMessage(''), 2500);
-    } catch (err) {
-      console.error("Error al cambiar nombre de sesión:", err);
-    }
-  };
-
   const handleCloseSpecificSession = async (id) => {
     if (!user) return;
     const target = activeSessions.find(s => s.id === id);
     
     try {
+      // Borramos primero de Firestore para activar el trigger en tiempo real en el dispositivo remoto
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id));
       
       if (id === myDeviceId) {
@@ -805,7 +769,7 @@ export default function App() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 md:p-8 shadow-2xl relative border border-green-100 my-8">
             <button 
-              onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); setEditingSessionId(null); }}
+              onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); }}
               className="absolute right-6 top-6 p-2 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X size={20} />
@@ -829,7 +793,6 @@ export default function App() {
             <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-1">
               {activeSessions.map((session) => {
                 const esDispositivoActual = session.id === myDeviceId;
-                const estaEditando = editingSessionId === session.id;
 
                 return (
                   <div 
@@ -846,56 +809,20 @@ export default function App() {
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        {estaEditando ? (
-                          <div className="flex items-center gap-2 mt-1">
-                            <input 
-                              type="text" 
-                              className="bg-white border text-sm font-bold px-2 py-1.5 rounded-xl outline-none w-full focus:border-green-500 shadow-inner"
-                              value={editingLabelText}
-                              onChange={e => setEditingLabelText(e.target.value)}
-                              placeholder="Ej. Otmary Celular"
-                              maxLength={35}
-                            />
-                            <button 
-                              onClick={() => handleSaveCustomLabel(session.id)}
-                              className="bg-green-700 text-white text-xs font-black px-3 py-1.5 rounded-xl uppercase tracking-wider shadow-sm"
-                            >
-                              OK
-                            </button>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-gray-800 text-base tracking-tight leading-snug">
+                              {session.label || (esDispositivoActual ? 'Tu dispositivo' : 'Dispositivo Desconocido')}
+                            </span>
                           </div>
-                        ) : (
-                          <div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-gray-800 text-base tracking-tight leading-snug">
-                                {session.label || (esDispositivoActual ? 'Tu dispositivo' : 'Dispositivo Desconocido')}
-                              </span>
-                              <button 
-                                onClick={() => {
-                                  setEditingSessionId(session.id);
-                                  setEditingLabelText(session.label);
-                                }}
-                                className="text-gray-400 hover:text-green-700 p-0.5 transition-colors"
-                                title="Cambiar nombre de dispositivo"
-                              >
-                                <Pencil size={11} />
-                              </button>
-                            </div>
-                            
-                            <div className="flex flex-col gap-0.5 mt-1">
-                              {esDispositivoActual && (
-                                <div className="mt-0.5">
-                                  <span className="bg-green-700 text-white font-black text-[8px] px-2 py-0.5 rounded-md tracking-wider uppercase inline-block">
-                                    ACTIVO AHORA
-                                  </span>
-                                </div>
-                              )}
-                              <p className="text-xs text-gray-400 font-bold tracking-tight">({session.desc || 'Dispositivo'})</p>
-                              <p className={`text-xs font-medium tracking-tight ${esDispositivoActual ? 'text-green-700 font-bold' : 'text-gray-400'}`}>
-                                {formatearActividad(session, myDeviceId)}
-                              </p>
-                            </div>
+                          
+                          <div className="flex flex-col gap-0.5 mt-1">
+                            <p className="text-xs text-gray-400 font-bold tracking-tight">({session.desc || 'Dispositivo'})</p>
+                            <p className={`text-xs font-medium tracking-tight ${esDispositivoActual ? 'text-green-700 font-bold' : 'text-gray-400'}`}>
+                              {formatearActividad(session, myDeviceId)}
+                            </p>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
 
@@ -917,7 +844,7 @@ export default function App() {
 
             <div className="space-y-3">
               <button 
-                onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); setEditingSessionId(null); }}
+                onClick={() => { setShowSessionsModal(false); setSessionSuccessMessage(''); }}
                 className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl uppercase tracking-wider block text-center"
               >
                 Volver al Panel
@@ -2444,7 +2371,7 @@ function SoporteView({ clientes, nodos, db }) {
           <p style="font-size:13px; color:#555;">${detalleExtra}</p>
           <hr style="border:0; border-top:1px dashed #ccc; margin:20px 0;"/>
           <p><strong>Falla / Categoría detectada:</strong> ${report.falla}</p>
-          <p><strong>Notes de Campo / Observaciones:</strong> ${report.comentario}</p>
+          <p><strong>Notas de Campo / Observaciones:</strong> ${report.comentario}</p>
           <p style="margin-top:40px; font-size:11px; color:#999;">Fecha del Reporte: ${new Date().toLocaleString()}</p>
         </body>
       </html>
@@ -2464,7 +2391,7 @@ function SoporteView({ clientes, nodos, db }) {
           <button
             type="button"
             onClick={() => setReportType('CLIENTE')}
-            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center center gap-2 ${
               reportType === 'CLIENTE' 
                 ? 'bg-white text-green-800 shadow-md' 
                 : 'text-gray-400 hover:text-gray-600'
@@ -2476,7 +2403,7 @@ function SoporteView({ clientes, nodos, db }) {
           <button
             type="button"
             onClick={() => setReportType('AP')}
-            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center center gap-2 ${
               reportType === 'AP' 
                 ? 'bg-white text-green-800 shadow-md' 
                 : 'text-gray-400 hover:text-gray-600'
