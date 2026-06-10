@@ -20,7 +20,6 @@ import {
   signOut 
 } from 'firebase/auth';
 import { 
-  const,
   Users, 
   Wrench, 
   Search, 
@@ -655,7 +654,7 @@ export default function App() {
 
   const formatearActividad = (session, currentDeviceId) => {
     if (session.id === currentDeviceId) {
-      return "ACTIVO AHORA";
+      return "Activo ahora";
     }
     const difMs = currentTimeState - (session.lastActive || currentTimeState);
     const difMins = Math.floor(difMs / 60000);
@@ -813,14 +812,12 @@ export default function App() {
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-bold text-gray-800 text-base tracking-tight leading-snug">
-                              {esDispositivoActual ? 'Tu teléfono' : (session.label || 'Dispositivo Desconocido')}
+                              {session.label || (esDispositivoActual ? 'Tu dispositivo' : 'Dispositivo Desconocido')}
                             </span>
                           </div>
                           
                           <div className="flex flex-col gap-0.5 mt-1">
-                            <p className="text-xs text-gray-400 font-bold tracking-tight">
-                              ({esDispositivoActual ? 'Android' : (session.desc || 'Dispositivo')})
-                            </p>
+                            <p className="text-xs text-gray-400 font-bold tracking-tight">({session.desc || 'Dispositivo'})</p>
                             <p className={`text-xs font-medium tracking-tight ${esDispositivoActual ? 'text-green-700 font-bold' : 'text-gray-400'}`}>
                               {formatearActividad(session, myDeviceId)}
                             </p>
