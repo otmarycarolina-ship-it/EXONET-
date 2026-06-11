@@ -44,8 +44,7 @@ import {
   X,
   Clock,
   RefreshCw,
-  Radio,
-  Map
+  Radio
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -334,7 +333,7 @@ const handlePrintGeneral = (titulo, data) => {
         <style>
           body { font-family: sans-serif; padding: 20px; color: #333; }
           h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
-          .meta-info { font-size: 13px; color: #555; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; }
+          .meta-info { font-size: 13px; color: #555; margin-bottom: 20px; font-weight: bold; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th { background: #2E7D32; color: white; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
           td { padding: 10px; border: 1px solid #ddd; font-size: 12px; }
@@ -711,7 +710,6 @@ export default function App() {
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
           <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
-          <NavItem active={activeTab === 'ZONAS_WIFI'} onClick={() => setActiveTab('ZONAS_WIFI')} icon={<Map />} label="ZONAS WIFI" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
           <p 
@@ -737,42 +735,34 @@ export default function App() {
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
         {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
-        {activeTab === 'ZONAS_WIFI' && <ZonasWifiView />}
       </main>
 
-      {/* NAV INFERIOR MÓVIL OPTIMIZADO CON SCROLL HORIZONTAL Y EFECTO DE DIFUMINADO LATERAL */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-50 shadow-lg relative after:content-[''] after:absolute after:right-0 after:top-0 after:bottom-0 after:w-8 after:bg-gradient-to-l after:from-white after:to-transparent after:pointer-events-none">
-        <nav className="flex overflow-x-auto p-2 gap-1 whitespace-nowrap scroll-smooth" style={{ scrollbarWidth: 'none' }}>
-          <button onClick={() => setActiveTab('CLIENTES')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Users color={activeTab === 'CLIENTES' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'CLIENTES' ? colors.sidebar : '#CCC' }}>CLIENTES</span>
-          </button>
-          <button onClick={() => setActiveTab('PAGOS')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <DollarSign color={activeTab === 'PAGOS' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'PAGOS' ? colors.sidebar : '#CCC' }}>PAGOS</span>
-          </button>
-          <button onClick={() => setActiveTab('SOPORTE')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Wrench color={activeTab === 'SOPORTE' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'SOPORTE' ? colors.sidebar : '#CCC' }}>SOPORTE</span>
-          </button>
-          <button onClick={() => setActiveTab('NODOS')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>REPARTIDORES</span>
-          </button>
-          <button onClick={() => setActiveTab('PRESTAMOS')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
-          </button>
-          <button onClick={() => setActiveTab('ZONAS_WIFI')} className="flex-shrink-0 px-4 py-2 flex flex-col items-center min-w-[75px]">
-            <Map color={activeTab === 'ZONAS_WIFI' ? colors.sidebar : '#CCC'} />
-            <span className="text-[8px] font-black mt-1" style={{ color: activeTab === 'ZONAS_WIFI' ? colors.sidebar : '#CCC' }}>ZONAS WIFI</span>
-          </button>
-          <button onClick={() => setShowSessionsModal(true)} className="flex-shrink-0 px-4 py-2 flex flex-col items-center text-red-500 min-w-[75px]">
-            <LogOut size={20} />
-            <span className="text-[8px] font-black mt-1">DISPOSITIVOS</span>
-          </button>
-        </nav>
-      </div>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-4 z-50 shadow-lg">
+        <button onClick={() => setActiveTab('CLIENTES')} className="p-2 flex flex-col items-center">
+          <Users color={activeTab === 'CLIENTES' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'CLIENTES' ? colors.sidebar : '#CCC' }}>CLIENTES</span>
+        </button>
+        <button onClick={() => setActiveTab('PAGOS')} className="p-2 flex flex-col items-center">
+          <DollarSign color={activeTab === 'PAGOS' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PAGOS' ? colors.sidebar : '#CCC' }}>PAGOS</span>
+        </button>
+        <button onClick={() => setActiveTab('SOPORTE')} className="p-2 flex flex-col items-center">
+          <Wrench color={activeTab === 'SOPORTE' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'SOPORTE' ? colors.sidebar : '#CCC' }}>SOPORTE</span>
+        </button>
+        <button onClick={() => setActiveTab('NODOS')} className="p-2 flex flex-col items-center">
+          <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>REPARTIDORES</span>
+        </button>
+        <button onClick={() => setActiveTab('PRESTAMOS')} className="p-2 flex flex-col items-center">
+          <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
+          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
+        </button>
+        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-500">
+          <LogOut size={20} />
+          <span className="text-[8px] font-bold mt-1">DISPOSITIVOS</span>
+        </button>
+      </nav>
 
       {/* --- MODAL DE GESTIÓN DE DISPOSITIVOS ACTIVOS --- */}
       {showSessionsModal && (
@@ -863,89 +853,6 @@ export default function App() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// --- VISTA MEJORADA DE PLANIFICACIÓN WIFI EN ENCONTRADOS ---
-function ZonasWifiView() {
-  const [marcardoresPrueba, setMarcadoresPrueba] = useState([]);
-  const [colorSeleccionado, setColorSeleccionado] = useState('🟢');
-  const iframeRef = useRef(null);
-
-  // Coordenadas exactas para encuadrar Encontrados, Municipio Catatumbo, Zulia
-  // bbox=oeste,sur,este,norte
-  const bboxEncontrados = "-72.2450%2C9.0400%2C-72.2200%2C9.0650";
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bboxEncontrados}&amp;layer=mapnik`;
-
-  const agregarMarcadorManual = (sector) => {
-    const nuevoPin = {
-      id: Date.now(),
-      color: colorSeleccionado,
-      sector: sector || "Sector Virgen del Carmen II",
-      fecha: new Date().toLocaleDateString()
-    };
-    setMarcadoresPrueba([nuevoPin, ...marcardoresPrueba]);
-  };
-
-  return (
-    <div className="animate-in fade-in duration-500 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">Mapeo e Infraestructura local</span>
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Planificación — Encontrados</h2>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2 bg-white p-4 rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden min-h-[480px] relative">
-          <iframe 
-            ref={iframeRef}
-            title="Visor Cartográfico Encontrados"
-            width="100%" 
-            height="100%" 
-            className="rounded-[2rem] border-0 min-h-[440px]"
-            src={mapUrl}
-          />
-          <div className="absolute top-8 left-8 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl shadow-md border text-xs font-black text-green-800">
-            📍 MAPA BASE: ENCONTRADOS, SECTOR VIRGEN DEL CARMEN
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-green-50">
-            <h3 className="font-black text-gray-800 uppercase text-sm mb-3 flex items-center gap-2">
-              <Radio size={18} className="text-green-700" /> Marcadores del sector
-            </h3>
-            
-            <div className="flex gap-2 mb-4 bg-gray-50 p-1.5 rounded-xl border">
-              <button onClick={() => setColorSeleccionado('🟢')} className={`flex-1 py-1 text-xs rounded-lg transition-all ${colorSeleccionado === '🟢' ? 'bg-white shadow-sm font-black' : 'opacity-50'}`}>🟢 AP</button>
-              <button onClick={() => setColorSeleccionado('🔵')} className={`flex-1 py-1 text-xs rounded-lg transition-all ${colorSeleccionado === '🔵' ? 'bg-white shadow-sm font-black' : 'opacity-50'}`}>🔵 Cli</button>
-              <button onClick={() => setColorSeleccionado('🟡')} className={`flex-1 py-1 text-xs rounded-lg transition-all ${colorSeleccionado === '🟡' ? 'bg-white shadow-sm font-black' : 'opacity-50'}`}>🟡 Plan</button>
-            </div>
-
-            <button 
-              onClick={() => agregarMarcadorManual(prompt("¿Nombre de la calle o sector en Encontrados?"))}
-              className="w-full py-2.5 bg-green-700 text-white font-black text-[11px] rounded-xl uppercase tracking-wider shadow-sm transition-transform active:scale-95"
-            >
-              + Simular Pin en Encontrados
-            </button>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-green-50 max-h-[220px] overflow-y-auto">
-            <h4 className="font-black text-gray-700 uppercase text-[10px] tracking-wider mb-2">Puntos del mapa simulación:</h4>
-            <div className="space-y-2">
-              {marcardoresPrueba.map(m => (
-                <div key={m.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded-xl border border-gray-100 font-bold uppercase">
-                  <span>{m.color} {m.sector}</span>
-                  <span className="text-[9px] text-gray-400">{m.fecha}</span>
-                </div>
-              ))}
-              {marcardoresPrueba.length === 0 && (
-                <p className="text-center text-gray-400 font-medium italic text-[11px] py-4">Presiona el botón de arriba para simular marcadores en las avenidas de Encontrados.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
