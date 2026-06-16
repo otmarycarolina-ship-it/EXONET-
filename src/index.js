@@ -317,9 +317,17 @@ const handlePrintGeneral = (titulo, data) => {
   if (esFibra) {
     data.forEach(c => {
       const costoNum = parseFloat(c.costo) || 0;
-      const estado = obtenerEstadoCliente(c);
-      if (estado === 'SOLVENTE') {
-        totalActivos += costoNum;
+      const abonoNum = parseFloat(c.montoPagado) || 0;
+      const estadoPago = obtenerEstadoCliente(c);
+      const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
+
+      if (estadoPago === 'SOLVENTE') {
+        totalActivos += abonoNum; // Suma lo que efectivamente pagó si está al día o tiene un saldo a favor parcial
+        const faltante = Math.max(0, costoNum - abonoNum);
+        totalPendientes += faltante;
+      } else if (tieneDeudaActiva) {
+        totalActivos += abonoNum; // Suma el abono parcial a lo recaudado
+        totalPendientes += Math.max(0, costoNum - abonoNum); // El resto va a morosidad
       } else {
         totalPendientes += costoNum;
       }
@@ -342,6 +350,7 @@ const handlePrintGeneral = (titulo, data) => {
           .status-suspended { color: #d32f2f; font-weight: bold; }
           .status-review { color: #f57c00; }
           .row-suspended { background-color: #ffebee; }
+          .row-partial { background-color: #fff8e1; }
           .finanzas-container { margin-top: 30px; border-top: 3px double #2E7D32; padding-top: 15px; width: 100%; display: flex; justify-content: flex-end; }
           .finanzas-tabla { width: 320px; margin-left: auto; border: none; }
           .finanzas-tabla td { padding: 6px 10px; border: none; font-size: 14px; }
@@ -367,13 +376,22 @@ const handlePrintGeneral = (titulo, data) => {
           <tbody>
             ${data.map((c, i) => {
               const estadoPago = obtenerEstadoCliente(c);
+              const abonoNum = parseFloat(c.montoPagado || 0);
+              const costoNum = parseFloat(c.costo || 0);
+              const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
+
               let estadoVisual = 'ACTIVO';
               let claseEstado = 'status-active';
               let claseFila = '';
-              let montoVisual = `$${parseFloat(c.costo || 0).toFixed(3)}`;
+              let montoVisual = `$${abonoNum.toFixed(3)}`;
 
               if (esFibra) {
-                if (estadoPago === 'PENDIENTE') {
+                if (tieneDeudaActiva) {
+                  estadoVisual = 'SALDO PENDIENTE';
+                  claseEstado = 'status-review';
+                  claseFila = 'class="row-partial"';
+                  montoVisual = `$${abonoNum.toFixed(3)}`;
+                } else if (estadoPago === 'PENDIENTE') {
                   estadoVisual = 'SIN SERVICIO';
                   claseEstado = 'status-suspended';
                   claseFila = 'class="row-suspended"';
@@ -546,7 +564,7 @@ export default function App() {
       let icon = "💻";
 
       if (snapshotExistente && snapshotExistente.exists()) {
-        const datosViejos = snapshotExistente.data();
+        const datos Viejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -1707,6 +1725,12 @@ function FtthView({ clientes, db }) {
   };
 
   const getDynamicStatus = (cliente) => {
+    const abono = parseFloat(cliente.montoPagado || 0);
+    const costo = parseFloat(cliente.costo || 0);
+    const tieneDeudaActiva = !cliente.esBolivares && cliente.pagoCompletado && abono < costo;
+    
+    if (tieneDeudaActiva) return 'SALDO PENDIENTE';
+    
     const estadoPago = obtenerEstadoCliente(cliente);
     if (estadoPago === 'PENDIENTE') return 'SIN SERVICIO';
     return cliente.estadoFTTH || 'ACTIVO';
@@ -1716,6 +1740,8 @@ function FtthView({ clientes, db }) {
     switch (status) {
       case 'SIN SERVICIO':
         return 'bg-red-600 text-white border-red-600 shadow-sm font-black';
+      case 'SALDO PENDIENTE':
+        return 'bg-amber-100 text-amber-700 border-amber-200 shadow-sm font-black';
       case 'PENDIENTE DE RETIRAR':
         return 'bg-red-50 text-red-600 border-red-100 font-bold';
       case 'REVISIÓN':
@@ -1757,16 +1783,20 @@ function FtthView({ clientes, db }) {
           {clientesFtth.map((c, index) => {
             const estadoActual = getDynamicStatus(c);
             const estadoPago = obtenerEstadoCliente(c);
-            const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
+            const abonoNum = parseFloat(c.montoPagado || 0);
+            const costoNum = parseFloat(c.costo || 0);
+            const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
             
-            const abonoNum = parseFloat(c.montoPagado || c.costo || 0);
-            const costoAMostrar = estadoPago === 'SOLVENTE' ? (c.esBolivares ? `${abonoNum.toFixed(3)} Bs` : `$${abonoNum.toFixed(3)} COP`) : '$0.000';
+            let costoAMostrar = '$0.000';
+            if (estadoPago === 'SOLVENTE' || tieneDeudaActiva) {
+              costoAMostrar = c.esBolivares ? `${abonoNum.toFixed(3)} Bs` : `$${abonoNum.toFixed(3)} COP`;
+            }
 
             return (
               <div 
                 key={c.id} 
                 className={`p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between transition-colors gap-4 ${
-                  estadoPago === 'PENDIENTE' ? 'bg-red-50/40 hover:bg-red-50/60' : 'hover:bg-green-50/30'
+                  estadoPago === 'PENDIENTE' && !tieneDeudaActiva ? 'bg-red-50/40 hover:bg-red-50/60' : 'hover:bg-green-50/30'
                 }`}
               >
                 <div className="flex items-center gap-5">
@@ -1777,7 +1807,7 @@ function FtthView({ clientes, db }) {
                       <MapPin size={10}/> {c.direccion}
                     </p>
                     <p className="text-[10px] font-black text-green-800 uppercase mt-1">
-                      Monto Reportado: <span className={estadoPago === 'SOLVENTE' ? 'text-green-700' : 'text-red-600'}>{costoAMostrar}</span>
+                      Monto Reportado: <span className={estadoPago === 'SOLVENTE' ? 'text-green-700' : tieneDeudaActiva ? 'text-amber-600' : 'text-red-600'}>{costoAMostrar}</span>
                     </p>
                   </div>
                 </div>
@@ -1815,12 +1845,12 @@ function FtthView({ clientes, db }) {
 
                   <div 
                     onClick={() => {
-                      if (estadoPago === 'SOLVENTE') {
+                      if (estadoPago === 'SOLVENTE' || tieneDeudaActiva) {
                         handleCycleStatus(c);
                       }
                     }}
                     className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all select-none ${
-                      estadoPago === 'SOLVENTE' ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'
+                      estadoPago === 'SOLVENTE' || tieneDeudaActiva ? 'cursor-pointer active:scale-95' : 'cursor-not-allowed'
                     } ${getStatusStyles(estadoActual)}`}
                   >
                     <CheckSquare size={14} />
@@ -1944,7 +1974,7 @@ function ClientesView({ clientes, nodos, db }) {
           const abono = parseFloat(c.montoPagado || 0);
           const estadoActual = obtenerEstadoCliente(c);
           const divisaSimbolo = c.esBolivares ? 'Bs' : 'COP';
-          const faltante = estadoActual === 'SOLVENTE' && !c.esBolivares ? Math.max(0, costoTotal - abono) : 0;
+          const faltante = !c.esBolivares && c.pagoCompletado ? Math.max(0, costoTotal - abono) : 0;
           const abonoVisualPantalla = c.montoPagado ? parseFloat(c.montoPagado).toFixed(3) : '0.000';
 
           return (
