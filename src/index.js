@@ -322,12 +322,12 @@ const handlePrintGeneral = (titulo, data) => {
       const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
 
       if (estadoPago === 'SOLVENTE') {
-        totalActivos += abonoNum; // Suma lo que efectivamente pagó si está al día o tiene un saldo a favor parcial
+        totalActivos += abonoNum; 
         const faltante = Math.max(0, costoNum - abonoNum);
         totalPendientes += faltante;
       } else if (tieneDeudaActiva) {
-        totalActivos += abonoNum; // Suma el abono parcial a lo recaudado
-        totalPendientes += Math.max(0, costoNum - abonoNum); // El resto va a morosidad
+        totalActivos += abonoNum; 
+        totalPendientes += Math.max(0, costoNum - abonoNum); 
       } else {
         totalPendientes += costoNum;
       }
@@ -536,7 +536,7 @@ export default function App() {
       signOut(auth).then(() => {
         setUser(null);
         setShowSessionsModal(false);
-        window.location.reload(); // Recarga la pestaña para asegurar la limpieza total del estado
+        window.location.reload(); 
       }).catch(() => {
         setUser(null);
         window.location.reload();
@@ -546,9 +546,6 @@ export default function App() {
     const registrarYEscucharSesiones = async () => {
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
-      // SOLUCIÓN AL BUCLE INFINITO:
-      // Solo forzamos la verificación del getDoc del servidor si el ID ya existía previamente en LocalStorage.
-      // Si el ID es nuevo, significa que es un login limpio y saltamos este paso.
       if (yaExistiaId) {
         const snapshotVerificacion = await getDoc(refDocSesion).catch(() => null);
         if (snapshotVerificacion && !snapshotVerificacion.exists()) {
@@ -557,14 +554,13 @@ export default function App() {
         }
       }
 
-      // Volvemos a obtener el snapshot para recuperar los textos guardados
       const snapshotExistente = await getDoc(refDocSesion).catch(() => null);
       let label = localStorage.getItem(`exonet_label_${deviceId}`) || "Computadora principal";
       let desc = "Windows";
       let icon = "💻";
 
       if (snapshotExistente && snapshotExistente.exists()) {
-        const datos Viejos = snapshotExistente.data();
+        const datosViejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -598,11 +594,10 @@ export default function App() {
         }
       }, 15000); 
 
-      // CONTROL DE VISIBILIDAD: Si sale de la app o va a segundo plano, actualizamos para evitar registros fantasma
       const manejarCambioVisibilidad = async () => {
         if (document.hidden && auth.currentUser) {
           const docVivo = doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'sesiones', deviceId);
-          await updateDoc(docVivo, { lastActive: Date.now() - 60000 }).catch(() => {}); // Retrasa artificialmente la última actividad
+          await updateDoc(docVivo, { lastActive: Date.now() - 60000 }).catch(() => {}); 
         }
       };
       document.addEventListener("visibilitychange", manejarCambioVisibilidad);
@@ -610,11 +605,8 @@ export default function App() {
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        
-        // CORRECCIÓN FULMINANTE: Verificamos si este dispositivo específico ha sido borrado del backend
         const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
-        // Si la colección de sesiones responde y ya no figuramos en ella, nos desconectamos de inmediato sin peros
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
           forzarDesconexionLocalCompleta();
@@ -651,7 +643,6 @@ export default function App() {
     const target = activeSessions.find(s => s.id === id);
     
     try {
-      // Borramos primero de Firestore para activar el trigger en tiempo real en el dispositivo remoto
       await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', id));
       
       if (id === myDeviceId) {
@@ -2287,9 +2278,7 @@ function NodosView({ nodos, clientes, db }) {
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
                        <div className="bg-white px-4 py-2 rounded-xl border flex flex-col items-center">
-                          <div className="flex gap-4 text-[8px] text-gray-400 font-black uppercase tracking-widest leading-none mb-1">
-                            <span>LOCAL</span><span>REMOTA</span>
-                          </div>
+                          <div className="flex gap-4 text-[8px] text-gray-400 font-black uppercase tracking-tighter"><span>LOCAL</span><span>REMOTA</span></div>
                           <div className="text-gray-700 text-base font-black tracking-tighter">
                             {c.señal || '0'} <span className="text-gray-200 mx-0.5">/</span> {c.señalRemota || '0'} <small className="text-[10px] text-gray-400 ml-1">dBm</small>
                           </div>
