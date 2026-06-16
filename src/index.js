@@ -955,6 +955,15 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
+  // --- NUEVA FUNCIÓN: ENVIAR MENSAJE DE SALDO PENDIENTE ---
+  const enviarMensajeSaldoPendiente = (cliente, faltante) => {
+    const saldoFormateado = `$${faltante.toFixed(3)} COP`;
+    const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
+    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(url, '_blank');
+  };
+
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc, enBs) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1278,15 +1287,29 @@ function PagosView({ clientes, db }) {
                     </button>
                   )}
 
+                  {/* ACCIONES CUANDO EL CLIENTE TIENE UN SALDO PENDIENTE */}
                   {tieneDeudaActiva && (
-                    <button
-                      onClick={() => handleLiquidarSaldoDirecto(c)}
-                      className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black uppercase"
-                      title="Poner Pago Completo (Liquidar los restantes)"
-                    >
-                      <RefreshCw size={14} className="animate-spin-slow" />
-                      <span>PAGO COMPLETO</span>
-                    </button>
+                    <>
+                      {c.telefono && (
+                        <button
+                          onClick={() => enviarMensajeSaldoPendiente(c, faltante)}
+                          className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                          title="Enviar Recordatorio de Saldo Pendiente por WhatsApp"
+                        >
+                          <MessageCircle size={16} className="fill-white" />
+                          <span>NOTIFICAR DEUDA</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleLiquidarSaldoDirecto(c)}
+                        className="px-3 py-2.5 bg-orange-500 hover:bg-orange-600 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black uppercase"
+                        title="Poner Pago Completo (Liquidar los restantes)"
+                      >
+                        <RefreshCw size={14} className="animate-spin-slow" />
+                        <span>PAGO COMPLETO</span>
+                      </button>
+                    </>
                   )}
 
                   {estadoActual === 'SOLVENTE' && (
