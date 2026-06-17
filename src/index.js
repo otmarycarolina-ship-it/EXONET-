@@ -44,7 +44,9 @@ import {
   X,
   Clock,
   RefreshCw,
-  Radio
+  Radio,
+  Menu,
+  ChevronRight
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -463,6 +465,9 @@ export default function App() {
   const [sessionSuccessMessage, setSessionSuccessMessage] = useState('');
   const [currentTimeState, setCurrentTimeState] = useState(Date.now());
 
+  // --- ESTADO PARA MENÚ LATERAL EN MÓVIL ---
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const authorizedEmails = ['exonet2025@gmail.com', 'otmarycarolina@gmail.com'];
 
   useEffect(() => {
@@ -710,7 +715,104 @@ export default function App() {
   );
 
   return (
-    <div style={{ backgroundColor: colors.bg }} className="min-h-screen pb-24 md:pb-0 md:pl-64 text-gray-800 font-sans">
+    <div style={{ backgroundColor: colors.bg }} className="min-h-screen pt-16 md:pt-0 pb-6 md:pb-0 md:pl-64 text-gray-800 font-sans">
+      
+      {/* --- CABECERA TOP MÓVIL (Fija arriba para no estorbar con Progressier abajo) --- */}
+      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-[60] shadow-sm">
+        <div className="flex items-center gap-2">
+          <ExonetLogo size={24} color={colors.sidebar} />
+          <span className="font-black text-lg tracking-tight" style={{ color: colors.textMain }}>EXONET</span>
+        </div>
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className="p-2.5 rounded-xl text-white flex items-center gap-1 shadow-sm transition-all active:scale-95 font-bold text-xs uppercase"
+          style={{ backgroundColor: colors.sidebar }}
+        >
+          <Menu size={16} />
+          <span>Menú</span>
+        </button>
+      </header>
+
+      {/* --- MENÚ LATERAL DESPLEGABLE EN MÓVIL (DRAWER) --- */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-[200] flex animate-in fade-in duration-200">
+          {/* Fondo oscuro translúcido con clic para cerrar */}
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          
+          {/* Contenedor del panel lateral izquierdo */}
+          <aside style={{ backgroundColor: colors.sidebar }} className="relative flex flex-col w-72 h-full p-6 shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <ExonetLogo size={28} color="#FFF" />
+                <span className="text-xl font-black text-white tracking-tight">EXONET</span>
+              </div>
+              <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white/70 hover:text-white rounded-xl bg-white/10">
+                <X size={18} />
+              </button>
+            </div>
+
+            <nav className="flex-1 space-y-2">
+              <button 
+                onClick={() => { setActiveTab('CLIENTES'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'CLIENTES' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                <div className="flex items-center gap-3"><Users size={18} /> <span>CLIENTES</span></div>
+                <ChevronRight size={14} className={activeTab === 'CLIENTES' ? 'text-green-800' : 'text-white/40'} />
+              </button>
+
+              <button 
+                onClick={() => { setActiveTab('PAGOS'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'PAGOS' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                <div className="flex items-center gap-3"><DollarSign size={18} /> <span>PAGOS</span></div>
+                <ChevronRight size={14} className={activeTab === 'PAGOS' ? 'text-green-800' : 'text-white/40'} />
+              </button>
+
+              <button 
+                onClick={() => { setActiveTab('SOPORTE'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'SOPORTE' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                <div className="flex items-center gap-3"><Wrench size={18} /> <span>SOPORTE</span></div>
+                <ChevronRight size={14} className={activeTab === 'SOPORTE' ? 'text-green-800' : 'text-white/40'} />
+              </button>
+
+              <button 
+                onClick={() => { setActiveTab('NODOS'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'NODOS' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                <div className="flex items-center gap-3"><Radio size={18} /> <span>REPARTIDORES</span></div>
+                <ChevronRight size={14} className={activeTab === 'NODOS' ? 'text-green-800' : 'text-white/40'} />
+              </button>
+
+              <button 
+                onClick={() => { setActiveTab('PRESTAMOS'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'PRESTAMOS' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                <div className="flex items-center gap-3"><Laptop size={18} /> <span>EQUIPOS</span></div>
+                <ChevronRight size={14} className={activeTab === 'PRESTAMOS' ? 'text-green-800' : 'text-white/40'} />
+              </button>
+            </nav>
+
+            <div className="border-t border-white/10 pt-4 mt-auto">
+              <p 
+                onClick={() => { setShowSessionsModal(true); setMobileMenuOpen(false); }} 
+                className="text-[10px] text-white/50 hover:text-white transition-colors font-bold mb-3 truncate cursor-pointer flex items-center gap-1.5"
+              >
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+                {user.email}
+              </p>
+              <button 
+                onClick={() => { setShowSessionsModal(true); setMobileMenuOpen(false); }} 
+                className="flex items-center gap-3 bg-white/10 text-white hover:bg-white/20 transition-all p-3 text-xs font-black w-full rounded-xl uppercase tracking-wider"
+              >
+                <LogOut size={16} /> GESTIONAR SESIONES
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* --- SIDEBAR DE ESCRITORIO (Fijo clásico) --- */}
       <aside style={{ backgroundColor: colors.sidebar }} className="hidden md:flex flex-col w-64 h-full fixed left-0 top-0 p-8 shadow-2xl z-50">
         <div className="flex items-center gap-3 mb-12"><ExonetLogo size={32} color="#FFF" /><span className="text-2xl font-black text-white">EXONET</span></div>
         <nav className="flex-1 space-y-4">
@@ -738,6 +840,7 @@ export default function App() {
         </div>
       </aside>
 
+      {/* --- ÁREA PRINCIPAL --- */}
       <main className="p-4 md:p-10 max-w-[1400px] mx-auto">
         {activeTab === 'CLIENTES' && <ClientesView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'PAGOS' && <PagosView clientes={clientes} db={db} />}
@@ -745,33 +848,6 @@ export default function App() {
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
         {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
       </main>
-
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-4 z-50 shadow-lg">
-        <button onClick={() => setActiveTab('CLIENTES')} className="p-2 flex flex-col items-center">
-          <Users color={activeTab === 'CLIENTES' ? colors.sidebar : '#CCC'} />
-          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'CLIENTES' ? colors.sidebar : '#CCC' }}>CLIENTES</span>
-        </button>
-        <button onClick={() => setActiveTab('PAGOS')} className="p-2 flex flex-col items-center">
-          <DollarSign color={activeTab === 'PAGOS' ? colors.sidebar : '#CCC'} />
-          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PAGOS' ? colors.sidebar : '#CCC' }}>PAGOS</span>
-        </button>
-        <button onClick={() => setActiveTab('SOPORTE')} className="p-2 flex flex-col items-center">
-          <Wrench color={activeTab === 'SOPORTE' ? colors.sidebar : '#CCC'} />
-          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'SOPORTE' ? colors.sidebar : '#CCC' }}>SOPORTE</span>
-        </button>
-        <button onClick={() => setActiveTab('NODOS')} className="p-2 flex flex-col items-center">
-          <div style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}><ExonetLogo size={24} color="currentColor" /></div>
-          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'NODOS' ? colors.sidebar : '#CCC' }}>REPARTIDORES</span>
-        </button>
-        <button onClick={() => setActiveTab('PRESTAMOS')} className="p-2 flex flex-col items-center">
-          <Laptop color={activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC'} />
-          <span className="text-[8px] font-bold mt-1" style={{ color: activeTab === 'PRESTAMOS' ? colors.sidebar : '#CCC' }}>EQUIPOS</span>
-        </button>
-        <button onClick={() => setShowSessionsModal(true)} className="p-2 flex flex-col items-center text-red-500">
-          <LogOut size={20} />
-          <span className="text-[8px] font-bold mt-1">DISPOSITIVOS</span>
-        </button>
-      </nav>
 
       {/* --- MODAL DE GESTIÓN DE DISPOSITIVOS ACTIVOS --- */}
       {showSessionsModal && (
@@ -1945,11 +2021,11 @@ function ClientesView({ clientes, nodos, db }) {
         <div className="flex gap-2">
           <button 
             onClick={() => handlePrintClientesFiltrados(clientes)}
-            className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all"
+            className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all text-xs md:text-sm"
           >
-            <Printer size={20} /> IMPRIMIR LISTA
+            <Printer size={18} /> <span className="hidden sm:inline">IMPRIMIR LISTA</span>
           </button>
-          <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">+ NUEVO CLIENTE</button>
+          <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg text-xs md:text-sm">+ NUEVO CLIENTE</button>
         </div>
       </div>
       
@@ -1958,24 +2034,24 @@ function ClientesView({ clientes, nodos, db }) {
         <input placeholder="Buscar abonado por nombre o apellido..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-md gap-1">
+      <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-xl overflow-x-auto gap-1">
         <button 
           onClick={() => setFiltroRapido('TODOS')}
-          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          className="flex-shrink-0 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
           style={filtroRapido === 'TODOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
           [ Todos ({clientes.length}) ]
         </button>
         <button 
           onClick={() => setFiltroRapido('DE_PAGO')}
-          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          className="flex-shrink-0 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
           style={filtroRapido === 'DE_PAGO' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
           [ Clientes De Pago ({totalDePago}) ]
         </button>
         <button 
           onClick={() => setFiltroRapido('EXONERADOS')}
-          className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
+          className="flex-shrink-0 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
           style={filtroRapido === 'EXONERADOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
         >
           [ Exonerados ({clientes.filter(c => c.exonerado).length}) ]
@@ -2433,7 +2509,7 @@ function SoporteView({ clientes, nodos, db }) {
           <button
             type="button"
             onClick={() => setReportType('CLIENTE')}
-            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center center gap-2 ${
+            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center center gap-2 justify-center ${
               reportType === 'CLIENTE' 
                 ? 'bg-white text-green-800 shadow-md' 
                 : 'text-gray-400 hover:text-gray-600'
@@ -2445,14 +2521,14 @@ function SoporteView({ clientes, nodos, db }) {
           <button
             type="button"
             onClick={() => setReportType('AP')}
-            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center center gap-2 ${
+            className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center center gap-2 justify-center ${
               reportType === 'AP' 
                 ? 'bg-white text-green-800 shadow-md' 
                 : 'text-gray-400 hover:text-gray-600'
             }`}
           >
             <Radio size={16} />
-            Reporte de AP / Nodo
+            Reporte de AP
           </button>
         </div>
 
