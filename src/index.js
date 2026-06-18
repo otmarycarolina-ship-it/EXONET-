@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
@@ -1238,44 +1241,42 @@ function PagosView({ clientes, db }) {
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
-        {/* --- CONTENEDOR OPTIMIZADO PARA LOS FILTROS ESTÁTICOS --- */}
-        <div className="p-6 bg-gray-50/50 border-b flex flex-col lg:flex-row justify-between items-center gap-4">
+        <div className="p-6 bg-gray-50/50 border-b flex flex-col sm:flex-row justify-between items-center gap-4">
           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Listado de Coberturas Técnicas</span>
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-            {/* Contenedor en cuadrícula estática sin scroll */}
-            <div className="grid grid-cols-2 xs:grid-cols-3 sm:flex bg-gray-100 p-1.5 rounded-2xl border border-gray-200 gap-1 w-full sm:w-auto">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
               <button 
                 onClick={() => setFiltroPago('TODOS')} 
-                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'TODOS' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'TODOS' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 Todos ({clientesDePago.length})
               </button>
               <button 
                 onClick={() => setFiltroPago('PENDIENTES')} 
-                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
               >
                 Vencidos ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'PENDIENTE' && !esProximoAVencer(c)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('SALDO_PENDIENTE')} 
-                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'SALDO_PENDIENTE' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-400 hover:text-amber-500'}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SALDO_PENDIENTE' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-400 hover:text-amber-500'}`}
               >
                 Saldo Pendiente ({clientesDePago.filter(c => !c.esBolivares && c.pagoCompletado && parseFloat(c.montoPagado || 0) < parseFloat(c.costo || 0)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('VENCER')} 
-                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'VENCER' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-orange-500'}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'VENCER' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-orange-500'}`}
               >
                 A Vencer ({clientesDePago.filter(c => esProximoAVencer(c)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('SOLVENTES')} 
-                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
               >
                 Solventes ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE' && !esProximoAVencer(c)).length})
               </button>
             </div>
-            <span className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap hidden sm:inline-block">
+            <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
               {clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE').length} / {clientesDePago.length} AL DÍA
             </span>
           </div>
