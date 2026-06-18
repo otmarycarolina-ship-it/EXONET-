@@ -565,7 +565,7 @@ export default function App() {
       let icon = "💻";
 
       if (snapshotExistente && snapshotExistente.exists()) {
-        const datos Viejos = snapshotExistente.data();
+        const datosViejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
