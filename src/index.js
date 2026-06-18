@@ -321,7 +321,7 @@ const handlePrintGeneral = (titulo, data) => {
       const costoNum = parseFloat(c.costo) || 0;
       const abonoNum = parseFloat(c.montoPagado) || 0;
       const estadoPago = obtenerEstadoCliente(c);
-      const tiene DeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
+      const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
 
       if (estadoPago === 'SOLVENTE') {
         totalActivos += abonoNum; 
