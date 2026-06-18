@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
@@ -568,7 +565,7 @@ export default function App() {
       let icon = "💻";
 
       if (snapshotExistente && snapshotExistente.exists()) {
-        const datosViejos = snapshotExistente.data();
+        const datos Viejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -2037,28 +2034,47 @@ function ClientesView({ clientes, nodos, db }) {
         <input placeholder="Buscar abonado por nombre o apellido..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      <div className="flex bg-white/60 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-xl overflow-x-auto gap-1">
-        <button 
-          onClick={() => setFiltroRapido('TODOS')}
-          className="flex-shrink-0 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
-          style={filtroRapido === 'TODOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
-        >
-          [ Todos ({clientes.length}) ]
-        </button>
-        <button 
-          onClick={() => setFiltroRapido('DE_PAGO')}
-          className="flex-shrink-0 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
-          style={filtroRapido === 'DE_PAGO' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
-        >
-          [ Clientes De Pago ({totalDePago}) ]
-        </button>
-        <button 
-          onClick={() => setFiltroRapido('EXONERADOS')}
-          className="flex-shrink-0 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-transparent text-green-800 hover:bg-green-100/50"
-          style={filtroRapido === 'EXONERADOS' ? {backgroundColor: colors.sidebar, color: '#fff'} : {}}
-        >
-          [ Exonerados ({clientes.filter(c => c.exonerado).length}) ]
-        </button>
+      {/* --- BARRA DE FILTROS SIN DESLIZAMIENTO (REPRODUCCIÓN DE LA IMAGEN) --- */}
+      <div className="bg-white p-4 rounded-[1.8rem] border border-green-100 mb-6 w-full shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="grid grid-cols-3 w-full font-mono text-xs sm:text-sm tracking-wide">
+          
+          {/* BOTÓN: TODOS */}
+          <button 
+            onClick={() => setFiltroRapido('TODOS')}
+            className={`py-3 px-1 text-center transition-all font-bold ${
+              filtroRapido === 'TODOS' 
+                ? 'bg-[#2E7D32] text-white rounded-2xl shadow-sm' 
+                : 'text-[#1B5E20] hover:bg-green-50 rounded-2xl'
+            }`}
+          >
+            [ TODOS ({clientes.length}) ]
+          </button>
+          
+          {/* BOTÓN: CLIENTES DE PAGO */}
+          <button 
+            onClick={() => setFiltroRapido('DE_PAGO')}
+            className={`py-3 px-1 text-center transition-all font-bold ${
+              filtroRapido === 'DE_PAGO' 
+                ? 'bg-[#2E7D32] text-white rounded-2xl shadow-sm' 
+                : 'text-[#1B5E20] hover:bg-green-50 rounded-2xl'
+            }`}
+          >
+            [ CLIENTES DE PAGO ({totalDePago}) ]
+          </button>
+          
+          {/* BOTÓN: EXONERADOS */}
+          <button 
+            onClick={() => setFiltroRapido('EXONERADOS')}
+            className={`py-3 px-1 text-center transition-all font-bold ${
+              filtroRapido === 'EXONERADOS' 
+                ? 'bg-[#2E7D32] text-white rounded-2xl shadow-sm' 
+                : 'text-[#1B5E20] hover:bg-green-50 rounded-2xl'
+            }`}
+          >
+            [ EXONERADOS ({clientes.filter(c => c.exonerado).length}) ]
+          </button>
+          
+        </div>
       </div>
 
       <div className="space-y-3">
