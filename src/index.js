@@ -321,7 +321,7 @@ const handlePrintGeneral = (titulo, data) => {
       const costoNum = parseFloat(c.costo) || 0;
       const abonoNum = parseFloat(c.montoPagado) || 0;
       const estadoPago = obtenerEstadoCliente(c);
-      const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
+      const tiene DeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
 
       if (estadoPago === 'SOLVENTE') {
         totalActivos += abonoNum; 
@@ -2034,44 +2034,44 @@ function ClientesView({ clientes, nodos, db }) {
         <input placeholder="Buscar abonado por nombre o apellido..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* --- BARRA DE FILTROS SIN DESLIZAMIENTO (REPRODUCCIÓN DE LA IMAGEN) --- */}
-      <div className="bg-white p-4 rounded-[1.8rem] border border-green-100 mb-6 w-full shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="grid grid-cols-3 w-full font-mono text-xs sm:text-sm tracking-wide">
+      {/* --- BARRA DE FILTROS PEQUEÑA SIN CORCHETES --- */}
+      <div className="bg-white p-3 rounded-2xl border border-green-100 mb-6 w-full shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="grid grid-cols-3 w-full font-sans text-xs tracking-wide">
           
           {/* BOTÓN: TODOS */}
           <button 
             onClick={() => setFiltroRapido('TODOS')}
-            className={`py-3 px-1 text-center transition-all font-bold ${
+            className={`py-2 px-1 text-center transition-all font-bold ${
               filtroRapido === 'TODOS' 
-                ? 'bg-[#2E7D32] text-white rounded-2xl shadow-sm' 
-                : 'text-[#1B5E20] hover:bg-green-50 rounded-2xl'
+                ? 'bg-[#2E7D32] text-white rounded-xl shadow-sm' 
+                : 'text-[#1B5E20] hover:bg-green-50 rounded-xl'
             }`}
           >
-            [ TODOS ({clientes.length}) ]
+            TODOS ({clientes.length})
           </button>
           
           {/* BOTÓN: CLIENTES DE PAGO */}
           <button 
             onClick={() => setFiltroRapido('DE_PAGO')}
-            className={`py-3 px-1 text-center transition-all font-bold ${
+            className={`py-2 px-1 text-center transition-all font-bold ${
               filtroRapido === 'DE_PAGO' 
-                ? 'bg-[#2E7D32] text-white rounded-2xl shadow-sm' 
-                : 'text-[#1B5E20] hover:bg-green-50 rounded-2xl'
+                ? 'bg-[#2E7D32] text-white rounded-xl shadow-sm' 
+                : 'text-[#1B5E20] hover:bg-green-50 rounded-xl'
             }`}
           >
-            [ CLIENTES DE PAGO ({totalDePago}) ]
+            CLIENTES DE PAGO ({totalDePago})
           </button>
           
           {/* BOTÓN: EXONERADOS */}
           <button 
             onClick={() => setFiltroRapido('EXONERADOS')}
-            className={`py-3 px-1 text-center transition-all font-bold ${
+            className={`py-2 px-1 text-center transition-all font-bold ${
               filtroRapido === 'EXONERADOS' 
-                ? 'bg-[#2E7D32] text-white rounded-2xl shadow-sm' 
-                : 'text-[#1B5E20] hover:bg-green-50 rounded-2xl'
+                ? 'bg-[#2E7D32] text-white rounded-xl shadow-sm' 
+                : 'text-[#1B5E20] hover:bg-green-50 rounded-xl'
             }`}
           >
-            [ EXONERADOS ({clientes.filter(c => c.exonerado).length}) ]
+            EXONERADOS ({clientes.filter(c => c.exonerado).length})
           </button>
           
         </div>
