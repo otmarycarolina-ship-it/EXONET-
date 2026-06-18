@@ -84,21 +84,6 @@ const ExonetLogo = ({ size = 48, color = "currentColor" }) => (
   </svg>
 );
 
-// --- NUEVO COMPONENTE: ICONO DE REPARTIDOR (ANTENA PERSONALIZADA) ---
-const AntenaIcon = ({ size = 20, color = "currentColor" }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
-    {/* Base de la antena */}
-    <path d="M25 80h50M42 80l6-20M58 80l-6-20M50 60v-8" />
-    {/* Plato/Disco satelital */}
-    <path d="M30 45c5-15 20-23 35-18s23 20 18 35-20 23-35 18-23-20-18-35z" fill="none" />
-    {/* Brazo central receptor */}
-    <path d="M52 42l15-15" />
-    <circle cx="67" cy="27" r="4" fill={color} />
-    {/* Ondas de señal inalámbrica */}
-    <path d="M64 12c8 4 14 11 17 20M73 4c11 6 20 16 23 28" strokeWidth="5" />
-  </svg>
-);
-
 // --- AUXILIARES DE FECHAS EN FORMATO LOCAL (YYYY-MM-DD) ---
 const obtenerFechaActualLocal = () => {
   const d = new Date();
@@ -334,7 +319,7 @@ const handlePrintGeneral = (titulo, data) => {
   if (esFibra) {
     data.forEach(c => {
       const costoNum = parseFloat(c.costo) || 0;
-      const abonoNum = parseFloat(c.montoPagado || 0);
+      const abonoNum = parseFloat(c.montoPagado) || 0;
       const estadoPago = obtenerEstadoCliente(c);
       const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
 
@@ -732,7 +717,7 @@ export default function App() {
   return (
     <div style={{ backgroundColor: colors.bg }} className="min-h-screen pt-16 md:pt-0 pb-6 md:pb-0 md:pl-64 text-gray-800 font-sans">
       
-      {/* --- CABECERA TOP MÓVIL --- */}
+      {/* --- CABECERA TOP MÓVIL (Fija arriba para no estorbar con Progressier abajo) --- */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-[60] shadow-sm">
         <div className="flex items-center gap-2">
           <ExonetLogo size={24} color={colors.sidebar} />
@@ -751,8 +736,10 @@ export default function App() {
       {/* --- MENÚ LATERAL DESPLEGABLE EN MÓVIL (DRAWER) --- */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-[200] flex animate-in fade-in duration-200">
+          {/* Fondo oscuro translúcido con clic para cerrar */}
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
           
+          {/* Contenedor del panel lateral izquierdo */}
           <aside style={{ backgroundColor: colors.sidebar }} className="relative flex flex-col w-72 h-full p-6 shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
               <div className="flex items-center gap-2">
@@ -789,12 +776,11 @@ export default function App() {
                 <ChevronRight size={14} className={activeTab === 'SOPORTE' ? 'text-green-800' : 'text-white/40'} />
               </button>
 
-              {/* Icono de Antena Personalizada en Menú Móvil */}
               <button 
                 onClick={() => { setActiveTab('NODOS'); setMobileMenuOpen(false); }}
                 className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'NODOS' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
               >
-                <div className="flex items-center gap-3"><AntenaIcon size={18} color="currentColor" /> <span>REPARTIDORES</span></div>
+                <div className="flex items-center gap-3"><Radio size={18} /> <span>REPARTIDORES</span></div>
                 <ChevronRight size={14} className={activeTab === 'NODOS' ? 'text-green-800' : 'text-white/40'} />
               </button>
 
@@ -826,15 +812,14 @@ export default function App() {
         </div>
       )}
 
-      {/* --- SIDEBAR DE ESCRITORIO --- */}
+      {/* --- SIDEBAR DE ESCRITORIO (Fijo clásico) --- */}
       <aside style={{ backgroundColor: colors.sidebar }} className="hidden md:flex flex-col w-64 h-full fixed left-0 top-0 p-8 shadow-2xl z-50">
         <div className="flex items-center gap-3 mb-12"><ExonetLogo size={32} color="#FFF" /><span className="text-2xl font-black text-white">EXONET</span></div>
         <nav className="flex-1 space-y-4">
           <NavItem active={activeTab === 'CLIENTES'} onClick={() => setActiveTab('CLIENTES')} icon={<Users />} label="CLIENTES" />
           <NavItem active={activeTab === 'PAGOS'} onClick={() => setActiveTab('PAGOS')} icon={<DollarSign />} label="PAGOS" />
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
-          {/* Icono de Antena Personalizada en Sidebar de Escritorio */}
-          <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<AntenaIcon size={20} color="currentColor" />} label="REPARTIDORES" />
+          <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
@@ -1253,42 +1238,44 @@ function PagosView({ clientes, db }) {
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
-        <div className="p-6 bg-gray-50/50 border-b flex flex-col sm:flex-row justify-between items-center gap-4">
+        {/* --- CONTENEDOR OPTIMIZADO PARA LOS FILTROS ESTÁTICOS --- */}
+        <div className="p-6 bg-gray-50/50 border-b flex flex-col lg:flex-row justify-between items-center gap-4">
           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Listado de Coberturas Técnicas</span>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+            {/* Contenedor en cuadrícula estática sin scroll */}
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:flex bg-gray-100 p-1.5 rounded-2xl border border-gray-200 gap-1 w-full sm:w-auto">
               <button 
                 onClick={() => setFiltroPago('TODOS')} 
-                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'TODOS' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'TODOS' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 Todos ({clientesDePago.length})
               </button>
               <button 
                 onClick={() => setFiltroPago('PENDIENTES')} 
-                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
+                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
               >
                 Vencidos ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'PENDIENTE' && !esProximoAVencer(c)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('SALDO_PENDIENTE')} 
-                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SALDO_PENDIENTE' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-400 hover:text-amber-500'}`}
+                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'SALDO_PENDIENTE' ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-400 hover:text-amber-500'}`}
               >
                 Saldo Pendiente ({clientesDePago.filter(c => !c.esBolivares && c.pagoCompletado && parseFloat(c.montoPagado || 0) < parseFloat(c.costo || 0)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('VENCER')} 
-                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'VENCER' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-orange-500'}`}
+                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'VENCER' ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-400 hover:text-orange-500'}`}
               >
                 A Vencer ({clientesDePago.filter(c => esProximoAVencer(c)).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('SOLVENTES')} 
-                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
+                className={`px-3 py-2 text-[10px] font-black uppercase rounded-xl transition-all text-center ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
               >
                 Solventes ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE' && !esProximoAVencer(c)).length})
               </button>
             </div>
-            <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
+            <span className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap hidden sm:inline-block">
               {clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE').length} / {clientesDePago.length} AL DÍA
             </span>
           </div>
@@ -1836,8 +1823,8 @@ function FtthView({ clientes, db }) {
     
     if (tieneDeudaActiva) return 'SALDO PENDIENTE';
     
-    const fontPago = obtenerEstadoCliente(cliente);
-    if (fontPago === 'PENDIENTE') return 'SIN SERVICIO';
+    const estadoPago = obtenerEstadoCliente(cliente);
+    if (estadoPago === 'PENDIENTE') return 'SIN SERVICIO';
     return cliente.estadoFTTH || 'ACTIVO';
   };
 
@@ -1932,7 +1919,7 @@ function FtthView({ clientes, db }) {
                   {c.estadoFTTH === 'REVISIÓN' && (
                     <button 
                       onClick={() => handleWhatsApp(c, `🛠️ Soporte FTTH: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem (ONU) está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
-                      className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
+                      className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                       title="Mandar a Revisión"
                     >
                       <AlertCircle size={18} />
@@ -2530,7 +2517,7 @@ function SoporteView({ clientes, nodos, db }) {
                 : 'text-gray-400 hover:text-gray-600'
             }`}
           >
-            <Circle size={16} />
+            <Users size={16} />
             Reporte de Cliente
           </button>
           <button
