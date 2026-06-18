@@ -625,7 +625,7 @@ export default function App() {
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        const todaviaExisto = listaSessions.some(s => s.id === deviceId);
+        const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
@@ -1731,7 +1731,7 @@ function PrestamosView({ clientes, db }) {
               <div className="flex items-center gap-5">
                 <span className="text-gray-300 font-black text-xl">{index + 1}</span>
                 <div>
-                  h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
                   <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
                     <MapPin size={10}/> {c.direccion}
                   </p>
@@ -1836,8 +1836,8 @@ function FtthView({ clientes, db }) {
     
     if (tieneDeudaActiva) return 'SALDO PENDIENTE';
     
-    const estadoPago = obtenerEstadoCliente(cliente);
-    if (estadoPago === 'PENDIENTE') return 'SIN SERVICIO';
+    const fontPago = obtenerEstadoCliente(cliente);
+    if (fontPago === 'PENDIENTE') return 'SIN SERVICIO';
     return cliente.estadoFTTH || 'ACTIVO';
   };
 
@@ -2530,7 +2530,7 @@ function SoporteView({ clientes, nodos, db }) {
                 : 'text-gray-400 hover:text-gray-600'
             }`}
           >
-            <Users size={16} />
+            <Circle size={16} />
             Reporte de Cliente
           </button>
           <button
