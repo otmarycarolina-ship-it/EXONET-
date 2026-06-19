@@ -259,30 +259,15 @@ const handleGenerarRecibo = (cliente) => {
   printWindow.print();
 };
 
-const handlePrintClientesFiltrados = (data, tipoFiltro = 'DE_PAGO') => {
+const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
-  let clientesFiltrados = [];
-  let tituloReporte = "LISTA GENERAL DE CLIENTES";
-
-  if (tipoFiltro === 'EXONET_20') {
-    clientesFiltrados = data.filter(c => c.exonet20 === true);
-    tituloReporte = "LISTA DE CLIENTES EXONET 2.0";
-  } else if (tipoFiltro === 'EXONERADOS') {
-    clientesFiltrados = data.filter(c => c.exonerado === true);
-    tituloReporte = "LISTA DE CLIENTES EXONERADOS";
-  } else if (tipoFiltro === 'DE_PAGO') {
-    clientesFiltrados = data.filter(c => !c.exonerado);
-    tituloReporte = "LISTA DE CLIENTES DE PAGO";
-  } else {
-    clientesFiltrados = [...data];
-  }
-
+  const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
   const encabezadoMes = obtenerEncabezadoMesActual();
 
   const html = `
     <html>
       <head>
-        <title>Exonet - ${tituloReporte} - ${encabezadoMes}</title>
+        <title>Exonet - LISTA GENERAL DE CLIENTES - ${encabezadoMes}</title>
         <style>
           body { font-family: sans-serif; padding: 20px; color: #333; }
           h1 { color: #2E7D32; border-bottom: 2px solid #2E7D32; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
@@ -294,8 +279,55 @@ const handlePrintClientesFiltrados = (data, tipoFiltro = 'DE_PAGO') => {
         </style>
       </head>
       <body>
-        <h1>EXONET - ${tituloReporte} (${encabezadoMes})</h1>
+        <h1>EXONET - LISTA GENERAL DE CLIENTES (${encabezadoMes})</h1>
         <div class="meta-info">Total abonados: ${clientesFiltrados.length} | Fecha: ${new Date().toLocaleDateString()}</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>CLIENTE (NOMBRE Y APELLIDO)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${clientesFiltrados.map((c, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Generado por Sistema de Gestión Exonet</div>
+      </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.print();
+};
+
+const handlePrintExonet20 = (data) => {
+  const printWindow = window.open('', '_blank');
+  const exonetClientes = data.filter(c => c.exonet20 === true);
+  const encabezadoMes = obtenerEncabezadoMesActual();
+
+  const html = `
+    <html>
+      <head>
+        <title>Exonet - LISTA EXCLUSIVA EXONET 2.0 - ${encabezadoMes}</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; color: #333; }
+          h1 { color: #673AB7; border-bottom: 2px solid #673AB7; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
+          .meta-info { font-size: 13px; color: #555; margin-bottom: 20px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #673AB7; color: white; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
+          td { padding: 10px; border: 1px solid #ddd; font-size: 13px; }
+          .footer { margin-top: 40px; font-size: 10px; color: #999; text-align: right; border-top: 1px solid #eee; padding-top: 5px; }
+        </style>
+      </head>
+      <body>
+        <h1>EXONET - LISTA EXCLUSIVA EXONET 2.0 (${encabezadoMes})</h1>
+        <div class="meta-info">Total abonados Exonet 2.0: ${exonetClientes.length} | Fecha: ${new Date().toLocaleDateString()}</div>
         <table>
           <thead>
             <tr>
@@ -306,7 +338,7 @@ const handlePrintClientesFiltrados = (data, tipoFiltro = 'DE_PAGO') => {
             </tr>
           </thead>
           <tbody>
-            ${clientesFiltrados.map((c, i) => `
+            ${exonetClientes.map((c, i) => `
               <tr>
                 <td>${i + 1}</td>
                 <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
@@ -552,6 +584,7 @@ export default function App() {
     let keepAliveInterval;
     let desubscribirSesiones;
 
+    // Función auxiliar para cerrar sesión de manera fulminante limpiando el almacenamiento local
     const forzarDesconexionLocalCompleta = () => {
       clearInterval(keepAliveInterval);
       if (desubscribirSesiones) desubscribirSesiones();
@@ -1315,6 +1348,11 @@ function PagosView({ clientes, db }) {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                      {c.exonet20 && (
+                        <span className="bg-purple-600 text-white font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                          EXONET 2.0
+                        </span>
+                      )}
                       {c.ftth && (
                         <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                           FIBRA
@@ -1323,11 +1361,6 @@ function PagosView({ clientes, db }) {
                       {c.prestamo && (
                         <span className="bg-orange-100 text-orange-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                           PRÉSTAMO
-                        </span>
-                      )}
-                      {c.exonet20 && (
-                        <span className="bg-purple-100 text-purple-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
-                          EXONET 2.0
                         </span>
                       )}
                       {proximo && (
@@ -1341,7 +1374,7 @@ function PagosView({ clientes, db }) {
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <div className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-x-2 gap-y-0.5 flex-wrap">
                       <span>Plan: <span className="text-green-700 font-black">{c.plan} Mbps</span></span>
                       <span>|</span>
                       {!c.esBolivares && <span>Costo: <span className="text-gray-700 font-black">${costoTotal.toFixed(3)} COP</span></span>}
@@ -1631,24 +1664,24 @@ function ItemManagementView({ clientes, db }) {
 
   return (
     <div className="animate-in fade-in duration-500 max-w-4xl mx-auto">
-      <div className="flex bg-white/80 p-1.5 rounded-2xl border border-green-100 mb-6 w-full gap-2 shadow-sm">
+      <div className="flex bg-white/80 p-1.5 rounded-2xl border border-green-100 mb-6 max-w-2xl mx-auto gap-2 shadow-sm">
         <button 
           onClick={() => setSubTab('INALAMBRICOS')}
-          className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-green-700 text-white shadow-md"
+          className="flex-1 py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all bg-green-700 text-white shadow-md"
           style={subTab !== 'INALAMBRICOS' ? {backgroundColor: 'transparent', color: colors.sidebar} : {}}
         >
-          Equipos Préstamo
+          Equipos a préstamo
         </button>
         <button 
-          onClick={() => setSubTab('EXONET20_PRESTAMO')}
-          className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-purple-700 text-white shadow-md"
-          style={subTab !== 'EXONET20_PRESTAMO' ? {backgroundColor: 'transparent', color: '#6B21A8'} : {}}
+          onClick={() => setSubTab('PRESTAMOS_20')}
+          className="flex-1 py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all bg-purple-700 text-white shadow-md"
+          style={subTab !== 'PRESTAMOS_20' ? {backgroundColor: 'transparent', color: '#673AB7'} : {}}
         >
-          Equipos Préstamo 2.0
+          Préstamos 2.0
         </button>
         <button 
           onClick={() => setSubTab('FTTH')}
-          className="flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-green-700 text-white shadow-md"
+          className="flex-1 py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all bg-green-700 text-white shadow-md"
           style={subTab !== 'FTTH' ? {backgroundColor: 'transparent', color: colors.sidebar} : {}}
         >
           Fibra (FTTH)
@@ -1656,7 +1689,7 @@ function ItemManagementView({ clientes, db }) {
       </div>
 
       {subTab === 'INALAMBRICOS' && <PrestamosView clientes={clientes} db={db} />}
-      {subTab === 'EXONET20_PRESTAMO' && <PrestamosExonet20View clientes={clientes} db={db} />}
+      {subTab === 'PRESTAMOS_20' && <Prestamos20View clientes={clientes} db={db} />}
       {subTab === 'FTTH' && <FtthView clientes={clientes} db={db} />}
     </div>
   );
@@ -1709,10 +1742,10 @@ function PrestamosView({ clientes, db }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
-        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos de Préstamo Normal</h2>
+        <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Equipos de Préstamo</h2>
         <button 
           onClick={() => handlePrintGeneral('LISTA DE EQUIPOS A PRÉSTAMO', enPrestamo)}
-          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm"
+          className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-200 transition-colors shadow-sm animate-in fade-in"
         >
           <Printer size={18} /> IMPRIMIR LISTA
         </button>
@@ -1721,7 +1754,7 @@ function PrestamosView({ clientes, db }) {
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
         <Search size={20} className="text-gray-400" />
         <input 
-          placeholder="Buscar cliente..." 
+          placeholder="Buscar cliente con equipo prestado..." 
           className="bg-transparent w-full p-4 outline-none font-medium" 
           value={search} 
           onChange={e => setSearch(e.target.value)} 
@@ -1730,7 +1763,7 @@ function PrestamosView({ clientes, db }) {
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
         <div className="p-6 bg-gray-50/50 border-b flex justify-between items-center">
-           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Clientes con Equipos Normales</span>
+           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Clientes con Equipos a Préstamo</span>
            <span className="bg-orange-100 text-orange-700 px-4 py-1 rounded-full text-xs font-bold">{enPrestamo.length} EQUIPOS</span>
         </div>
         
@@ -1773,7 +1806,7 @@ function PrestamosView({ clientes, db }) {
                 <button 
                   onClick={() => handleWhatsApp(c, null, true)}
                   className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
-                  title="Enviar recordatorio estándar"
+                  title="Enviar recordatorio estándar (Cobro)"
                 >
                   <MessageCircle size={20} />
                 </button>
@@ -1793,13 +1826,19 @@ function PrestamosView({ clientes, db }) {
               </div>
             </div>
           ))}
+          {enPrestamo.length === 0 && (
+            <div className="p-20 text-center">
+              <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
+              <p className="text-gray-400 font-bold italic">No hay resultados que coincidan con la búsqueda.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function PrestamosExonet20View({ clientes, db }) {
+function Prestamos20View({ clientes, db }) {
   const [search, setSearch] = useState('');
 
   const enPrestamo20 = clientes
@@ -1808,7 +1847,7 @@ function PrestamosExonet20View({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos de parte de EXONET 2.0, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n¡Gracias por tu preferencia! 🌐`;
+    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos de parte de EXONET 2.0.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es mantener el flujo estable del servicio.\n\n¡Muchas gracias!`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
@@ -1839,16 +1878,16 @@ function PrestamosExonet20View({ clientes, db }) {
       case 'REVISIÓN':
         return 'bg-orange-50 text-orange-600 border-orange-100';
       default:
-        return 'bg-purple-50 text-purple-700 border-purple-100';
+        return 'bg-purple-50 text-purple-700 border-purple-200';
     }
   };
 
   return (
-    <div>
+    <div className="animate-in fade-in duration-300">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-black uppercase text-purple-900">Equipos de Préstamo Exonet 2.0</h2>
+        <h2 style={{ color: '#673AB7' }} className="text-3xl font-black uppercase">Equipos a Préstamo 2.0</h2>
         <button 
-          onClick={() => handlePrintGeneral('LISTA DE EQUIPOS A PRÉSTAMO EXONET 2.0', enPrestamo20)}
+          onClick={() => handlePrintGeneral('LISTA DE EQUIPOS PRÉSTAMO EXONET 2.0', enPrestamo20)}
           className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-purple-200 transition-colors shadow-sm"
         >
           <Printer size={18} /> IMPRIMIR LISTA 2.0
@@ -1858,7 +1897,7 @@ function PrestamosExonet20View({ clientes, db }) {
       <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-purple-100">
         <Search size={20} className="text-gray-400" />
         <input 
-          placeholder="Buscar cliente en Exonet 2.0..." 
+          placeholder="Buscar cliente Exonet 2.0 con equipo prestado..." 
           className="bg-transparent w-full p-4 outline-none font-medium" 
           value={search} 
           onChange={e => setSearch(e.target.value)} 
@@ -1866,14 +1905,14 @@ function PrestamosExonet20View({ clientes, db }) {
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-purple-50 overflow-hidden">
-        <div className="p-6 bg-purple-50/50 border-b flex justify-between items-center">
-           <span className="text-[10px] font-black text-purple-900 tracking-widest uppercase">Clientes Exonet 2.0 con Equipos Prestados</span>
-           <span className="bg-purple-100 text-purple-700 px-4 py-1 rounded-full text-xs font-bold">{enPrestamo20.length} EQUIPOS 2.0</span>
+        <div className="p-6 bg-purple-50/30 border-b flex justify-between items-center">
+           <span className="text-[10px] font-black text-purple-900 tracking-widest uppercase">Abonados Exonet 2.0 con Préstamo</span>
+           <span className="bg-purple-100 text-purple-700 px-4 py-1 rounded-full text-xs font-bold">{enPrestamo20.length} EQUIPOS</span>
         </div>
         
         <div className="divide-y divide-gray-50">
           {enPrestamo20.map((c, index) => (
-            <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-purple-50/20 transition-colors gap-4">
+            <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-purple-50/10 transition-colors gap-4">
               <div className="flex items-center gap-5">
                 <span className="text-purple-300 font-black text-xl">{index + 1}</span>
                 <div>
@@ -1887,9 +1926,8 @@ function PrestamosExonet20View({ clientes, db }) {
                 
                 {c.estadoPrestamo === 'PENDIENTE DE RETIRAR' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Orden de Retiro EXONET 2.0: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
+                    onClick={() => handleWhatsApp(c, `Orden de Retiro EXONET 2.0: Retiro programado para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
                     className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
-                    title="Reportar Retiro"
                   >
                     <Wrench size={18} />
                     <span className="text-[9px] font-black hidden lg:block">REPORTAR RETIRO</span>
@@ -1898,9 +1936,8 @@ function PrestamosExonet20View({ clientes, db }) {
 
                 {c.estadoPrestamo === 'REVISIÓN' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Soporte EXONET 2.0: Chequeo de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.\nPor favor, revisen si hay algún problema y reporten las novedades.`, false)}
+                    onClick={() => handleWhatsApp(c, `Soporte Técnico 2.0: Revisión de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
                     className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
-                    title="Mandar a Revisión"
                   >
                     <AlertCircle size={18} />
                     <span className="text-[9px] font-black hidden lg:block">REVISIÓN TÉCNICA</span>
@@ -1909,8 +1946,7 @@ function PrestamosExonet20View({ clientes, db }) {
 
                 <button 
                   onClick={() => handleWhatsApp(c, null, true)}
-                  className="p-2 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-200 transition-colors"
-                  title="Enviar recordatorio"
+                  className="p-2 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200 transition-colors"
                 >
                   <MessageCircle size={20} />
                 </button>
@@ -1922,9 +1958,20 @@ function PrestamosExonet20View({ clientes, db }) {
                   <CheckSquare size={14} />
                   <span className="text-[10px] font-black">{c.estadoPrestamo || 'ACTIVO'}</span>
                 </div>
+                
+                <div className="hidden sm:block text-right ml-2">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase">Nodo</p>
+                  <p className="text-xs font-black text-purple-700 uppercase">{c.ap}</p>
+                </div>
               </div>
             </div>
           ))}
+          {enPrestamo20.length === 0 && (
+            <div className="p-20 text-center">
+              <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
+              <p className="text-gray-400 font-bold italic">No hay clientes Exonet 2.0 registrados en esta sección.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2055,9 +2102,8 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador and los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU)...`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
-                      title="Reportar Retiro"
                     >
                       <Wrench size={18} />
                       <span className="text-[9px] font-black hidden lg:block">REPORTAR RETIRO</span>
@@ -2066,9 +2112,8 @@ function FtthView({ clientes, db }) {
 
                   {c.estadoFTTH === 'REVISIÓN' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `🛠️ Soporte FTTH: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem (ONU) está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
-                      className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
-                      title="Mandar a Revisión"
+                      onClick={() => handleWhatsApp(c, `🛠️ Soporte FTTH: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}...`, false)}
+                      className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                     >
                       <AlertCircle size={18} />
                       <span className="text-[9px] font-black hidden lg:block">REVISIÓN TÉCNICA</span>
@@ -2078,7 +2123,6 @@ function FtthView({ clientes, db }) {
                   <button 
                     onClick={() => handleWhatsApp(c, null, true)}
                     className="p-2 bg-green-100 text-green-600 rounded-xl hover:bg-green-200 transition-colors"
-                    title="Enviar recordatorio estándar FTTH"
                   >
                     <MessageCircle size={20} />
                   </button>
@@ -2100,6 +2144,12 @@ function FtthView({ clientes, db }) {
               </div>
             );
           })}
+          {clientesFtth.length === 0 && (
+            <div className="p-20 text-center">
+              <Laptop size={48} className="mx-auto text-gray-200 mb-4" />
+              <p className="text-gray-400 font-bold italic">No hay resultados en la sección de Fibra Óptica.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2124,12 +2174,31 @@ function ClientesView({ clientes, nodos, db }) {
     if (!cumpleBusqueda) return false;
 
     if (filtroRapido === 'DE_PAGO') return !c.exonerado;
-    if (filtroRapido === 'EXONET_20') return c.exonet20 === true;
     if (filtroRapido === 'EXONERADOS') return c.exonerado;
-    return true;
+    if (filtroRapido === 'EXONET_20') return c.exonet20 === true;
+    return true; 
   });
 
   const totalDePago = clientes.filter(c => !c.exonerado).length;
+
+  const handleCheckboxChange = (campo) => {
+    const estadoActual = {
+      prestamo: formData.prestamo,
+      ftth: formData.ftth,
+      exonet20: formData.exonet20,
+      [campo]: !formData[campo]
+    };
+
+    const activos = Object.values(estadoActual).filter(Boolean).length;
+    if (activos <= 2) {
+      setFormData({
+        ...formData,
+        prestamo: estadoActual.prestamo,
+        ftth: estadoActual.ftth,
+        exonet20: estadoActual.exonet20
+      });
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -2153,25 +2222,8 @@ function ClientesView({ clientes, nodos, db }) {
       setShowForm(false); setEditingId(null);
       setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, exonet20: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false });
     } catch (err) {
-      alert("Error al guardar los datos en la base de datos.");
+      alert("Error de permisos al guardar datos.");
     }
-  };
-
-  const toggleCheckbox = (campo) => {
-    let activas = 0;
-    if (campo === 'prestamo' ? !formData.prestamo : formData.prestamo) activas++;
-    if (campo === 'ftth' ? !formData.ftth : formData.ftth) activas++;
-    if (campo === 'exonet20' ? !formData.exonet20 : formData.exonet20) activas++;
-
-    if (activas > 2) {
-      alert("Solo se pueden marcar un máximo de 2 casillas al mismo tiempo.");
-      return;
-    }
-
-    setFormData({
-      ...formData,
-      [campo]: !formData[campo]
-    });
   };
 
   return (
@@ -2181,12 +2233,18 @@ function ClientesView({ clientes, nodos, db }) {
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
         </div>
         <div className="flex gap-2">
-          {/* Botón de impresión visible también en móviles */}
           <button 
-            onClick={() => handlePrintClientesFiltrados(clientes, filtroRapido)}
-            className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all text-xs md:text-sm"
+            onClick={() => handlePrintExonet20(clientes)}
+            className="bg-purple-100 text-purple-700 border border-purple-200 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-purple-200 transition-all text-xs md:text-sm"
+            title="Imprimir solo lista Exonet 2.0"
           >
-            <Printer size={18} /> <span>IMPRIMIR LISTA</span>
+            <Printer size={18} /> <span>IMPRIMIR 2.0</span>
+          </button>
+          <button 
+            onClick={() => handlePrintClientesFiltrados(clientes)}
+            className="bg-white text-gray-600 border border-gray-200 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all text-xs md:text-sm"
+          >
+            <Printer size={18} /> <span className="hidden sm:inline">IMPRIMIR GENERAL</span>
           </button>
           <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg text-xs md:text-sm">+ NUEVO CLIENTE</button>
         </div>
@@ -2197,34 +2255,32 @@ function ClientesView({ clientes, nodos, db }) {
         <input placeholder="Buscar abonado por nombre o apellido..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
+      {/* --- BARRA DE FILTROS ACTUALIZADA --- */}
       <div className="bg-white p-3 rounded-2xl border border-green-100 mb-6 w-full shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="grid grid-cols-4 w-full font-sans text-xs tracking-wide gap-1">
+        <div className="grid grid-cols-4 w-full font-sans text-[10px] sm:text-xs tracking-wide gap-1">
           <button 
             onClick={() => setFiltroRapido('TODOS')}
             className={`py-2 px-1 text-center transition-all font-bold ${filtroRapido === 'TODOS' ? 'bg-[#2E7D32] text-white rounded-xl shadow-sm' : 'text-[#1B5E20] hover:bg-green-50 rounded-xl'}`}
           >
             TODOS ({clientes.length})
           </button>
-          
           <button 
             onClick={() => setFiltroRapido('DE_PAGO')}
             className={`py-2 px-1 text-center transition-all font-bold ${filtroRapido === 'DE_PAGO' ? 'bg-[#2E7D32] text-white rounded-xl shadow-sm' : 'text-[#1B5E20] hover:bg-green-50 rounded-xl'}`}
           >
-            CLIENTES DE PAGO ({totalDePago})
+            PAGO ({totalDePago})
           </button>
-
           <button 
             onClick={() => setFiltroRapido('EXONET_20')}
-            className={`py-2 px-1 text-center transition-all font-bold ${filtroRapido === 'EXONET_20' ? 'bg-[#6B21A8] text-white rounded-xl shadow-sm' : 'text-purple-900 hover:bg-purple-50 rounded-xl'}`}
+            className={`py-2 px-1 text-center transition-all font-bold ${filtroRapido === 'EXONET_20' ? 'bg-purple-700 text-white rounded-xl shadow-sm' : 'text-purple-700 hover:bg-purple-50 rounded-xl'}`}
           >
             EXONET 2.0 ({clientes.filter(c => c.exonet20).length})
           </button>
-          
           <button 
             onClick={() => setFiltroRapido('EXONERADOS')}
             className={`py-2 px-1 text-center transition-all font-bold ${filtroRapido === 'EXONERADOS' ? 'bg-[#2E7D32] text-white rounded-xl shadow-sm' : 'text-[#1B5E20] hover:bg-green-50 rounded-xl'}`}
           >
-            EXONERADOS ({clientes.filter(c => c.exonerado).length})
+            CORTESÍA ({clientes.filter(c => c.exonerado).length})
           </button>
         </div>
       </div>
@@ -2247,12 +2303,16 @@ function ClientesView({ clientes, nodos, db }) {
                       <Gift size={10} /> EXONERADO
                     </span>
                   )}
+                  {c.exonet20 && (
+                    <span className="bg-purple-600 text-white font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                      EXONET 2.0
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {c.prestamo && <span className="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-bold">PRÉSTAMO</span>}
-                  {c.ftth && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">FIBRA ÓPTICA</span>}
-                  {c.exonet20 && <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold">EXONET 2.0</span>}
+                  {c.prestamo && <span className="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 border border-orange-100 font-bold rounded">PRÉSTAMO</span>}
+                  {c.ftth && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 border border-blue-100 font-bold rounded">FIBRA (FTTH)</span>}
                 </div>
               </div>
               <div className="col-span-2 w-full text-center">
@@ -2294,10 +2354,10 @@ function ClientesView({ clientes, nodos, db }) {
                       <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
                         <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
                         <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
-                          <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
+                          <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform">
                             <Phone size={18} strokeWidth={2.5} />
                           </a>
-                          <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform" title="WhatsApp">
+                          <a href={`https://wa.me/${cleanNum.replace('+', '')}`} target="_blank" rel="noreferrer" className="text-green-500 hover:scale-125 transition-transform">
                             <MessageCircle size={18} strokeWidth={2.5} />
                           </a>
                         </div>
@@ -2338,24 +2398,8 @@ function ClientesView({ clientes, nodos, db }) {
               <input placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
               <input placeholder="Dirección" className="md:col-span-2 bg-gray-50 p-4 rounded-xl border" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
               <input placeholder="Plan (Mbps)" type="text" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})} />
-              
-              <input 
-                placeholder="Costo ($)" 
-                type="text" 
-                inputMode="decimal" 
-                className="bg-gray-50 p-4 rounded-xl border" 
-                value={formData.costo} 
-                onChange={e => setFormData({...formData, costo: e.target.value})} 
-              />
-              
-              <input 
-                placeholder="IP" 
-                type="text"
-                inputMode="decimal"
-                className="bg-gray-50 p-4 rounded-xl border font-mono" 
-                value={formData.ip} 
-                onChange={e => setFormData({...formData, ip: e.target.value})} 
-              />
+              <input placeholder="Costo ($)" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border" value={formData.costo} onChange={e => setFormData({...formData, costo: e.target.value})} />
+              <input placeholder="IP" type="text" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono" value={formData.ip} onChange={e => setFormData({...formData, ip: e.target.value})} />
               
               <select 
                 required 
@@ -2369,28 +2413,14 @@ function ClientesView({ clientes, nodos, db }) {
 
               <input placeholder="Teléfono" type="text" inputMode="tel" className="bg-gray-50 p-4 rounded-xl border" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
               <div className="flex gap-2">
-                <input 
-                  placeholder="Señal Local" 
-                  type="text"
-                  inputMode="decimal"
-                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
-                  value={formData.señal} 
-                  onChange={e => setFormData({...formData, señal: e.target.value})} 
-                />
-                <input 
-                  placeholder="Señal Remota" 
-                  type="text"
-                  inputMode="decimal"
-                  className="w-1/2 bg-gray-50 p-4 rounded-xl border" 
-                  value={formData.señalRemota} 
-                  onChange={e => setFormData({...formData, señalRemota: e.target.value})} 
-                />
+                <input placeholder="Señal Local" type="text" inputMode="decimal" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señal} onChange={e => setFormData({...formData, señal: e.target.value})} />
+                <input placeholder="Señal Remota" type="text" inputMode="decimal" className="w-1/2 bg-gray-50 p-4 rounded-xl border" value={formData.señalRemota} onChange={e => setFormData({...formData, señalRemota: e.target.value})} />
               </div>
 
-              {/* TRES CASILLAS CON MÁXIMO DE DOS MARCADAS AL TIEMPO */}
+              {/* --- CONTROL SELECTOR DE CASILLAS LIMITADO A MÁXIMO 2 --- */}
               <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div 
-                  onClick={() => toggleCheckbox('prestamo')} 
+                  onClick={() => handleCheckboxChange('prestamo')} 
                   className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none"
                 >
                   {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
@@ -2398,19 +2428,19 @@ function ClientesView({ clientes, nodos, db }) {
                 </div>
 
                 <div 
-                  onClick={() => toggleCheckbox('exonet20')} 
-                  className="flex items-center gap-3 p-4 bg-purple-50/50 rounded-xl border border-purple-100 cursor-pointer select-none"
-                >
-                  {formData.exonet20 ? <CheckSquare className="text-purple-600" /> : <Square className="text-gray-300" />}
-                  <span className="font-bold text-purple-900 text-sm">Exonet 2.0</span>
-                </div>
-
-                <div 
-                  onClick={() => toggleCheckbox('ftth')} 
+                  onClick={() => handleCheckboxChange('ftth')} 
                   className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
                 >
                   {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
                   <span className="font-bold text-gray-700 text-sm">FTTH (Fibra Óptica)</span>
+                </div>
+
+                <div 
+                  onClick={() => handleCheckboxChange('exonet20')} 
+                  className="flex items-center gap-3 p-4 bg-purple-50/50 rounded-xl border border-purple-100 cursor-pointer select-none"
+                >
+                  {formData.exonet20 ? <CheckSquare className="text-purple-600" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-purple-900 text-sm">Exonet 2.0</span>
                 </div>
               </div>
               
@@ -2442,23 +2472,23 @@ function NodosView({ nodos, clientes, db }) {
         <body style="font-family: sans-serif; padding: 40px; color: #333;">
           <h1>EXONET - ${nodo.nombre} (${encabezadoMes})</h1>
           <p>IP REPARTIDOR: ${nodo.ip} | FRECUENCIA: ${nodo.frecuencia} MHz</p>
-          <p>TOTAL CLIENTES: ${clientesNodo.length}</p>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <hr/>
+          <table style="width:100%; border-collapse:collapse;">
             <thead>
-              <tr>
-                <th style="border: 1px solid #ddd; padding: 8px;">CLIENTE</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">IP</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">PLAN</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">SEÑAL</th>
+              <tr style="background:#f4f4f4;">
+                <th style="padding:10px; border:1px solid #ddd;">CLIENTE</th>
+                <th style="padding:10px; border:1px solid #ddd;">IP</th>
+                <th style="padding:10px; border:1px solid #ddd;">PLAN</th>
+                <th style="padding:10px; border:1px solid #ddd;">SEÑAL</th>
               </tr>
             </thead>
             <tbody>
               ${clientesNodo.map(c => `
                 <tr>
-                  <td style="border: 1px solid #ddd; padding: 8px; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${c.ip}</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${c.plan} Mbps</td>
-                  <td style="border: 1px solid #ddd; padding: 8px;">${c.señal || 0}/${c.señalRemota || 0} dBm</td>
+                  <td style="padding:10px; border:1px solid #ddd; text-transform:uppercase;">${c.nombre} ${c.apellido}</td>
+                  <td style="padding:10px; border:1px solid #ddd;">${c.ip}</td>
+                  <td style="padding:10px; border:1px solid #ddd;">${c.plan} Mbps</td>
+                  <td style="padding:10px; border:1px solid #ddd;">${c.señal || '0'}/${c.señalRemota || '0'} dBm</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2474,7 +2504,7 @@ function NodosView({ nodos, clientes, db }) {
   return (
     <div className="max-w-5xl mx-auto">
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
-      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
+      <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
         <input placeholder="Nombre Repartidor" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
         <input placeholder="IP" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
         <input placeholder="Frecuencia (MHz)" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
@@ -2499,7 +2529,7 @@ function NodosView({ nodos, clientes, db }) {
                     <p style={{ color: colors.sidebar }} className="text-2xl font-black">{clientesNodo.length}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600 transition-colors">
+                    <button onClick={() => handlePrintNodo(n, clientesNodo)} className="p-2 text-gray-400 hover:text-green-600 transition-colors">
                       <Printer size={22} />
                     </button>
                     <button 
@@ -2529,9 +2559,12 @@ function NodosView({ nodos, clientes, db }) {
                             {c.señal || '0'} <span className="text-gray-200 mx-0.5">/</span> {c.señalRemota || '0'} <small className="text-[10px] text-gray-400 ml-1">dBm</small>
                           </div>
                        </div>
-                       {c.prestamo && <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-[10px]">PRÉSTAMO</span>}
-                       {c.exonet20 && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-[10px]">EXONET 2.0</span>}
-                       {c.ftth && <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-[10px]">FTTH</span>}
+                       <div className="bg-white px-3 py-1.5 rounded-lg border flex flex-col items-center">
+                          <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Plan</span>
+                          <span className="text-green-700">{c.plan}M</span>
+                       </div>
+                       {c.prestamo && <div className="bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg text-[10px]">PRÉSTAMO</div>}
+                       {c.ftth && <div className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px]">FTTH</div>}
                     </div>
                   </div>
                 ))}
@@ -2554,15 +2587,15 @@ function SoporteView({ clientes, nodos, db }) {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!report.targetId) return alert("Selecciona una entidad válida.");
+    if (!report.targetId) return alert("Selecciona un elemento");
 
     let textoTelegram = "";
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
-      textoTelegram = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
+      textoTelegram = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
-      textoTelegram = `📡 REPORTE EXONET - INFRAESTRUCTURA AP\n⚡ AP: ${nodo?.nombre || ''}\n🌐 IP: ${nodo?.ip || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
+      textoTelegram = `📡 REPORTE INFRAESTRUCTURA AP\n⚡ REPARTIDOR: ${nodo?.nombre || ''}\n⚠️ FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
     }
     
     window.open(`https://t.me/share/url?url=${encodeURIComponent(textoTelegram)}`, '_blank');
@@ -2573,8 +2606,8 @@ function SoporteView({ clientes, nodos, db }) {
       <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
       <div className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
         <div className="flex bg-gray-100 p-1.5 rounded-2xl border gap-2">
-          <button type="button" onClick={() => setReportType('CLIENTE')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase ${reportType === 'CLIENTE' ? 'bg-white text-green-800 shadow-md' : 'text-gray-400'}`}>Cliente</button>
-          <button type="button" onClick={() => setReportType('AP')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase ${reportType === 'AP' ? 'bg-white text-green-800 shadow-md' : 'text-gray-400'}`}>AP / Nodo</button>
+          <button type="button" onClick={() => setReportType('CLIENTE')} className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase ${reportType === 'CLIENTE' ? 'bg-white text-green-800 shadow-md' : 'text-gray-400'}`}>Cliente</button>
+          <button type="button" onClick={() => setReportType('AP')} className={`flex-1 py-3.5 rounded-xl text-xs font-black uppercase ${reportType === 'AP' ? 'bg-white text-green-800 shadow-md' : 'text-gray-400'}`}>AP / Nodo</button>
         </div>
 
         <form onSubmit={handleSend} className="space-y-6">
@@ -2594,11 +2627,11 @@ function SoporteView({ clientes, nodos, db }) {
             <option>Sin internet</option>
             <option>Lentitud</option>
             <option>Antena apagada</option>
-            <option>Problemas con las señales</option>
+            <option>LAN0: 10Mbps</option>
             <option>Otro</option>
           </select>
 
-          <textarea className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none font-medium" value={report.comentario} onChange={e => setReport({...report, comentario: e.target.value})} />
+          <textarea className="w-full bg-gray-50 p-5 rounded-2xl border h-32 outline-none font-medium text-gray-800" value={report.comentario} onChange={e => setReport({...report, comentario: e.target.value})} />
           <button type="submit" style={{ backgroundColor: colors.sidebar }} className="w-full py-5 rounded-2xl text-white font-black shadow-lg">ENVIAR POR TELEGRAM</button>
         </form>
       </div>
