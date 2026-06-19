@@ -46,8 +46,7 @@ import {
   RefreshCw,
   Radio,
   Menu,
-  ChevronRight,
-  Map
+  ChevronRight
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -262,7 +261,7 @@ const handleGenerarRecibo = (cliente) => {
 
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
-  const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
+  const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth && !c.exonet2);
   const encabezadoMes = obtenerEncabezadoMesActual();
 
   const html = `
@@ -299,6 +298,53 @@ const handlePrintClientesFiltrados = (data) => {
           </tbody>
         </table>
         <div class="footer">Generado por Sistema de Gestión Exonet</div>
+      </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.print();
+};
+
+const handlePrintExonet20 = (data) => {
+  const printWindow = window.open('', '_blank');
+  const clientes20 = data.filter(c => c.exonet2 === true);
+  const encabezadoMes = obtenerEncabezadoMesActual();
+
+  const html = `
+    <html>
+      <head>
+        <title>Exonet - LISTA SÓLO TEXTOS EXONET 2.0 - ${encabezadoMes}</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; color: #4a148c; }
+          h1 { color: #4a148c; border-bottom: 2px solid #4a148c; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
+          .meta-info { font-size: 13px; color: #555; margin-bottom: 20px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #4a148c; color: white; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
+          td { padding: 10px; border: 1px solid #ddd; font-size: 13px; }
+          .footer { margin-top: 40px; font-size: 10px; color: #999; text-align: right; border-top: 1px solid #eee; padding-top: 5px; }
+        </style>
+      </head>
+      <body>
+        <h1>EXONET 2.0 - LISTA DE ABONADOS (${encabezadoMes})</h1>
+        <div class="meta-info">Total abonados premium: ${clientes20.length} | Fecha: ${new Date().toLocaleDateString()}</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>CLIENTE EXONET 2.0</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${clientes20.map((c, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Generado por Sistema de Gestión Exonet 2.0</div>
       </body>
     </html>
   `;
@@ -413,7 +459,7 @@ const handlePrintGeneral = (titulo, data) => {
               return `
                 <tr ${claseFila}>
                   <td>${i + 1}</td>
-                  <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
+                  <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido} ${c.exonet2 ? '(EXONET 2.0)' : ''}</td>
                   <td><span class="status-badge ${claseEstado}">${estadoVisual}</span></td>
                   ${esFibra ? `<td style="font-weight: bold;">${montoVisual}</td>` : ''}
                   <td>${c.direccion || 'N/A'}</td>
@@ -786,14 +832,6 @@ export default function App() {
               </button>
 
               <button 
-                onClick={() => { setActiveTab('WIFI'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'WIFI' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
-              >
-                <div className="flex items-center gap-3"><Map size={18} /> <span>ZONAS WIFI</span></div>
-                <ChevronRight size={14} className={activeTab === 'WIFI' ? 'text-green-800' : 'text-white/40'} />
-              </button>
-
-              <button 
                 onClick={() => { setActiveTab('PRESTAMOS'); setMobileMenuOpen(false); }}
                 className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'PRESTAMOS' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
               >
@@ -829,7 +867,6 @@ export default function App() {
           <NavItem active={activeTab === 'PAGOS'} onClick={() => setActiveTab('PAGOS')} icon={<DollarSign />} label="PAGOS" />
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
           <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
-          <NavItem active={activeTab === 'WIFI'} onClick={() => setActiveTab('WIFI')} icon={<Map />} label="ZONAS WIFI" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
@@ -856,7 +893,6 @@ export default function App() {
         {activeTab === 'PAGOS' && <PagosView clientes={clientes} db={db} />}
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
-        {activeTab === 'WIFI' && <WifiZonesView clientes={clientes} nodos={nodos} />}
         {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
       </main>
 
@@ -961,195 +997,6 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
-// --- NUEVA VISTA: MAPA DE COBERTURAS WIFI (LEAFLET.JS) ---
-function WifiZonesView({ clientes, nodos }) {
-  const [search, setSearch] = useState('');
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const circlesGroupRef = useRef(null);
-
-  // Coordenadas fijas estratégicas de Encontrados basadas en tus cuadrantes
-  const zonasPredefinidas = [
-    { id: 'z1', sector: 'Sector Virgen del Carmen II', coordenadas: [9.0602, -72.2325], detalles: 'Zona Residencial / Cobertura Sur', radio: 180 },
-    { id: 'z2', sector: 'Plaza Monumento / Av. Bolívar', coordenadas: [9.0624, -72.2342], detalles: 'Área Comercial Centro / Banco Bicentenario', radio: 150 },
-    { id: 'z3', sector: 'Calle 16 / Calle 18', coordenadas: [9.0635, -72.2365], detalles: 'Cuadrante Norte / Distribución Alta', radio: 160 },
-    { id: 'z4', sector: 'Plaza Venezuela / Av. Sucre', coordenadas: [9.0642, -72.2321], detalles: 'Eje Oeste / Cobertura Secundaria', radio: 140 }
-  ];
-
-  // Inyectar scripts dinámicamente si no existen
-  useEffect(() => {
-    const linkId = 'leaflet-css';
-    const scriptId = 'leaflet-js';
-
-    if (!document.getElementById(linkId)) {
-      const link = document.createElement('link');
-      link.id = linkId;
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.async = true;
-      script.onload = initMap;
-      document.body.appendChild(script);
-    } else {
-      initMap();
-    }
-
-    function initMap() {
-      if (!window.L || !mapRef.current || mapInstanceRef.current) return;
-
-      // Centrado exacto en el casco urbano de Encontrados, Zulia
-      const map = window.L.map(mapRef.current).setView([9.0620, -72.2340], 15);
-      mapInstanceRef.current = map;
-
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-
-      circlesGroupRef.current = window.L.layerGroup().addTo(map);
-      renderMapElements();
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
-
-  // Escuchar variaciones de datos en tiempo real de Firebase para recalcular semáforos
-  useEffect(() => {
-    renderMapElements();
-  }, [clientes, nodos]);
-
-  const renderMapElements = () => {
-    if (!window.L || !circlesGroupRef.current) return;
-    circlesGroupRef.current.clearLayers();
-
-    zonasPredefinidas.forEach(zona => {
-      // Filtrar clientes e infraestructura asociada a este sector geográfico de Encontrados
-      const clientesEnZona = clientes.filter(c => c.direccion?.toLowerCase().includes(zona.sector.split('/')[0].trim().toLowerCase()));
-      const tieneSoportePendiente = clientesEnZona.some(c => obtenerEstadoCliente(c) === 'PENDIENTE');
-      const totalClientes = clientesEnZona.length;
-
-      let color = 'green';
-      let estadoText = 'ACTIVO / ESTABLE';
-
-      if (tieneSoportePendiente) {
-        color = 'red';
-        estadoText = 'MANTENIMIENTO REQUERIDO / MOROSIDAD';
-      } else if (totalClientes > 15) {
-        color = 'orange';
-        estadoText = 'ALTA DENSIDAD DE TRÁFICO';
-      }
-
-      const circle = window.L.circle(zona.coordenadas, {
-        color: color,
-        fillColor: color === 'orange' ? '#f39c12' : color,
-        fillOpacity: 0.35,
-        radius: zona.radius
-      });
-
-      circle.bindPopup(`
-        <div style="font-family: sans-serif; padding: 2px;">
-          <b style="font-size:14px; color:#1B5E20; text-transform:uppercase;">${zona.sector}</b><br/>
-          <p style="margin:6px 0 2px 0; font-size:11px; color:#666;"><b>Estado:</b> ${estadoText}</p>
-          <p style="margin:2px 0 2px 0; font-size:11px; color:#666;"><b>Abonados Enlazados:</b> ${totalClientes}</p>
-          <p style="margin:2px 0 0 0; font-size:11px; color:#666;"><b>Frecuencias:</b> 5 GHz / 2.4 GHz</p>
-        </div>
-      `);
-
-      circlesGroupRef.current.addLayer(circle);
-    });
-  };
-
-  const enfocarSector = (coordenadas) => {
-    if (mapInstanceRef.current && window.L) {
-      mapInstanceRef.current.setView(coordenadas, 17, { animate: true, duration: 1 });
-    }
-  };
-
-  const filteredZonas = zonasPredefinidas.filter(z => 
-    z.sector.toLowerCase().includes(search.toLowerCase()) || 
-    z.detalles.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div className="animate-in fade-in duration-500 max-w-5xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-2">
-        <div>
-          <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Mapeo de Cobertura WiFi</h2>
-          <p className="text-xs text-gray-400 font-bold uppercase mt-1">Monitoreo espacial del territorio de Encontrados, Zulia</p>
-        </div>
-      </div>
-
-      <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
-        <Search size={20} className="text-gray-400" />
-        <input 
-          placeholder="Buscar sector o calle en Encontrados (Ej: Av. Bolívar)..." 
-          className="bg-transparent w-full p-4 outline-none font-medium" 
-          value={search} 
-          onChange={e => setSearch(e.target.value)} 
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Contenedor del Mapa Interactivo */}
-        <div className="lg:col-span-7 bg-white rounded-[2.5rem] p-4 shadow-sm border border-green-50 overflow-hidden">
-          <div ref={mapRef} className="w-full h-[55vh] rounded-[2rem] shadow-inner z-10" style={{ background: '#e5e3df' }} />
-        </div>
-
-        {/* Lista Lateral de Sectores */}
-        <div className="lg:col-span-5 space-y-3 max-h-[58vh] overflow-y-auto pr-1">
-          {filteredZonas.map(zona => {
-            const clientesEnZona = clientes.filter(c => c.direccion?.toLowerCase().includes(zona.sector.split('/')[0].trim().toLowerCase()));
-            const tieneSoportePendiente = clientesEnZona.some(c => obtenerEstadoCliente(c) === 'PENDIENTE');
-            
-            let badgeClass = 'bg-green-100 text-green-700';
-            let label = 'Estable';
-            if (tieneSoportePendiente) {
-              badgeClass = 'bg-red-100 text-red-700';
-              label = 'Mantenimiento';
-            } else if (clientesEnZona.length > 15) {
-              badgeClass = 'bg-amber-100 text-amber-700';
-              label = 'Saturación';
-            }
-
-            return (
-              <div 
-                key={zona.id}
-                onClick={() => enfocarSector(zona.coordenadas)}
-                className="bg-white p-5 rounded-2xl border border-white hover:border-green-300 shadow-sm transition-all cursor-pointer flex justify-between items-center group active:scale-[0.99]"
-              >
-                <div>
-                  <h4 className="font-black text-gray-800 uppercase text-sm group-hover:text-green-700 transition-colors">{zona.sector}</h4>
-                  <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase">{zona.detalles}</p>
-                  <p className="text-[10px] text-green-800 font-black uppercase mt-1">Abonados Activos: {clientesEnZona.length}</p>
-                </div>
-                <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider ${badgeClass}`}>
-                  {label}
-                </span>
-              </div>
-            );
-          })}
-
-          {filteredZonas.length === 0 && (
-            <div className="bg-white p-12 text-center rounded-2xl border text-gray-400 font-bold italic">
-              No se encontraron sectores bajo ese criterio.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
@@ -1184,6 +1031,7 @@ function PagosView({ clientes, db }) {
     }
     if (filtroPago === 'VENCER') return esProximoAVencer(c);
     if (filtroPago === 'SOLVENTES') return estado === 'SOLVENTE' && !esProximoAVencer(c);
+    if (filtroPago === 'EXONET2') return c.exonet2 === true;
     return true;
   });
 
@@ -1233,7 +1081,7 @@ function PagosView({ clientes, db }) {
 
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
-    const textoMensaje = `¡Hola, 👋px ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
+    const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
@@ -1298,7 +1146,7 @@ function PagosView({ clientes, db }) {
       ctx.fillText(value, 430, y);
     };
     
-    drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}`.toUpperCase(), 260);
+    drawRow('Abonado', `${cliente.nombre} ${cliente.apellido}${cliente.exonet2 ? ' (2.0)' : ''}`.toUpperCase(), 260);
     drawRow('Plan Contratado', `${cliente.plan} Mbps ${cliente.ftth ? 'Fibra Óptica' : 'Inalámbrico'}`, 300);
     
     let currentY = 340;
@@ -1385,7 +1233,7 @@ function PagosView({ clientes, db }) {
     const abonoFormateado = rawAbono.toFixed(3);
     const costoTotal = parseFloat(selectedCliente.costo || 0);
     
-    let textoMensaje = `*EXONET - NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
+    let textoMensaje = `*EXONET ${selectedCliente.exonet2 ? '2.0 ' : ''}- NOTIFICACIÓN DE PAGO 🌐*\n\nEstimado(a) ${selectedCliente.nombre} ${selectedCliente.apellido}, tu pago de *${pagoEnBolivares || selectedCliente.esBolivares ? '' : '$'}${abonoFormateado} ${divisaText}* ha sido procesado de manera exitosa.\n\n`;
     
     if (!pagoEnBolivares && !selectedCliente.esBolivares) {
       const restante = Math.max(0, costoTotal - rawAbono);
@@ -1437,10 +1285,10 @@ function PagosView({ clientes, db }) {
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-green-50 overflow-hidden">
-        <div className="p-6 bg-gray-50/50 border-b flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="p-6 bg-gray-50/50 border-b flex flex-col xl:flex-row justify-between items-center gap-4">
           <span className="text-[10px] font-black text-green-800 tracking-widest uppercase">Listado de Coberturas Técnicas</span>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200 flex-wrap gap-1 justify-center">
               <button 
                 onClick={() => setFiltroPago('TODOS')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'TODOS' ? 'bg-white text-green-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
@@ -1466,13 +1314,19 @@ function PagosView({ clientes, db }) {
                 A Vencer ({clientesDePago.filter(c => esProximoAVencer(c)).length})
               </button>
               <button 
+                onClick={() => setFiltroPago('EXONET2')} 
+                className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'EXONET2' ? 'bg-purple-700 text-white shadow-sm' : 'text-purple-700 hover:bg-purple-50'}`}
+              >
+                Exonet 2.0 ({clientesDePago.filter(c => c.exonet2 === true).length})
+              </button>
+              <button 
                 onClick={() => setFiltroPago('SOLVENTES')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'SOLVENTES' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-green-600'}`}
               >
                 Solventes ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE' && !esProximoAVencer(c)).length})
               </button>
             </div>
-            <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold">
+            <span className="bg-green-100 text-green-700 px-4 py-1 rounded-full text-xs font-bold whitespace-nowrap">
               {clientesDePago.filter(c => obtenerEstadoCliente(c) === 'SOLVENTE').length} / {clientesDePago.length} AL DÍA
             </span>
           </div>
@@ -1499,6 +1353,11 @@ function PagosView({ clientes, db }) {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                      {c.exonet2 && (
+                        <span className="bg-purple-100 text-purple-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider border border-purple-200">
+                          EXONET 2.0
+                        </span>
+                      )}
                       {c.ftth && (
                         <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                           FIBRA
@@ -1654,7 +1513,7 @@ function PagosView({ clientes, db }) {
             </button>
             
             <div className="mb-4">
-              <span className="text-[10px] font-black text-green-700 tracking-widest uppercase block mb-1">PROCESO DE COBRANZA</span>
+              <span className="text-[10px] font-black text-purple-700 tracking-widest uppercase block mb-1">PROCESO DE COBRANZA {selectedCliente.exonet2 ? '2.0' : ''}</span>
               <h3 className="text-xl font-black text-gray-800 uppercase leading-tight">
                 {selectedCliente.nombre} {selectedCliente.apellido}
               </h3>
@@ -1846,7 +1705,8 @@ function PrestamosView({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos de parte de EXONET, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n¡Gracias por tu preferencia! 🌐`;
+    const prefix = cliente.exonet2 ? 'EXONET 2.0' : 'EXONET';
+    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos de parte de ${prefix}, tu conexión a internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de nuestro servicio sin interrupciones.\n\n¡Gracias por tu preferencia! 🌐`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
@@ -1915,7 +1775,10 @@ function PrestamosView({ clientes, db }) {
               <div className="flex items-center gap-5">
                 <span className="text-gray-300 font-black text-xl">{index + 1}</span>
                 <div>
-                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                    {c.exonet2 && <span className="bg-purple-100 text-purple-700 font-bold text-[9px] px-1.5 py-0.5 rounded border border-purple-200">2.0</span>}
+                  </div>
                   <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
                     <MapPin size={10}/> {c.direccion}
                   </p>
@@ -1925,7 +1788,7 @@ function PrestamosView({ clientes, db }) {
                 
                 {c.estadoPrestamo === 'PENDIENTE DE RETIRAR' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Orden de Retiro EXONET: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
+                    onClick={() => handleWhatsApp(c, `Orden de Retiro EXONET ${c.exonet2 ? '2.0' : ''}: Se ha programado el retiro de equipos para el cliente ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.`, false)}
                     className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                     title="Reportar Retiro"
                   >
@@ -1936,7 +1799,7 @@ function PrestamosView({ clientes, db }) {
 
                 {c.estadoPrestamo === 'REVISIÓN' && (
                   <button 
-                    onClick={() => handleWhatsApp(c, `Soporte EXONET: Chequeo de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.\nPor favor, revisen si hay algún problema y reporten las novedades.`, false)}
+                    onClick={() => handleWhatsApp(c, `Soporte EXONET ${c.exonet2 ? '2.0' : ''}: Chequeo de equipos para ${c.nombre} ${c.apellido}.\n📍 Dirección: ${c.direccion}.\nPor favor, revisen si hay algún problema y reporten las novedades.`, false)}
                     className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                     title="Mandar a Revisión"
                   >
@@ -2168,7 +2031,7 @@ function ClientesView({ clientes, nodos, db }) {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
-    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false,
+    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, exonet2: false,
     estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false,
     fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false
   });
@@ -2178,12 +2041,14 @@ function ClientesView({ clientes, nodos, db }) {
     const cumpleBusqueda = nombreCompleto.includes(search.toLowerCase());
     if (!cumpleBusqueda) return false;
 
-    if (filtroRapido === 'DE_PAGO') return !c.exonerado;
+    if (filtroRapido === 'DE_PAGO') return !c.exonerado && !c.exonet2;
+    if (filtroRapido === 'EXONET2') return c.exonet2 === true;
     if (filtroRapido === 'EXONERADOS') return c.exonerado;
     return true;
   });
 
-  const totalDePago = clientes.filter(c => !c.exonerado).length;
+  const totalDePago = clientes.filter(c => !c.exonerado && !c.exonet2).length;
+  const totalExonet2 = clientes.filter(c => c.exonet2 === true).length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -2205,7 +2070,7 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), datosFinales);
       else await addDoc(collection(db, 'clientes'), { ...datosFinales, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, exonet2: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
@@ -2217,12 +2082,18 @@ function ClientesView({ clientes, nodos, db }) {
         <div className="flex items-center gap-4">
           <h2 style={{ color: colors.textMain }} className="text-3xl font-black tracking-tight">GESTIÓN DE CLIENTES</h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button 
+            onClick={() => handlePrintExonet20(clientes)}
+            className="bg-purple-50 text-purple-700 border border-purple-200 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-purple-100 transition-all text-xs md:text-sm"
+          >
+            <Printer size={18} /> <span>IMPRIMIR TEXTOS 2.0</span>
+          </button>
           <button 
             onClick={() => handlePrintClientesFiltrados(clientes)}
             className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all text-xs md:text-sm"
           >
-            <Printer size={18} /> <span className="hidden sm:inline">IMPRIMIR LISTA</span>
+            <Printer size={18} /> <span className="hidden sm:inline">IMPRIMIR GENERAL</span>
           </button>
           <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg text-xs md:text-sm">+ NUEVO CLIENTE</button>
         </div>
@@ -2235,7 +2106,7 @@ function ClientesView({ clientes, nodos, db }) {
 
       {/* --- BARRA DE FILTROS PEQUEÑA SIN CORCHETES --- */}
       <div className="bg-white p-3 rounded-2xl border border-green-100 mb-6 w-full shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="grid grid-cols-3 w-full font-sans text-xs tracking-wide">
+        <div className="grid grid-cols-4 w-full font-sans text-xs tracking-wide gap-1">
           
           {/* BOTÓN: TODOS */}
           <button 
@@ -2249,7 +2120,7 @@ function ClientesView({ clientes, nodos, db }) {
             TODOS ({clientes.length})
           </button>
           
-          {/* BOTÓN: CLIENTES DE PAGO */}
+          {/* BOTÓN: CLIENTES DE PAGO (Normales / Reacciones / Fibra no 2.0) */}
           <button 
             onClick={() => setFiltroRapido('DE_PAGO')}
             className={`py-2 px-1 text-center transition-all font-bold ${
@@ -2258,7 +2129,19 @@ function ClientesView({ clientes, nodos, db }) {
                 : 'text-[#1B5E20] hover:bg-green-50 rounded-xl'
             }`}
           >
-            CLIENTES DE PAGO ({totalDePago})
+            DE PAGO ({totalDePago})
+          </button>
+
+          {/* BOTÓN: EXONET 2.0 */}
+          <button 
+            onClick={() => setFiltroRapido('EXONET2')}
+            className={`py-2 px-1 text-center transition-all font-bold ${
+              filtroRapido === 'EXONET2' 
+                ? 'bg-purple-700 text-white rounded-xl shadow-sm border border-purple-800' 
+                : 'text-purple-700 hover:bg-purple-50 rounded-xl'
+            }`}
+          >
+            EXONET 2.0 ({totalExonet2})
           </button>
           
           {/* BOTÓN: EXONERADOS */}
@@ -2290,6 +2173,11 @@ function ClientesView({ clientes, nodos, db }) {
               <div className="col-span-3 w-full">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
+                  {c.exonet2 && (
+                    <span className="bg-purple-100 text-purple-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider border border-purple-200">
+                      EXONET 2.0
+                    </span>
+                  )}
                   {c.exonerado && (
                     <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
                       <Gift size={10} /> EXONERADO
@@ -2439,17 +2327,26 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* --- CASILLAS DE MARCAS (CHECKBOXES MULTISELECCIÓN) --- */}
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div 
-                  onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} 
-                  className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none"
+                  onClick={() => setFormData({...formData, exonet2: !formData.exonet2})} 
+                  className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100 cursor-pointer select-none"
                 >
-                  {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
-                  <span className="font-bold text-gray-700 text-sm">Equipos a préstamo</span>
+                  {formData.exonet2 ? <CheckSquare className="text-purple-700" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-purple-900 text-sm">Exonet 2.0 (Morado)</span>
                 </div>
 
                 <div 
-                  onClick={() => setFormData({...formData, ftth: !formData.ftth, prestamo: false})} 
+                  onClick={() => setFormData({...formData, prestamo: !formData.prestamo})} 
+                  className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none"
+                >
+                  {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-gray-700 text-sm">Equipo a préstamo</span>
+                </div>
+
+                <div 
+                  onClick={() => setFormData({...formData, ftth: !formData.ftth})} 
                   className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
                 >
                   {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
@@ -2491,6 +2388,7 @@ function NodosView({ nodos, clientes, db }) {
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
             td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
+            .exonet2 { color: #4a148c; font-weight: bold; }
             .prestamo { color: #e67e22; font-weight: bold; }
             .ftth { color: #2980b9; font-weight: bold; }
             .sig-container { display: flex; flex-direction: column; align-items: center; }
@@ -2529,7 +2427,11 @@ function NodosView({ nodos, clientes, db }) {
                     </div>
                   </td>
                   <td>${c.telefono}</td>
-                  <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : c.ftth ? '<span class="ftth">FTTH</span>' : ''}</td>
+                  <td>
+                    ${c.exonet2 ? '<span class="exonet2">EXONET 2.0</span> ' : ''}
+                    ${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span> ' : ''}
+                    ${c.ftth ? '<span class="ftth">FTTH</span>' : ''}
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2604,6 +2506,12 @@ function NodosView({ nodos, clientes, db }) {
                           <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Plan</span>
                           <span className="text-green-700">{c.plan}M</span>
                        </div>
+                       {c.exonet2 && (
+                         <div className="bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
+                           <span className="text-[9px] uppercase leading-none mb-1">Tipo</span>
+                           <span>2.0</span>
+                         </div>
+                       )}
                        {c.prestamo && (
                          <div className="bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
                            <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
@@ -2648,7 +2556,7 @@ function SoporteView({ clientes, nodos, db }) {
 
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
-      textoTelegram = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
+      textoTelegram = `🚨 REPORTE EXONET ${cli?.exonet2 ? '2.0 ' : ''}\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
       metadataGuardado = {
         tipoReporte: 'CLIENTE',
         targetId: report.targetId,
@@ -2689,7 +2597,7 @@ function SoporteView({ clientes, nodos, db }) {
 
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
-      nombreEntidad = `Cliente: ${cli?.nombre} ${cli?.apellido}`;
+      nombreEntidad = `Cliente: ${cli?.nombre} ${cli?.apellido} ${cli?.exonet2 ? '(EXONET 2.0)' : ''}`;
       detalleExtra = `Nodo Asociado: ${cli?.ap || 'N/A'}`;
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
@@ -2763,7 +2671,7 @@ function SoporteView({ clientes, nodos, db }) {
               >
                 <option value="">-- SELECCIONAR CLIENTE --</option>
                 {clientes.map(c => (
-                  <option key={c.id} value={c.id}>{c.nombre} {c.apellido} ({c.ap})</option>
+                  <option key={c.id} value={c.id}>{c.nombre} {c.apellido} {c.exonet2 ? '[2.0]' : ''} ({c.ap})</option>
                 ))}
               </select>
             </div>
