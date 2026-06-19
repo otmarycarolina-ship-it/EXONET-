@@ -46,7 +46,8 @@ import {
   RefreshCw,
   Radio,
   Menu,
-  ChevronRight
+  ChevronRight,
+  Map
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -785,6 +786,14 @@ export default function App() {
               </button>
 
               <button 
+                onClick={() => { setActiveTab('WIFI'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'WIFI' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                <div className="flex items-center gap-3"><Map size={18} /> <span>ZONAS WIFI</span></div>
+                <ChevronRight size={14} className={activeTab === 'WIFI' ? 'text-green-800' : 'text-white/40'} />
+              </button>
+
+              <button 
                 onClick={() => { setActiveTab('PRESTAMOS'); setMobileMenuOpen(false); }}
                 className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm ${activeTab === 'PRESTAMOS' ? 'bg-white text-green-800 shadow-md' : 'text-white/80 hover:bg-white/10'}`}
               >
@@ -820,6 +829,7 @@ export default function App() {
           <NavItem active={activeTab === 'PAGOS'} onClick={() => setActiveTab('PAGOS')} icon={<DollarSign />} label="PAGOS" />
           <NavItem active={activeTab === 'SOPORTE'} onClick={() => setActiveTab('SOPORTE')} icon={<Wrench />} label="SOPORTE" />
           <NavItem active={activeTab === 'NODOS'} onClick={() => setActiveTab('NODOS')} icon={<ExonetLogo size={20} color="currentColor" />} label="REPARTIDORES" />
+          <NavItem active={activeTab === 'WIFI'} onClick={() => setActiveTab('WIFI')} icon={<Map />} label="ZONAS WIFI" />
           <NavItem active={activeTab === 'PRESTAMOS'} onClick={() => setActiveTab('PRESTAMOS')} icon={<Laptop />} label="EQUIPOS" />
         </nav>
         <div className="mt-auto border-t border-white/10 pt-4">
@@ -846,6 +856,7 @@ export default function App() {
         {activeTab === 'PAGOS' && <PagosView clientes={clientes} db={db} />}
         {activeTab === 'SOPORTE' && <SoporteView clientes={clientes} nodos={nodos} db={db} />}
         {activeTab === 'NODOS' && <NodosView nodos={nodos} clientes={clientes} db={db} />}
+        {activeTab === 'WIFI' && <WifiZonesView clientes={clientes} nodos={nodos} />}
         {activeTab === 'PRESTAMOS' && <ItemManagementView clientes={clientes} db={db} />}
       </main>
 
@@ -950,6 +961,195 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
+// --- NUEVA VISTA: MAPA DE COBERTURAS WIFI (LEAFLET.JS) ---
+function WifiZonesView({ clientes, nodos }) {
+  const [search, setSearch] = useState('');
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const circlesGroupRef = useRef(null);
+
+  // Coordenadas fijas estratégicas de Encontrados basadas en tus cuadrantes
+  const zonasPredefinidas = [
+    { id: 'z1', sector: 'Sector Virgen del Carmen II', coordenadas: [9.0602, -72.2325], detalles: 'Zona Residencial / Cobertura Sur', radio: 180 },
+    { id: 'z2', sector: 'Plaza Monumento / Av. Bolívar', coordenadas: [9.0624, -72.2342], detalles: 'Área Comercial Centro / Banco Bicentenario', radio: 150 },
+    { id: 'z3', sector: 'Calle 16 / Calle 18', coordenadas: [9.0635, -72.2365], detalles: 'Cuadrante Norte / Distribución Alta', radio: 160 },
+    { id: 'z4', sector: 'Plaza Venezuela / Av. Sucre', coordenadas: [9.0642, -72.2321], detalles: 'Eje Oeste / Cobertura Secundaria', radio: 140 }
+  ];
+
+  // Inyectar scripts dinámicamente si no existen
+  useEffect(() => {
+    const linkId = 'leaflet-css';
+    const scriptId = 'leaflet-js';
+
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = initMap;
+      document.body.appendChild(script);
+    } else {
+      initMap();
+    }
+
+    function initMap() {
+      if (!window.L || !mapRef.current || mapInstanceRef.current) return;
+
+      // Centrado exacto en el casco urbano de Encontrados, Zulia
+      const map = window.L.map(mapRef.current).setView([9.0620, -72.2340], 15);
+      mapInstanceRef.current = map;
+
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      circlesGroupRef.current = window.L.layerGroup().addTo(map);
+      renderMapElements();
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Escuchar variaciones de datos en tiempo real de Firebase para recalcular semáforos
+  useEffect(() => {
+    renderMapElements();
+  }, [clientes, nodos]);
+
+  const renderMapElements = () => {
+    if (!window.L || !circlesGroupRef.current) return;
+    circlesGroupRef.current.clearLayers();
+
+    zonasPredefinidas.forEach(zona => {
+      // Filtrar clientes e infraestructura asociada a este sector geográfico de Encontrados
+      const clientesEnZona = clientes.filter(c => c.direccion?.toLowerCase().includes(zona.sector.split('/')[0].trim().toLowerCase()));
+      const tieneSoportePendiente = clientesEnZona.some(c => obtenerEstadoCliente(c) === 'PENDIENTE');
+      const totalClientes = clientesEnZona.length;
+
+      let color = 'green';
+      let estadoText = 'ACTIVO / ESTABLE';
+
+      if (tieneSoportePendiente) {
+        color = 'red';
+        estadoText = 'MANTENIMIENTO REQUERIDO / MOROSIDAD';
+      } else if (totalClientes > 15) {
+        color = 'orange';
+        estadoText = 'ALTA DENSIDAD DE TRÁFICO';
+      }
+
+      const circle = window.L.circle(zona.coordenadas, {
+        color: color,
+        fillColor: color === 'orange' ? '#f39c12' : color,
+        fillOpacity: 0.35,
+        radius: zona.radius
+      });
+
+      circle.bindPopup(`
+        <div style="font-family: sans-serif; padding: 2px;">
+          <b style="font-size:14px; color:#1B5E20; text-transform:uppercase;">${zona.sector}</b><br/>
+          <p style="margin:6px 0 2px 0; font-size:11px; color:#666;"><b>Estado:</b> ${estadoText}</p>
+          <p style="margin:2px 0 2px 0; font-size:11px; color:#666;"><b>Abonados Enlazados:</b> ${totalClientes}</p>
+          <p style="margin:2px 0 0 0; font-size:11px; color:#666;"><b>Frecuencias:</b> 5 GHz / 2.4 GHz</p>
+        </div>
+      `);
+
+      circlesGroupRef.current.addLayer(circle);
+    });
+  };
+
+  const enfocarSector = (coordenadas) => {
+    if (mapInstanceRef.current && window.L) {
+      mapInstanceRef.current.setView(coordenadas, 17, { animate: true, duration: 1 });
+    }
+  };
+
+  const filteredZonas = zonasPredefinidas.filter(z => 
+    z.sector.toLowerCase().includes(search.toLowerCase()) || 
+    z.detalles.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="animate-in fade-in duration-500 max-w-5xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-2">
+        <div>
+          <h2 style={{ color: colors.textMain }} className="text-3xl font-black uppercase">Mapeo de Cobertura WiFi</h2>
+          <p className="text-xs text-gray-400 font-bold uppercase mt-1">Monitoreo espacial del territorio de Encontrados, Zulia</p>
+        </div>
+      </div>
+
+      <div className="bg-white mb-6 rounded-2xl flex items-center px-6 shadow-sm border border-green-100">
+        <Search size={20} className="text-gray-400" />
+        <input 
+          placeholder="Buscar sector o calle en Encontrados (Ej: Av. Bolívar)..." 
+          className="bg-transparent w-full p-4 outline-none font-medium" 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Contenedor del Mapa Interactivo */}
+        <div className="lg:col-span-7 bg-white rounded-[2.5rem] p-4 shadow-sm border border-green-50 overflow-hidden">
+          <div ref={mapRef} className="w-full h-[55vh] rounded-[2rem] shadow-inner z-10" style={{ background: '#e5e3df' }} />
+        </div>
+
+        {/* Lista Lateral de Sectores */}
+        <div className="lg:col-span-5 space-y-3 max-h-[58vh] overflow-y-auto pr-1">
+          {filteredZonas.map(zona => {
+            const clientesEnZona = clientes.filter(c => c.direccion?.toLowerCase().includes(zona.sector.split('/')[0].trim().toLowerCase()));
+            const tieneSoportePendiente = clientesEnZona.some(c => obtenerEstadoCliente(c) === 'PENDIENTE');
+            
+            let badgeClass = 'bg-green-100 text-green-700';
+            let label = 'Estable';
+            if (tieneSoportePendiente) {
+              badgeClass = 'bg-red-100 text-red-700';
+              label = 'Mantenimiento';
+            } else if (clientesEnZona.length > 15) {
+              badgeClass = 'bg-amber-100 text-amber-700';
+              label = 'Saturación';
+            }
+
+            return (
+              <div 
+                key={zona.id}
+                onClick={() => enfocarSector(zona.coordenadas)}
+                className="bg-white p-5 rounded-2xl border border-white hover:border-green-300 shadow-sm transition-all cursor-pointer flex justify-between items-center group active:scale-[0.99]"
+              >
+                <div>
+                  <h4 className="font-black text-gray-800 uppercase text-sm group-hover:text-green-700 transition-colors">{zona.sector}</h4>
+                  <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase">{zona.detalles}</p>
+                  <p className="text-[10px] text-green-800 font-black uppercase mt-1">Abonados Activos: {clientesEnZona.length}</p>
+                </div>
+                <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider ${badgeClass}`}>
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+
+          {filteredZonas.length === 0 && (
+            <div className="bg-white p-12 text-center rounded-2xl border text-gray-400 font-bold italic">
+              No se encontraron sectores bajo ese criterio.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
@@ -1031,10 +1231,9 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
-  // --- NUEVA FUNCIÓN: ENVIAR MENSAJE DE SALDO PENDIENTE ---
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
-    const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
+    const textoMensaje = `¡Hola, 👋px ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
