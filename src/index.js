@@ -2231,7 +2231,7 @@ function ClientesView({ clientes, nodos, db }) {
                     const cleanNum = num.replace(/[^\d+]/g, '');
                     if (!cleanNum) return null;
                     return (
-                      <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group =">
+                      <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
                         <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
                         <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
                           <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
@@ -2594,34 +2594,40 @@ function SoporteView({ clientes, nodos, db }) {
       return alert(reportType === 'CLIENTE' ? "Selecciona un cliente primero" : "Selecciona un Repartidor primero");
     }
 
-    let nombreEntidad = "";
-    let detalleExtra = "";
-
+    const printWindow = window.open('', '_blank');
+    
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
-      nombreEntidad = `Cliente: ${cli?.nombre} ${cli?.apellido}`;
-      detalleExtra = `Repartidor Asociado: ${cli?.ap || 'N/A'}`;
+      printWindow.document.write(`
+        <html>
+          <body style="font-family:sans-serif; padding:40px; color:#333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; border-radius: 10px;">
+              <h2 style="margin-top: 0; border-bottom: 2px solid #333; padding-bottom: 10px;">EXONET - REPORTE TÉCNICO</h2>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>CLIENTE:</strong> ${cli ? `${cli.nombre} ${cli.apellido}`.toUpperCase() : ''}</p>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>REPARTIDOR ASIGNADO:</strong> ${cli?.ap ? cli.ap.toUpperCase() : 'N/A'}</p>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>INFORME / FALLA:</strong> ${report.falla.toUpperCase()}</p>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>NOTA ADICIONAL:</strong> ${report.comentario}</p>
+            </div>
+          </body>
+        </html>
+      `);
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
-      nombreEntidad = `Equipo de Red: REPARTIDOR ${nodo?.nombre}`;
-      detalleExtra = `IP de Gestión: ${nodo?.ip || 'N/A'}`;
+      printWindow.document.write(`
+        <html>
+          <body style="font-family:sans-serif; padding:40px; color:#333; line-height: 1.6;">
+            <div style="max-width: 600px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; border-radius: 10px;">
+              <h2 style="margin-top: 0; border-bottom: 2px solid #333; padding-bottom: 10px;">EXONET - REPORTE TÉCNICO</h2>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>REPARTIDOR:</strong> ${nodo ? nodo.nombre.toUpperCase() : ''}</p>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>IP:</strong> ${nodo?.ip || 'N/A'}</p>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>INFORME / FALLA:</strong> ${report.falla.toUpperCase()}</p>
+              <p style="font-size: 14px; margin: 10px 0;"><strong>NOTA ADICIONAL:</strong> ${report.comentario}</p>
+            </div>
+          </body>
+        </html>
+      `);
     }
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <body style="font-family:sans-serif; padding:40px; color:#333;">
-          <h1 style="color:#2E7D32; border-bottom:2px solid #2E7D32; padding-bottom:10px;">EXONET - REPORTE DE SOPORTE TÉCNICO</h1>
-          <p style="font-size:16px; font-weight:bold;">Tipo de Incidencia: ${reportType === 'CLIENTE' ? 'SOPORTE USUARIO FINAL' : 'MANTENIMIENTO DE INFRAESTRUCTURA / REPARTIDOR'}</p>
-          <p style="font-size:14px; font-weight:bold; uppercase">${nombreEntidad}</p>
-          <p style="font-size:13px; color:#555;">${detalleExtra}</p>
-          <hr style="border:0; border-top:1px dashed #ccc; margin:20px 0;"/>
-          <p><strong>Falla / Categoría detectada:</strong> ${report.falla}</p>
-          <p><strong>Notas de Campo / Observaciones:</strong> ${report.comentario}</p>
-          <p style="margin-top:40px; font-size:11px; color:#999;">Fecha del Reporte: ${new Date().toLocaleString()}</p>
-        </body>
-      </html>
-    `);
     printWindow.document.close(); 
     printWindow.print();
     setReport({ targetId: '', falla: 'Sin internet', comentario: '' });
