@@ -306,6 +306,53 @@ const handlePrintClientesFiltrados = (data) => {
   printWindow.print();
 };
 
+const handlePrintExonet2 = (data) => {
+  const printWindow = window.open('', '_blank');
+  const clientesExonet2 = data.filter(c => c.exonet2 === true);
+  const encabezadoMes = obtenerEncabezadoMesActual();
+
+  const html = `
+    <html>
+      <head>
+        <title>Exonet - LISTA CLIENTES EXONET 2.0 - ${encabezadoMes}</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; color: #333; }
+          h1 { color: #6b21a8; border-bottom: 2px solid #6b21a8; padding-bottom: 10px; text-transform: uppercase; margin-bottom: 5px; }
+          .meta-info { font-size: 13px; color: #555; margin-bottom: 20px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #6b21a8; color: white; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
+          td { padding: 10px; border: 1px solid #ddd; font-size: 13px; }
+          .footer { margin-top: 40px; font-size: 10px; color: #999; text-align: right; border-top: 1px solid #eee; padding-top: 5px; }
+        </style>
+      </head>
+      <body>
+        <h1>EXONET - LISTA CLIENTES EXONET 2.0 (${encabezadoMes})</h1>
+        <div class="meta-info">Total abonados EXONET 2.0: ${clientesExonet2.length} | Fecha: ${new Date().toLocaleDateString()}</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>CLIENTE (NOMBRE Y APELLIDO)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${clientesExonet2.map((c, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Generado por Sistema de Gestión Exonet</div>
+      </body>
+    </html>
+  `;
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.print();
+};
+
 const handlePrintGeneral = (titulo, data) => {
   const printWindow = window.open('', '_blank');
   const esPagos = titulo.includes('PAGOS');
@@ -2063,6 +2110,12 @@ function ClientesView({ clientes, nodos, db }) {
             className="bg-white text-gray-600 border border-gray-200 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 transition-all text-xs md:text-sm"
           >
             <Printer size={18} /> <span className="hidden sm:inline">IMPRIMIR LISTA</span>
+          </button>
+          <button 
+            onClick={() => handlePrintExonet2(clientes)}
+            className="bg-purple-600 text-white border border-purple-700 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-sm hover:bg-purple-700 transition-all text-xs md:text-sm"
+          >
+            <Printer size={18} /> <span className="hidden sm:inline">IMPRIMIR EXONET 2.0</span>
           </button>
           <button onClick={() => setShowForm(true)} style={{ backgroundColor: colors.sidebar }} className="text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg text-xs md:text-sm">+ NUEVO CLIENTE</button>
         </div>
