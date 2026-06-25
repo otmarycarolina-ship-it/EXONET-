@@ -1086,7 +1086,7 @@ function PagosView({ clientes, db }) {
   // --- NUEVA FUNCIÓN: ENVIAR MENSAJE DE SALDO PENDIENTE ---
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
-    const textoMensaje = `¡Hola, 👋_ ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
+    const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
@@ -1981,7 +1981,7 @@ function FtthView({ clientes, db }) {
                   {c.estadoFTTH === 'REVISIÓN' && (
                     <button 
                       onClick={() => handleWhatsApp(c, `🛠️ Soporte FTTH: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem (ONU) está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
-                      className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
+                      className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                       title="Mandar a Revisión"
                     >
                       <AlertCircle size={18} />
@@ -2026,7 +2026,6 @@ function FtthView({ clientes, db }) {
   );
 }
 
-// --- SECCIÓN CLIENTESVIEW (VISTA PRINCIPAL) ---
 function ClientesView({ clientes, nodos, db }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
@@ -2232,7 +2231,7 @@ function ClientesView({ clientes, nodos, db }) {
                     const cleanNum = num.replace(/[^\d+]/g, '');
                     if (!cleanNum) return null;
                     return (
-                      <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group">
+                      <div key={idx} className="flex items-center justify-between w-full bg-gray-50 px-3 py-2 rounded-xl border border-transparent hover:border-green-200 transition-all group =">
                         <span className="text-gray-600 font-black text-[11px] tracking-tight font-mono">{num.trim()}</span>
                         <div className="flex gap-3 border-l border-gray-200 pl-3 ml-2">
                           <a href={`tel:${cleanNum}`} className="text-blue-500 hover:scale-125 transition-transform" title="Llamar">
@@ -2280,7 +2279,7 @@ function ClientesView({ clientes, nodos, db }) {
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[95vh]">
-            <h2 style={{ color: colors.textMain }} className="text-2xl font-black uppercase mb-8">Datos del cliente</h2>
+            <h2 className="text-2xl font-black uppercase mb-8" style={{ color: colors.textMain }}>Datos del cliente</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <input placeholder="Nombre" className="bg-gray-50 p-4 rounded-xl border" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value.toUpperCase()})} />
               <input placeholder="Apellido" className="bg-gray-50 p-4 rounded-xl border" value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value.toUpperCase()})} />
@@ -2361,7 +2360,7 @@ function ClientesView({ clientes, nodos, db }) {
                 </div>
               </div>
               
-              <button type="submit" style={{ backgroundColor: colors.sidebar }} className="md:col-span-2 py-5 rounded-2xl text-white font-black shadow-lg">GUARDAR CLIENTE</button>
+              <button type="submit" className="md:col-span-2 py-5 rounded-2xl text-white font-black shadow-lg" style={{ backgroundColor: colors.sidebar }}>GUARDAR CLIENTE</button>
               <button type="button" onClick={() => {setShowForm(false); setEditingId(null);}} className="md:col-span-2 text-gray-400 font-bold">CANCELAR</button>
             </form>
           </div>
@@ -2449,12 +2448,12 @@ function NodosView({ nodos, clientes, db }) {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-10 uppercase">Repartidores</h2>
+      <h2 className="text-3xl font-black mb-10 uppercase" style={{ color: colors.textMain }}>Repartidores</h2>
       <div className="bg-white p-8 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 mb-10 border border-green-50">
         <input placeholder="Nombre Repartidor" className="bg-gray-50 p-4 rounded-xl flex-1 border font-bold" value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value.toUpperCase()})} />
         <input placeholder="IP" inputMode="decimal" className="bg-gray-50 p-4 rounded-xl border font-mono w-40" value={nuevo.ip} onChange={e => setNuevo({...nuevo, ip: e.target.value})} />
         <input placeholder="Frecuencia (MHz)" inputMode="numeric" className="bg-gray-50 p-4 rounded-xl border w-40" value={nuevo.frecuencia} onChange={e => setNuevo({...nuevo, frecuencia: e.target.value})} />
-        <button onClick={handleAdd} style={{ backgroundColor: colors.sidebar }} className="text-white px-8 py-4 rounded-xl font-bold">AÑADIR</button>
+        <button onClick={handleAdd} className="text-white px-8 py-4 rounded-xl font-bold" style={{ backgroundColor: colors.sidebar }}>AÑADIR</button>
       </div>
       <div className="grid grid-cols-1 gap-8">
         {nodos.map(n => {
@@ -2472,7 +2471,7 @@ function NodosView({ nodos, clientes, db }) {
                 <div className="flex items-center gap-4">
                   <div className="text-right mr-4">
                     <p className="text-[10px] font-black text-green-800 opacity-60 uppercase">Total Clientes</p>
-                    <p style={{ color: colors.sidebar }} className="text-2xl font-black">{clientesNodo.length}</p>
+                    <p className="text-2xl font-black" style={{ color: colors.sidebar }}>{clientesNodo.length}</p>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handlePrintNodo(n, clientesNodo)} title="Imprimir lista" className="p-2 text-gray-400 hover:text-green-600 transition-colors">
@@ -2551,7 +2550,7 @@ function SoporteView({ clientes, nodos, db }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!report.targetId) {
-      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente" : "Selecciona un Repartidor / Nodo");
+      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente" : "Selecciona un Repartidor");
     }
 
     let textoTelegram = "";
@@ -2571,7 +2570,7 @@ function SoporteView({ clientes, nodos, db }) {
       metadataGuardado = {
         tipoReporte: 'AP',
         targetId: report.targetId,
-        nombreIdentificador: `REPARTIDOR / NODO ${nodo?.nombre}`
+        nombreIdentificador: `REPARTIDOR ${nodo?.nombre}`
       };
     }
     
@@ -2592,7 +2591,7 @@ function SoporteView({ clientes, nodos, db }) {
 
   const handlePrint = () => {
     if (!report.targetId) {
-      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente primero" : "Selecciona un Repartidor / Nodo primero");
+      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente primero" : "Selecciona un Repartidor primero");
     }
 
     let nombreEntidad = "";
@@ -2604,7 +2603,7 @@ function SoporteView({ clientes, nodos, db }) {
       detalleExtra = `Repartidor Asociado: ${cli?.ap || 'N/A'}`;
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
-      nombreEntidad = `Equipo de Red: REPARTIDOR / NODO ${nodo?.nombre}`;
+      nombreEntidad = `Equipo de Red: REPARTIDOR ${nodo?.nombre}`;
       detalleExtra = `IP de Gestión: ${nodo?.ip || 'N/A'}`;
     }
 
@@ -2630,7 +2629,7 @@ function SoporteView({ clientes, nodos, db }) {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 style={{ color: colors.textMain }} className="text-3xl font-black mb-8 uppercase">Soporte Técnico</h2>
+      <h2 className="text-3xl font-black mb-8 uppercase" style={{ color: colors.textMain }}>Soporte Técnico</h2>
       
       <div className="bg-white p-10 rounded-[3rem] shadow-sm space-y-6">
         
@@ -2680,14 +2679,14 @@ function SoporteView({ clientes, nodos, db }) {
             </div>
           ) : (
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Estructura Repartidor / Nodo Crítico</label>
+              <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Estructura Repartidor Crítico</label>
               <select 
                 required 
                 className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-green-800 outline-none focus:border-green-500" 
                 value={report.targetId} 
                 onChange={e => setReport({...report, targetId: e.target.value})}
               >
-                <option value="">-- SELECCIONAR REPARTIDOR / NODO --</option>
+                <option value="">-- SELECCIONAR REPARTIDOR --</option>
                 {nodos.map(n => (
                   <option key={n.id} value={n.id}>REPARTIDOR: {n.nombre} — (Frec: {n.frecuencia} MHz)</option>
                 ))}
@@ -2741,8 +2740,8 @@ function SoporteView({ clientes, nodos, db }) {
           <div className="flex flex-col md:flex-row gap-4">
             <button 
               type="submit" 
-              style={{ backgroundColor: colors.sidebar }} 
               className="flex-1 py-5 rounded-2xl text-white font-black shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"
+              style={{ backgroundColor: colors.sidebar }} 
             >
               <Send size={24}/> ENVIAR POR TELEGRAM
             </button>
