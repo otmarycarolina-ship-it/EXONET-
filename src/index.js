@@ -1300,6 +1300,11 @@ function PagosView({ clientes, db }) {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                      {c.exonet2 && (
+                        <span className="bg-purple-100 text-purple-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                          EXONET 2.0
+                        </span>
+                      )}
                       {c.ftth && (
                         <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
                           FIBRA
@@ -1969,7 +1974,7 @@ function ClientesView({ clientes, nodos, db }) {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
     nombre: '', apellido: '', direccion: '', plan: '', telefono: '', 
-    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false,
+    costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, exonet2: false,
     estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false,
     fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false
   });
@@ -2006,10 +2011,33 @@ function ClientesView({ clientes, nodos, db }) {
       if (editingId) await setDoc(doc(db, 'clientes', editingId), datosFinales);
       else await addDoc(collection(db, 'clientes'), { ...datosFinales, createdAt: Date.now() });
       setShowForm(false); setEditingId(null);
-      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false });
+      setFormData({ nombre: '', apellido: '', direccion: '', plan: '', telefono: '', costo: '', ip: '', señal: '', señalRemota: '', ap: '', prestamo: false, ftth: false, exonet2: false, estadoPrestamo: 'ACTIVO', estadoFTTH: 'ACTIVO', pagoCompletado: false, exonerado: false, fechaPago: '', fechaVencimiento: '', montoPagado: '', referenciaPago: '', esBolivares: false });
     } catch (err) {
       alert("Error de permisos: Tu cuenta no está autorizada para guardar datos.");
     }
+  };
+
+  // Función de control para limitar a un máximo de 2 casillas seleccionadas
+  const handleToggleCasilla = (campo) => {
+    setFormData(prev => {
+      const nuevoValor = !prev[campo];
+      
+      // Contamos cuántas estarían activas si aceptamos el cambio
+      let activasCount = 0;
+      if (campo === 'prestamo' ? nuevoValor : prev.prestamo) activasCount++;
+      if (campo === 'ftth' ? nuevoValor : prev.ftth) activasCount++;
+      if (campo === 'exonet2' ? nuevoValor : prev.exonet2) activasCount++;
+
+      if (activasCount > 2) {
+        alert("No puedes marcar más de 2 casillas al mismo tiempo.");
+        return prev; // No realiza ningún cambio si excede de 2
+      }
+
+      return {
+        ...prev,
+        [campo]: nuevoValor
+      };
+    });
   };
 
   return (
@@ -2098,6 +2126,7 @@ function ClientesView({ clientes, nodos, db }) {
                   )}
                 </div>
                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium"><MapPin size={12}/> {c.direccion}</p>
+                {c.exonet2 && <p className="text-[10px] text-purple-600 font-bold mt-1 flex items-center gap-1">EXONET 2.0</p>}
                 {c.prestamo && <p className="text-[10px] text-orange-600 font-bold mt-1 flex items-center gap-1">EQUIPO A PRÉSTAMO</p>}
                 {c.ftth && <p className="text-[10px] text-blue-600 font-bold mt-1 flex items-center gap-1">FIBRA ÓPTICA (FTTH)</p>}
               </div>
@@ -2240,9 +2269,17 @@ function ClientesView({ clientes, nodos, db }) {
                 />
               </div>
 
-              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div 
-                  onClick={() => setFormData({...formData, prestamo: !formData.prestamo, ftth: false})} 
+                  onClick={() => handleToggleCasilla('exonet2')} 
+                  className="flex items-center gap-3 p-4 bg-purple-50/50 rounded-xl border border-purple-100 cursor-pointer select-none"
+                >
+                  {formData.exonet2 ? <CheckSquare className="text-purple-600" /> : <Square className="text-gray-300" />}
+                  <span className="font-bold text-gray-700 text-sm">EXONET 2.0</span>
+                </div>
+
+                <div 
+                  onClick={() => handleToggleCasilla('prestamo')} 
                   className="flex items-center gap-3 p-4 bg-orange-50/50 rounded-xl border border-orange-100 cursor-pointer select-none"
                 >
                   {formData.prestamo ? <CheckSquare className="text-orange-600" /> : <Square className="text-gray-300" />}
@@ -2250,7 +2287,7 @@ function ClientesView({ clientes, nodos, db }) {
                 </div>
 
                 <div 
-                  onClick={() => setFormData({...formData, ftth: !formData.ftth, prestamo: false})} 
+                  onClick={() => handleToggleCasilla('ftth')} 
                   className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
                 >
                   {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
@@ -2292,6 +2329,7 @@ function NodosView({ nodos, clientes, db }) {
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th { background: #f4f4f4; text-align: left; padding: 12px; border: 1px solid #ddd; }
             td { padding: 12px; border: 1px solid #ddd; font-size: 14px; }
+            .exonet2 { color: #8e44ad; font-weight: bold; }
             .prestamo { color: #e67e22; font-weight: bold; }
             .ftth { color: #2980b9; font-weight: bold; }
             .sig-container { display: flex; flex-direction: column; align-items: center; }
@@ -2330,7 +2368,7 @@ function NodosView({ nodos, clientes, db }) {
                     </div>
                   </td>
                   <td>${c.telefono}</td>
-                  <td>${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : c.ftth ? '<span class="ftth">FTTH</span>' : ''}</td>
+                  <td>${c.exonet2 ? '<span class="exonet2">EXONET 2.0</span> ' : ''}${c.prestamo ? '<span class="prestamo">PRÉSTAMO</span>' : c.ftth ? '<span class="ftth">FTTH</span>' : ''}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2405,6 +2443,12 @@ function NodosView({ nodos, clientes, db }) {
                           <span className="text-[9px] text-gray-400 uppercase leading-none mb-1">Plan</span>
                           <span className="text-green-700">{c.plan}M</span>
                        </div>
+                       {c.exonet2 && (
+                         <div className="bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
+                           <span className="text-[9px] uppercase leading-none mb-1">Red</span>
+                           <span>EXONET 2.0</span>
+                         </div>
+                       )}
                        {c.prestamo && (
                          <div className="bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg flex flex-col items-center">
                            <span className="text-[9px] uppercase leading-none mb-1">Estado</span>
