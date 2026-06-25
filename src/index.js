@@ -319,7 +319,7 @@ const handlePrintGeneral = (titulo, data) => {
   if (esFibra) {
     data.forEach(c => {
       const costoNum = parseFloat(c.costo) || 0;
-      const abonoNum = parseFloat(c.montoPagado) || 0;
+      const abonoNum = parseFloat(c.montoPagado || 0);
       const estadoPago = obtenerEstadoCliente(c);
       const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abonoNum < costoNum;
 
@@ -358,6 +358,7 @@ const handlePrintGeneral = (titulo, data) => {
           .finanzas-tabla td { padding: 6px 10px; border: none; font-size: 14px; }
           .finanzas-total { font-size: 16px; font-weight: black; color: #2E7D32; background: #e8f5e9; }
           .footer { margin-top: 40px; font-size: 10px; color: #999; text-align: right; border-top: 1px solid #eee; padding-top: 5px; }
+          .exonet2-tag { color: #8e44ad; font-weight: bold; font-size: 11px; margin-right: 4px; }
         </style>
       </head>
       <body>
@@ -412,7 +413,10 @@ const handlePrintGeneral = (titulo, data) => {
               return `
                 <tr ${claseFila}>
                   <td>${i + 1}</td>
-                  <td style="font-weight: bold; text-transform: uppercase;">${c.nombre} ${c.apellido}</td>
+                  <td style="font-weight: bold; text-transform: uppercase;">
+                    ${c.exonet2 ? '<span class="exonet2-tag">EXONET 2.0</span>' : ''}
+                    ${c.nombre} ${c.apellido}
+                  </td>
                   <td><span class="status-badge ${claseEstado}">${estadoVisual}</span></td>
                   ${esFibra ? `<td style="font-weight: bold;">${montoVisual}</td>` : ''}
                   <td>${c.direccion || 'N/A'}</td>
@@ -1721,7 +1725,14 @@ function PrestamosView({ clientes, db }) {
               <div className="flex items-center gap-5">
                 <span className="text-gray-300 font-black text-xl">{index + 1}</span>
                 <div>
-                  <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-black text-gray-800 uppercase leading-none">{c.nombre} {c.apellido}</h3>
+                    {c.exonet2 && (
+                      <span className="bg-purple-100 text-purple-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider">
+                        EXONET 2.0
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
                     <MapPin size={10}/> {c.direccion}
                   </p>
@@ -1795,7 +1806,7 @@ function FtthView({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de fibra óptica sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
+    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra priority es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de fibra óptica sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
