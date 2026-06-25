@@ -1086,7 +1086,7 @@ function PagosView({ clientes, db }) {
   // --- NUEVA FUNCIÓN: ENVIAR MENSAJE DE SALDO PENDIENTE ---
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
-    const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
+    const textoMensaje = `¡Hola, 👋_ ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
@@ -1854,7 +1854,7 @@ function FtthView({ clientes, db }) {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   const handleWhatsApp = (cliente, customMsg = null, directToNumber = false) => {
-    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra priority es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de fibra óptica sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
+    const defaultMsg = `Hola, ${cliente.nombre} 😊. Te saludamos desde el área de atención para tu conexión de internet.\n\nPasamos por aquí para recordarte que la fecha de tu pago ha vencido. Nuestra prioridad es que sigas disfrutando de la máxima estabilidad y velocidad de tu plan de fibra óptica sin interrupciones. 🚀\n\n¡Feliz día y gracias por tu preferencia!`;
     const mensaje = customMsg || defaultMsg;
     
     const url = directToNumber 
@@ -1969,7 +1969,7 @@ function FtthView({ clientes, db }) {
                   
                   {c.estadoFTTH === 'PENDIENTE DE RETIRAR' && (
                     <button 
-                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador and los accesorios que se usaron para instalarlo.`, false)}
+                      onClick={() => handleWhatsApp(c, `Orden de Retiro: Equipos de Fibra (FTTH) \n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n⚠️ Nota para el técnico: Hay que desconectar y traerse el módem de fibra (ONU), su cargador y los accesorios que se usaron para instalarlo.`, false)}
                       className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 transition-colors flex items-center gap-2"
                       title="Reportar Retiro"
                     >
@@ -1981,7 +1981,7 @@ function FtthView({ clientes, db }) {
                   {c.estadoFTTH === 'REVISIÓN' && (
                     <button 
                       onClick={() => handleWhatsApp(c, `🛠️ Soporte FTTH: Revisión de Fibra y Equipos\n👤 Cliente: ${c.nombre} ${c.apellido}\n📍 Dirección: ${c.direccion}\n📋 ¿Qué hacer?: Por favor, vayan a revisar el cable de fibra, midan cómo está llegando la señal y chequeen si el módem (ONU) está funcionando bien. Si hay alguna falla o la señal está muy alta, avisen de inmediato, por favor.`, false)}
-                      className="p-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
+                      className="p-2 bg-orange-100 text-orange-600 rounded-xl hover:bg-orange-200 transition-colors flex items-center gap-2"
                       title="Mandar a Revisión"
                     >
                       <AlertCircle size={18} />
@@ -2184,7 +2184,7 @@ function ClientesView({ clientes, nodos, db }) {
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-white hover:border-green-200 flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center">
               <div className="col-span-3 w-full">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 style={{ color: colors.textMain }} className="font-bold text-lg leading-tight uppercase">{c.nombre} {c.apellido}</h3>
+                  <h3 className="font-bold text-lg leading-tight uppercase" style={{ color: colors.textMain }}>{c.nombre} {c.apellido}</h3>
                   {c.exonerado && (
                     <span className="bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1">
                       <Gift size={10} /> EXONERADO
@@ -2197,11 +2197,11 @@ function ClientesView({ clientes, nodos, db }) {
                 {c.ftth && <p className="text-[10px] text-blue-600 font-bold mt-1 flex items-center gap-1">FIBRA ÓPTICA (FTTH)</p>}
               </div>
               <div className="col-span-2 w-full text-center">
-                <span style={{ backgroundColor: colors.bg, color: colors.textMain }} className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1">{c.ap}</span>
+                <span className="text-[10px] px-2 py-1 rounded-md font-bold inline-block mb-1" style={{ backgroundColor: colors.bg, color: colors.textMain }}>{c.ap}</span>
                 <a href={`http://${c.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs font-bold text-green-700 hover:underline flex items-center justify-center gap-1">{c.ip} <ExternalLink size={10} /></a>
               </div>
               <div className="col-span-2 w-full text-center">
-                <span style={{ color: colors.primary }} className="font-black italic block">{c.plan} Mbps</span>
+                <span className="font-black italic block" style={{ color: colors.primary }}>{c.plan} Mbps</span>
                 <span className="font-bold text-gray-800 text-sm block">
                   {c.exonerado ? '$0.000 (Cortesía)' : (c.esBolivares ? `${abonoVisualPantalla} ${divisaSimbolo}` : `$${costoTotal.toFixed(3)} ${divisaSimbolo}`)}
                 </span>
@@ -2551,7 +2551,7 @@ function SoporteView({ clientes, nodos, db }) {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!report.targetId) {
-      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente" : "Selecciona una AP / Nodo");
+      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente" : "Selecciona un Repartidor / Nodo");
     }
 
     let textoTelegram = "";
@@ -2559,7 +2559,7 @@ function SoporteView({ clientes, nodos, db }) {
 
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
-      textoTelegram = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 AP: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
+      textoTelegram = `🚨 REPORTE EXONET\n👤 CLIENTE: ${cli?.nombre || ''} ${cli?.apellido || ''}\n📡 REPARTIDOR: ${cli?.ap || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 NOTA: ${report.comentario}`;
       metadataGuardado = {
         tipoReporte: 'CLIENTE',
         targetId: report.targetId,
@@ -2567,11 +2567,11 @@ function SoporteView({ clientes, nodos, db }) {
       };
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
-      textoTelegram = `📡 REPORTE EXONET - INFRAESTRUCTURA AP 📡\n⚡ REPARTIDOR REVISADO: AP / ${nodo?.nombre || ''}\n🌐 IP: ${nodo?.ip || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
+      textoTelegram = `📡 REPORTE EXONET - INFRAESTRUCTURA REPARTIDOR 📡\n⚡ REPARTIDOR REVISADO: ${nodo?.nombre || ''}\n🌐 IP: ${nodo?.ip || 'N/A'}\n⚠️ INFORME / FALLA: ${report.falla}\n💬 OBSERVACIONES: ${report.comentario}`;
       metadataGuardado = {
         tipoReporte: 'AP',
         targetId: report.targetId,
-        nombreIdentificador: `AP / NODO ${nodo?.nombre}`
+        nombreIdentificador: `REPARTIDOR / NODO ${nodo?.nombre}`
       };
     }
     
@@ -2592,7 +2592,7 @@ function SoporteView({ clientes, nodos, db }) {
 
   const handlePrint = () => {
     if (!report.targetId) {
-      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente primero" : "Selecciona una AP / Nodo primero");
+      return alert(reportType === 'CLIENTE' ? "Selecciona un cliente primero" : "Selecciona un Repartidor / Nodo primero");
     }
 
     let nombreEntidad = "";
@@ -2601,10 +2601,10 @@ function SoporteView({ clientes, nodos, db }) {
     if (reportType === 'CLIENTE') {
       const cli = clientes.find(c => c.id === report.targetId);
       nombreEntidad = `Cliente: ${cli?.nombre} ${cli?.apellido}`;
-      detalleExtra = `Nodo Asociado: ${cli?.ap || 'N/A'}`;
+      detalleExtra = `Repartidor Asociado: ${cli?.ap || 'N/A'}`;
     } else {
       const nodo = nodos.find(n => n.id === report.targetId);
-      nombreEntidad = `Equipo de Red: AP / NODO ${nodo?.nombre}`;
+      nombreEntidad = `Equipo de Red: REPARTIDOR / NODO ${nodo?.nombre}`;
       detalleExtra = `IP de Gestión: ${nodo?.ip || 'N/A'}`;
     }
 
@@ -2613,7 +2613,7 @@ function SoporteView({ clientes, nodos, db }) {
       <html>
         <body style="font-family:sans-serif; padding:40px; color:#333;">
           <h1 style="color:#2E7D32; border-bottom:2px solid #2E7D32; padding-bottom:10px;">EXONET - REPORTE DE SOPORTE TÉCNICO</h1>
-          <p style="font-size:16px; font-weight:bold;">Tipo de Incidencia: ${reportType === 'CLIENTE' ? 'SOPORTE USUARIO FINAL' : 'MANTENIMIENTO DE INFRAESTRUCTURA / AP'}</p>
+          <p style="font-size:16px; font-weight:bold;">Tipo de Incidencia: ${reportType === 'CLIENTE' ? 'SOPORTE USUARIO FINAL' : 'MANTENIMIENTO DE INFRAESTRUCTURA / REPARTIDOR'}</p>
           <p style="font-size:14px; font-weight:bold; uppercase">${nombreEntidad}</p>
           <p style="font-size:13px; color:#555;">${detalleExtra}</p>
           <hr style="border:0; border-top:1px dashed #ccc; margin:20px 0;"/>
@@ -2657,7 +2657,7 @@ function SoporteView({ clientes, nodos, db }) {
             }`}
           >
             <Radio size={16} />
-            Reporte de AP
+            Reporte de Repartidor
           </button>
         </div>
 
@@ -2680,14 +2680,14 @@ function SoporteView({ clientes, nodos, db }) {
             </div>
           ) : (
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Estructura AP / Nodo Crítico</label>
+              <label className="text-[10px] font-black text-gray-500 uppercase px-1">Identificar Estructura Repartidor / Nodo Crítico</label>
               <select 
                 required 
                 className="w-full bg-gray-50 p-5 rounded-2xl border font-bold text-green-800 outline-none focus:border-green-500" 
                 value={report.targetId} 
                 onChange={e => setReport({...report, targetId: e.target.value})}
               >
-                <option value="">-- SELECCIONAR AP / NODO --</option>
+                <option value="">-- SELECCIONAR REPARTIDOR / NODO --</option>
                 {nodos.map(n => (
                   <option key={n.id} value={n.id}>REPARTIDOR: {n.nombre} — (Frec: {n.frecuencia} MHz)</option>
                 ))}
@@ -2715,9 +2715,9 @@ function SoporteView({ clientes, nodos, db }) {
                 </>
               ) : (
                 <>
-                  <option>AP caída / desconectada</option>
+                  <option>Repartidor caído / desconectado</option>
                   <option>Cable 100 LAN0</option>
-                  <option>Obstrucción de frequency</option>
+                  <option>Obstrucción de frecuencia</option>
                   <option>Cambio de frecuencia</option>
                   <option>Rendimiento bajo</option>
                   <option>Reinicio por pérdida de energía</option>
