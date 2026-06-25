@@ -190,7 +190,7 @@ const handleGenerarRecibo = (cliente) => {
           .monto-box { background: #E8F5E9; color: #1B5E20; text-align: center; padding: 15px; border-radius: 12px; font-size: 28px; font-weight: 900; margin: 15px 0; border: 1px solid #C5E1A5; }
           .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
           .details-table td { padding: 8px 0; font-size: 13px; color: #444; }
-          .details-table td.label { color: #888; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+          .details-table td.label { color: #888; font-weight: bold; text-transform: uppercase; font-size: 11px; margin: 5px 0; }
           .details-table td.value { text-align: right; font-weight: bold; color: #1B5E20; }
           .footer-msg { text-align: center; font-size: 12px; color: #1B5E20; font-weight: bold; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; line-height: 1.5; }
           @media print {
@@ -261,7 +261,8 @@ const handleGenerarRecibo = (cliente) => {
 
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
-  const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth);
+  // Se excluyen explícitamente los clientes de EXONET 2.0 de la lista general
+  const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth && !c.exonet2);
   const encabezadoMes = obtenerEncabezadoMesActual();
 
   const html = `
@@ -603,7 +604,7 @@ export default function App() {
       const refDocSesion = doc(db, 'artifacts', appId, 'users', user.uid, 'sesiones', deviceId);
       
       if (yaExistiaId) {
-        const snapshotVerificacion = await getDoc(refDocSesion).catch(() => null);
+        const snapshot Verificacion = await getDoc(refDocSesion).catch(() => null);
         if (snapshotVerificacion && !snapshotVerificacion.exists()) {
           forzarDesconexionLocalCompleta();
           return;
@@ -1086,7 +1087,7 @@ function PagosView({ clientes, db }) {
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
     const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
-    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const numero Limpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
