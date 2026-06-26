@@ -396,7 +396,7 @@ const handlePrintGeneral = (titulo, data) => {
           th { background: #2E7D32; color: white; text-align: left; padding: 10px; border: 1px solid #ddd; font-size: 11px; text-transform: uppercase; }
           td { padding: 10px; border: 1px solid #ddd; font-size: 12px; }
           .status-badge { font-weight: bold; padding: 3px 6px; border-radius: 4px; font-size: 11px; }
-          .status-active { color: #2E7D32; }
+          .status-badge text-active { color: #2E7D32; }
           .status-suspended { color: #d32f2f; font-weight: bold; }
           .status-review { color: #f57c00; }
           .row-suspended { background-color: #ffebee; }
@@ -1077,7 +1077,7 @@ function PagosView({ clientes, db }) {
   };
 
   const enviarRecordatorioAmigable = (cliente) => {
-    const textoMensaje = `¡Hola! OTMARY  Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
+    const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
