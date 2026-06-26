@@ -1029,13 +1029,10 @@ function PagosView({ clientes, db }) {
     if (!cumpleBusqueda) return false;
     
     const estado = obtenerEstadoCliente(c);
-    if (filtroPago === 'PENDIENTES') return estado === 'PENDIENTE' && !esProximoAVencer(c);
-    if (filtroPago === 'SALDO_PENDIENTE') {
-      if (c.esBolivares) return false;
-      const costoTotal = parseFloat(c.costo || 0);
-      const abono = parseFloat(c.montoPagado || 0);
-      return c.pagoCompletado && abono < costoTotal;
-    }
+    const tieneDeuda = !c.esBolivares && c.pagoCompletado && parseFloat(c.montoPagado || 0) < parseFloat(c.costo || 0);
+    
+    if (filtroPago === 'PENDIENTES') return estado === 'PENDIENTE' && !esProximoAVencer(c) && !tieneDeuda;
+    if (filtroPago === 'SALDO_PENDIENTE') return tieneDeuda;
     if (filtroPago === 'VENCER') return esProximoAVencer(c);
     if (filtroPago === 'SOLVENTES') return estado === 'SOLVENTE' && !esProximoAVencer(c);
     return true;
@@ -1306,7 +1303,7 @@ function PagosView({ clientes, db }) {
                 onClick={() => setFiltroPago('PENDIENTES')} 
                 className={`px-3 py-1 text-[10px] font-black uppercase rounded-lg transition-all ${filtroPago === 'PENDIENTES' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400 hover:text-red-500'}`}
               >
-                Vencidos ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'PENDIENTE' && !esProximoAVencer(c)).length})
+                Vencidos ({clientesDePago.filter(c => obtenerEstadoCliente(c) === 'PENDIENTE' && !esProximoAVencer(c) && !(!c.esBolivares && c.pagoCompletado && parseFloat(c.montoPagado || 0) < parseFloat(c.costo || 0))).length})
               </button>
               <button 
                 onClick={() => setFiltroPago('SALDO_PENDIENTE')} 
@@ -2372,6 +2369,7 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
+// El resto de los componentes (NodosView, SoporteView, etc.) se mantienen idénticos
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
