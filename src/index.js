@@ -455,7 +455,7 @@ const handlePrintGeneral = (titulo, data) => {
                   claseEstado = 'status-suspended';
                 }
               } else {
-                estadoVisual = c.estadoPrestamo || c.estadoFTTH || 'ACTIVO';
+                estadoVisual = c.estadoTarget || c.estadoFTTH || 'ACTIVO';
               }
 
               return `
@@ -617,7 +617,7 @@ export default function App() {
       let icon = "💻";
 
       if (snapshotExistente && snapshotExistente.exists()) {
-        const datos Viejos = snapshotExistente.data();
+        const datosViejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -1077,7 +1077,7 @@ function PagosView({ clientes, db }) {
   };
 
   const enviarRecordatorioAmigable = (cliente) => {
-    const textoMensaje = `¡Hola! ${cliente.nombre}  Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
+    const textoMensaje = `¡Hola! OTMARY  Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
@@ -1086,7 +1086,7 @@ function PagosView({ clientes, db }) {
   // --- NUEVA FUNCIÓN: ENVIAR MENSAJE DE SALDO PENDIENTE ---
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
-    const textoMensaje = `¡Hola, 👋| ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
+    const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
     const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
