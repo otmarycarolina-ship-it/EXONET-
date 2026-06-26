@@ -420,7 +420,7 @@ const handlePrintGeneral = (titulo, data) => {
               <th>ESTADO DEL EQUIPO</th>
               ${esFibra ? '<th>MONTO ($)</th>' : ''}
               <th>DIRECCIÓN</th>
-              ${!esPrestamo ? '<th>VENCIMIENTO</th>' : ''}
+              ${!esPrestamo ? `<th>VENCIMIENTO</th>` : ''}
               ${esPagos ? '<th>ESTADO DE PAGO</th>' : ''}
             </tr>
           </thead>
@@ -843,22 +843,24 @@ export default function App() {
                 <div className="flex items-center gap-3"><Laptop size={18} /> <span>EQUIPOS</span></div>
                 <ChevronRight size={14} className={activeTab === 'PRESTAMOS' ? 'text-green-800' : 'text-white/40'} />
               </button>
+
+              {/* Botón Gestionar Sesiones dentro del flujo del menú para móvil */}
+              <button 
+                onClick={() => { setShowSessionsModal(true); setMobileMenuOpen(false); }} 
+                className="w-full flex items-center gap-3 bg-white/10 text-white/90 hover:bg-white/20 transition-all px-4 py-3.5 text-sm font-bold rounded-xl uppercase"
+              >
+                <LogOut size={18} /> <span>GESTIONAR SESIONES</span>
+              </button>
             </nav>
 
             <div className="border-t border-white/10 pt-4 mt-auto">
               <p 
                 onClick={() => { setShowSessionsModal(true); setMobileMenuOpen(false); }} 
-                className="text-[10px] text-white/50 hover:text-white transition-colors font-bold mb-3 truncate cursor-pointer flex items-center gap-1.5"
+                className="text-[10px] text-white/50 hover:text-white transition-colors font-bold truncate cursor-pointer flex items-center gap-1.5"
               >
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
                 {user.email}
               </p>
-              <button 
-                onClick={() => { setShowSessionsModal(true); setMobileMenuOpen(false); }} 
-                className="flex items-center gap-3 bg-white/10 text-white hover:bg-white/20 transition-all p-3 text-xs font-black w-full rounded-xl uppercase tracking-wider"
-              >
-                <LogOut size={16} /> GESTIONAR SESIONES
-              </button>
             </div>
           </aside>
         </div>
@@ -878,7 +880,7 @@ export default function App() {
           <p 
             onClick={() => setShowSessionsModal(true)} 
             className="text-[10px] text-white/40 hover:text-white transition-colors font-bold mb-2 truncate cursor-pointer flex items-center gap-1.5"
-            title="Ver Dispositivos Conectados"
+            title="Ver Dispositivos ConConnectados"
           >
             <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
             {user.email}
