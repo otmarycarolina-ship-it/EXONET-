@@ -20,13 +20,6 @@ import {
   signOut 
 } from 'firebase/auth';
 import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  onAuthStateChanged,
-  signOut 
-} from 'firebase/auth';
-import { 
   Users, 
   Wrench, 
   Search, 
@@ -764,7 +757,7 @@ export default function App() {
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" alt="G" />
           ENTRAR CON GOOGLE
         </button>
-        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal autorizado</p>
+        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal authorized</p>
       </div>
     </div>
   );
@@ -2454,7 +2447,7 @@ function NodosView({ nodos, clientes, db }) {
               <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/30">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
+                    h3 className="text-2xl font-black text-gray-800 tracking-tight">{n.nombre}</h3>
                     <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{n.frecuencia} MHz</span>
                   </div>
                   <a href={`http://${n.ip}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-gray-400 mt-1 hover:text-green-600 flex items-center gap-1">{n.ip} <ExternalLink size={10} /></a>
