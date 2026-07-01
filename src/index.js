@@ -20,6 +20,13 @@ import {
   signOut 
 } from 'firebase/auth';
 import { 
+  getAuth, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  onAuthStateChanged,
+  signOut 
+} from 'firebase/auth';
+import { 
   Users, 
   Wrench, 
   Search, 
@@ -136,8 +143,7 @@ const obtenerEstadoCliente = (cliente) => {
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
   
-  if (cliente.pagoCompletado && cliente.esBolivares) return 'SOLVENTE';
-  if (cliente.pagoCompletado && abono < costoTotal) return 'PENDIENTE';
+  if (cliente.pagoCompletado && !cliente.esBolivares && abono < costoTotal) return 'PENDIENTE';
 
   if (!cliente.fechaVencimiento) return 'PENDIENTE';
   
@@ -150,8 +156,7 @@ const esProximoAVencer = (cliente) => {
   
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
-  if (cliente.pagoCompletado && cliente.esBolivares) return false;
-  if (cliente.pagoCompletado && abono < costoTotal) return false;
+  if (cliente.pagoCompletado && !cliente.esBolivares && abono < costoTotal) return false;
 
   const hoyStr = obtenerFechaActualLocal();
   if (hoyStr > cliente.fechaVencimiento) return false;
@@ -261,7 +266,6 @@ const handleGenerarRecibo = (cliente) => {
 
 const handlePrintClientesFiltrados = (data) => {
   const printWindow = window.open('', '_blank');
-  // Se excluyen explícitamente los clientes de EXONET 2.0 de la lista general
   const clientesFiltrados = data.filter(c => !c.exonerado && !c.ftth && !c.exonet2);
   const encabezadoMes = obtenerEncabezadoMesActual();
 
@@ -585,7 +589,6 @@ export default function App() {
     let keepAliveInterval;
     let desubscribirSesiones;
 
-    // Función auxiliar para cerrar sesión de manera fulminante limpiando el almacenamiento local
     const forzarDesconexionLocalCompleta = () => {
       clearInterval(keepAliveInterval);
       if (desubscribirSesiones) desubscribirSesiones();
@@ -769,7 +772,7 @@ export default function App() {
   return (
     <div style={{ backgroundColor: colors.bg }} className="min-h-screen pt-16 md:pt-0 pb-6 md:pb-0 md:pl-64 text-gray-800 font-sans">
       
-      {/* --- CABECERA TOP MÓVIL (Fija arriba para no estorbar con Progressier abajo) --- */}
+      {/* --- CABECERA TOP MÓVIL --- */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b flex items-center justify-between px-6 z-[60] shadow-sm">
         <div className="flex items-center gap-2">
           <ExonetLogo size={24} color={colors.sidebar} />
@@ -788,10 +791,8 @@ export default function App() {
       {/* --- MENÚ LATERAL DESPLEGABLE EN MÓVIL (DRAWER) --- */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-[200] flex animate-in fade-in duration-200">
-          {/* Fondo oscuro translúcido con clic para cerrar */}
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
           
-          {/* Contenedor del panel lateral izquierdo */}
           <aside style={{ backgroundColor: colors.sidebar }} className="relative flex flex-col w-72 h-full p-6 shadow-2xl animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
               <div className="flex items-center gap-2">
@@ -844,7 +845,6 @@ export default function App() {
                 <ChevronRight size={14} className={activeTab === 'PRESTAMOS' ? 'text-green-800' : 'text-white/40'} />
               </button>
 
-              {/* Botón Gestionar Sesiones dentro del flujo del menú para móvil */}
               <button 
                 onClick={() => { setShowSessionsModal(true); setMobileMenuOpen(false); }} 
                 className="w-full flex items-center gap-3 bg-white/10 text-white/90 hover:bg-white/20 transition-all px-4 py-3.5 text-sm font-bold rounded-xl uppercase"
@@ -866,7 +866,7 @@ export default function App() {
         </div>
       )}
 
-      {/* --- SIDEBAR DE ESCRITORIO (Fijo clásico) --- */}
+      {/* --- SIDEBAR DE ESCRITORIO --- */}
       <aside style={{ backgroundColor: colors.sidebar }} className="hidden md:flex flex-col w-64 h-full fixed left-0 top-0 p-8 shadow-2xl z-50">
         <div className="flex items-center gap-3 mb-12"><ExonetLogo size={32} color="#FFF" /><span className="text-2xl font-black text-white">EXONET</span></div>
         <nav className="flex-1 space-y-4">
@@ -880,7 +880,7 @@ export default function App() {
           <p 
             onClick={() => setShowSessionsModal(true)} 
             className="text-[10px] text-white/40 hover:text-white transition-colors font-bold mb-2 truncate cursor-pointer flex items-center gap-1.5"
-            title="Ver Dispositivos ConConnectados"
+            title="Ver Dispositivos Conectados"
           >
             <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
             {user.email}
@@ -1082,7 +1082,6 @@ function PagosView({ clientes, db }) {
     window.open(url, '_blank');
   };
 
-  // --- NUEVA FUNCIÓN: ENVIAR MENSAJE DE SALDO PENDIENTE ---
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
     const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
@@ -1419,7 +1418,6 @@ function PagosView({ clientes, db }) {
                     </button>
                   )}
 
-                  {/* ACCIONES CUANDO EL CLIENTE TIENE UN SALDO PENDIENTE */}
                   {tieneDeudaActiva && (
                     <>
                       {c.telefono && (
@@ -2075,12 +2073,10 @@ function ClientesView({ clientes, nodos, db }) {
     }
   };
 
-  // Función de control para limitar a un máximo de 2 casillas seleccionadas
   const handleToggleCasilla = (campo) => {
     setFormData(prev => {
       const nuevoValor = !prev[campo];
       
-      // Contamos cuántas estarían activas si aceptamos el cambio
       let activasCount = 0;
       if (campo === 'prestamo' ? nuevoValor : prev.prestamo) activasCount++;
       if (campo === 'ftth' ? nuevoValor : prev.ftth) activasCount++;
@@ -2088,7 +2084,7 @@ function ClientesView({ clientes, nodos, db }) {
 
       if (activasCount > 2) {
         alert("No puedes marcar más de 2 casillas al mismo tiempo.");
-        return prev; // No realiza ningún cambio si excede de 2
+        return prev; 
       }
 
       return {
@@ -2126,11 +2122,9 @@ function ClientesView({ clientes, nodos, db }) {
         <input placeholder="Buscar abonado por nombre o apellido..." className="bg-transparent w-full p-4 outline-none font-medium" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* --- BARRA DE FILTROS PEQUEÑA SIN CORCHETES --- */}
       <div className="bg-white p-3 rounded-2xl border border-green-100 mb-6 w-full shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="grid grid-cols-3 w-full font-sans text-xs tracking-wide">
           
-          {/* BOTÓN: TODOS */}
           <button 
             onClick={() => setFiltroRapido('TODOS')}
             className={`py-2 px-1 text-center transition-all font-bold ${
@@ -2142,7 +2136,6 @@ function ClientesView({ clientes, nodos, db }) {
             TODOS ({clientes.length})
           </button>
           
-          {/* BOTÓN: CLIENTES DE PAGO */}
           <button 
             onClick={() => setFiltroRapido('DE_PAGO')}
             className={`py-2 px-1 text-center transition-all font-bold ${
@@ -2154,7 +2147,6 @@ function ClientesView({ clientes, nodos, db }) {
             CLIENTES DE PAGO ({totalDePago})
           </button>
           
-          {/* BOTÓN: EXONERADOS */}
           <button 
             onClick={() => setFiltroRapido('EXONERADOS')}
             className={`py-2 px-1 text-center transition-all font-bold ${
@@ -2369,7 +2361,6 @@ function ClientesView({ clientes, nodos, db }) {
   );
 }
 
-// El resto de los componentes (NodosView, SoporteView, etc.) se mantienen idénticos
 function NodosView({ nodos, clientes, db }) {
   const [nuevo, setNuevo] = useState({ nombre: '', ip: '', frecuencia: '' });
   
