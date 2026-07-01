@@ -658,11 +658,11 @@ export default function App() {
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
+        const todaviaExisto = listaSessions.some(s => s.id === deviceId);
 
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
-          forrarDesconexionLocalCompleta();
+          forzarDesconexionLocalCompleta();
           return;
         }
 
@@ -1000,6 +1000,7 @@ function NavItem({ active, onClick, icon, label }) {
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
+  const [openDropdownId, setOpenDropdownId] = useState(null); // Estado para controlar el menú desplegable del botón "Avisar"
   const canvasRef = useRef(null);
   
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -1013,6 +1014,13 @@ function PagosView({ clientes, db }) {
     fechaPago: '',
     fechaVencimiento: ''
   });
+
+  // Cerrar el menú desplegable al hacer clic en cualquier parte de la pantalla externa
+  useEffect(() => {
+    const handleOutsideClick = () => setOpenDropdownId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
@@ -1068,17 +1076,21 @@ function PagosView({ clientes, db }) {
     }
   };
 
-  const enviarRecordatorioAmigable = (cliente) => {
+  const enviarRecordatorioAmigable = (cliente, numeroEspecifico = null) => {
     const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
-    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    
+    const numeroAUsar = numeroEspecifico || cliente.telefono;
+    const numeroLimpio = numeroAUsar.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
 
-  const enviarMensajeSaldoPendiente = (cliente, faltante) => {
+  const enviarMensajeSaldoPendiente = (cliente, faltante, numeroEspecifico = null) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
     const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
-    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    
+    const numeroAUsar = numeroEspecifico || cliente.telefono;
+    const numeroLimpio = numeroAUsar.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
@@ -1336,6 +1348,9 @@ function PagosView({ clientes, db }) {
             const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abono < costoTotal;
             const faltante = tieneDeudaActiva ? Math.max(0, costoTotal - abono) : 0;
 
+            // Dividir los teléfonos si hay múltiples registrados
+            const listaTelefonos = c.telefono ? c.telefono.split(/[\s,]+/).map(n => n.trim()).filter(n => n !== "") : [];
+
             return (
               <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
                 <div className="flex items-center gap-5">
@@ -1399,29 +1414,79 @@ function PagosView({ clientes, db }) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap relative">
+                  {/* BOTÓN O DESPLEGABLE DE AVISAR VENCIMIENTO */}
                   {proximo && c.telefono && (
-                    <button
-                      onClick={() => enviarRecordatorioAmigable(c)}
-                      className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
-                      title="Enviar Recordatorio Amigable por WhatsApp"
-                    >
-                      <MessageCircle size={16} className="text-green-500 fill-green-500" />
-                      <span>AVISAR</span>
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (listaTelefonos.length > 1) {
+                            setOpenDropdownId(openDropdownId === `vencer-${c.id}` ? null : `vencer-${c.id}`);
+                          } else {
+                            enviarRecordatorioAmigable(c);
+                          }
+                        }}
+                        className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                        title="Enviar Recordatorio Amigable por WhatsApp"
+                      >
+                        <MessageCircle size={16} className="text-green-500 fill-green-500" />
+                        <span>AVISAR {listaTelefonos.length > 1 && '▼'}</span>
+                      </button>
+
+                      {openDropdownId === `vencer-${c.id}` && (
+                        <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[150px]">
+                          <p className="text-[9px] font-bold text-gray-400 px-3 py-1 uppercase border-b bg-gray-50">Elegir Número:</p>
+                          {listaTelefonos.map((tel, tIdx) => (
+                            <button
+                              key={tIdx}
+                              onClick={() => enviarRecordatorioAmigable(c, tel)}
+                              className="w-full text-left px-3 py-2 text-xs font-bold font-mono text-gray-700 hover:bg-green-50 transition-colors"
+                            >
+                              {tel}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
 
+                  {/* ACCIONES CUANDO EL CLIENTE TIENE UN SALDO PENDIENTE */}
                   {tieneDeudaActiva && (
                     <>
                       {c.telefono && (
-                        <button
-                          onClick={() => enviarMensajeSaldoPendiente(c, faltante)}
-                          className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
-                          title="Enviar Recordatorio de Saldo Pendiente por WhatsApp"
-                        >
-                          <MessageCircle size={16} className="fill-white" />
-                          <span>NOTIFICAR DEUDA</span>
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (listaTelefonos.length > 1) {
+                                setOpenDropdownId(openDropdownId === `deuda-${c.id}` ? null : `deuda-${c.id}`);
+                              } else {
+                                enviarMensajeSaldoPendiente(c, faltante);
+                              }
+                            }}
+                            className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                            title="Enviar Recordatorio de Saldo Pendiente por WhatsApp"
+                          >
+                            <MessageCircle size={16} className="fill-white" />
+                            <span>NOTIFICAR DEUDA {listaTelefonos.length > 1 && '▼'}</span>
+                          </button>
+
+                          {openDropdownId === `deuda-${c.id}` && (
+                            <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[150px]">
+                              <p className="text-[9px] font-bold text-gray-400 px-3 py-1 uppercase border-b bg-gray-50">Elegir Número:</p>
+                              {listaTelefonos.map((tel, tIdx) => (
+                                <button
+                                  key={tIdx}
+                                  onClick={() => enviarMensajeSaldoPendiente(c, faltante, tel)}
+                                  className="w-full text-left px-3 py-2 text-xs font-bold font-mono text-gray-700 hover:bg-green-50 transition-colors"
+                                >
+                                  {tel}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       <button
