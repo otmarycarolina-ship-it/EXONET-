@@ -528,7 +528,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u && authorizedEmails.includes(u.email)) {
+      if (u && autorizadoEmails.includes(u.email)) {
         setUser(u);
         setAuthError(null);
       } else if (u) {
@@ -757,7 +757,7 @@ export default function App() {
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" alt="G" />
           ENTRAR CON GOOGLE
         </button>
-        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal autorizado</p>
+        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal authorized</p>
       </div>
     </div>
   );
@@ -1936,8 +1936,8 @@ function FtthView({ clientes, db }) {
     
     if (tieneDeudaActiva) return 'SALDO PENDIENTE';
     
-    const fontPago = obtenerEstadoCliente(cliente);
-    if (fontPago === 'PENDIENTE') return 'SIN SERVICIO';
+    const estadoPago = obtenerEstadoCliente(cliente);
+    if (estadoPago === 'PENDIENTE') return 'SIN SERVICIO';
     return cliente.estadoFTTH || 'ACTIVO';
   };
 
@@ -2398,7 +2398,7 @@ function ClientesView({ clientes, nodos, db }) {
 
                 <div 
                   onClick={() => handleToggleCasilla('ftth')} 
-                  className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 cursor-pointer select-none"
+                  className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
                 >
                   {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
                   <span className="font-bold text-gray-700 text-sm">FTTH (Fibra Óptica)</span>
