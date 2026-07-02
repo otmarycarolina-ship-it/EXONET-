@@ -528,7 +528,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u && autorizadoEmails.includes(u.email)) {
+      if (u && authorizedEmails.includes(u.email)) {
         setUser(u);
         setAuthError(null);
       } else if (u) {
