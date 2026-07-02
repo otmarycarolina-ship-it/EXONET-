@@ -658,7 +658,7 @@ export default function App() {
       const refColSesiones = collection(db, 'artifacts', appId, 'users', user.uid, 'sesiones');
       desubscribirSesiones = onSnapshot(refColSesiones, (snap) => {
         const listaSesiones = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        const todaviaExisto = listaSessions.some(s => s.id === deviceId);
+        const todaviaExisto = listaSesiones.some(s => s.id === deviceId);
 
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
@@ -1000,7 +1000,6 @@ function NavItem({ active, onClick, icon, label }) {
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
-  const [openDropdownId, setOpenDropdownId] = useState(null); // Estado para controlar el menú desplegable del botón "Avisar"
   const canvasRef = useRef(null);
   
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -1014,13 +1013,6 @@ function PagosView({ clientes, db }) {
     fechaPago: '',
     fechaVencimiento: ''
   });
-
-  // Cerrar el menú desplegable al hacer clic en cualquier parte de la pantalla externa
-  useEffect(() => {
-    const handleOutsideClick = () => setOpenDropdownId(null);
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
-  }, []);
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
@@ -1076,23 +1068,85 @@ function PagosView({ clientes, db }) {
     }
   };
 
-  const enviarRecordatorioAmigable = (cliente, numeroEspecifico = null) => {
+  // --- LOGICA REVISADA: MANEJO SEGURO DE MÚLTIPLES NÚMEROS DE TELÉFONO ---
+  const enviarRecordatorioAmigable = (cliente) => {
     const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
     
-    const numeroAUsar = numeroEspecifico || cliente.telefono;
-    const numeroLimpio = numeroAUsar.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
-    window.open(url, '_blank');
+    if (!cliente.telefono) return;
+    
+    // Divide los números por comas, espacios o barras diagonales
+    const numerosEncontrados = cliente.telefono.split(/[\s,]+/).map(n => n.replace(/[^\d]/g, '')).filter(n => n !== '');
+    
+    if (numerosEncontrados.length === 0) return;
+    
+    if (numerosEncontrados.length > 1) {
+      let promptMsg = `Se detectaron varios números para ${cliente.nombre}:\n`;
+      numerosEncontrados.forEach((num, index) => {
+        promptMsg += `${index + 1} - ${num}\n`;
+      });
+      promptMsg += `Escribe el número de la opción (1 o 2), o escribe "todos":`;
+      
+      const seleccion = prompt(promptMsg, "1");
+      if (seleccion === null) return; // Canceló
+      
+      if (seleccion.toLowerCase() === 'todos') {
+        numerosEncontrados.forEach(num => {
+          const url = `https://wa.me/${num}?text=${encodeURIComponent(textoMensaje)}`;
+          window.open(url, '_blank');
+        });
+      } else {
+        const index = parseInt(seleccion, 10) - 1;
+        if (numerosEncontrados[index]) {
+          const url = `https://wa.me/${numerosEncontrados[index]}?text=${encodeURIComponent(textoMensaje)}`;
+          window.open(url, '_blank');
+        } else {
+          alert("Selección inválida.");
+        }
+      }
+    } else {
+      // Un solo número registrado
+      const url = `https://wa.me/${numerosEncontrados[0]}?text=${encodeURIComponent(textoMensaje)}`;
+      window.open(url, '_blank');
+    }
   };
 
-  const enviarMensajeSaldoPendiente = (cliente, faltante, numeroEspecifico = null) => {
+  const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
     const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
     
-    const numeroAUsar = numeroEspecifico || cliente.telefono;
-    const numeroLimpio = numeroAUsar.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
-    window.open(url, '_blank');
+    if (!cliente.telefono) return;
+    const numerosEncontrados = cliente.telefono.split(/[\s,]+/).map(n => n.replace(/[^\d]/g, '')).filter(n => n !== '');
+    
+    if (numerosEncontrados.length === 0) return;
+    
+    if (numerosEncontrados.length > 1) {
+      let promptMsg = `Se detectaron varios números para ${cliente.nombre}:\n`;
+      numerosEncontrados.forEach((num, index) => {
+        promptMsg += `${index + 1} - ${num}\n`;
+      });
+      promptMsg += `Escribe el número de la opción (1 o 2), o escribe "todos":`;
+      
+      const seleccion = prompt(promptMsg, "1");
+      if (seleccion === null) return;
+      
+      if (seleccion.toLowerCase() === 'todos') {
+        numerosEncontrados.forEach(num => {
+          const url = `https://wa.me/${num}?text=${encodeURIComponent(textoMensaje)}`;
+          window.open(url, '_blank');
+        });
+      } else {
+        const index = parseInt(seleccion, 10) - 1;
+        if (numerosEncontrados[index]) {
+          const url = `https://wa.me/${numerosEncontrados[index]}?text=${encodeURIComponent(textoMensaje)}`;
+          window.open(url, '_blank');
+        } else {
+          alert("Selección inválida.");
+        }
+      }
+    } else {
+      const url = `https://wa.me/${numerosEncontrados[0]}?text=${encodeURIComponent(textoMensaje)}`;
+      window.open(url, '_blank');
+    }
   };
 
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc, enBs) => {
@@ -1252,9 +1306,39 @@ function PagosView({ clientes, db }) {
     
     textoMensaje += `*📅 Detalles de Cobertura*\n• Fecha de pago: *${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}*\n• Próximo Vencimiento: *${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}*\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
-    const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
-    window.open(url, '_blank');
+    if (!selectedCliente.telefono) return;
+    const numerosEncontrados = selectedCliente.telefono.split(/[\s,]+/).map(n => n.replace(/[^\d]/g, '')).filter(n => n !== '');
+    
+    if (numerosEncontrados.length === 0) return;
+    
+    if (numerosEncontrados.length > 1) {
+      let promptMsg = `Enviar Recibo - Se detectaron varios números:\n`;
+      numerosEncontrados.forEach((num, index) => {
+        promptMsg += `${index + 1} - ${num}\n`;
+      });
+      promptMsg += `Escribe el número de la opción (1 o 2), o escribe "todos":`;
+      
+      const seleccion = prompt(promptMsg, "1");
+      if (seleccion === null) return;
+      
+      if (seleccion.toLowerCase() === 'todos') {
+        numerosEncontrados.forEach(num => {
+          const url = `https://wa.me/${num}?text=${encodeURIComponent(textoMensaje)}`;
+          window.open(url, '_blank');
+        });
+      } else {
+        const index = parseInt(seleccion, 10) - 1;
+        if (numerosEncontrados[index]) {
+          const url = `https://wa.me/${numerosEncontrados[index]}?text=${encodeURIComponent(textoMensaje)}`;
+          window.open(url, '_blank');
+        } else {
+          alert("Selección inválida.");
+        }
+      }
+    } else {
+      const url = `https://wa.me/${numerosEncontrados[0]}?text=${encodeURIComponent(textoMensaje)}`;
+      window.open(url, '_blank');
+    }
   };
 
   const handleClearPagoStatus = async (cliente) => {
@@ -1348,9 +1432,6 @@ function PagosView({ clientes, db }) {
             const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abono < costoTotal;
             const faltante = tieneDeudaActiva ? Math.max(0, costoTotal - abono) : 0;
 
-            // Dividir los teléfonos si hay múltiples registrados
-            const listaTelefonos = c.telefono ? c.telefono.split(/[\s,]+/).map(n => n.trim()).filter(n => n !== "") : [];
-
             return (
               <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
                 <div className="flex items-center gap-5">
@@ -1414,79 +1495,29 @@ function PagosView({ clientes, db }) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap relative">
-                  {/* BOTÓN O DESPLEGABLE DE AVISAR VENCIMIENTO */}
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                   {proximo && c.telefono && (
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (listaTelefonos.length > 1) {
-                            setOpenDropdownId(openDropdownId === `vencer-${c.id}` ? null : `vencer-${c.id}`);
-                          } else {
-                            enviarRecordatorioAmigable(c);
-                          }
-                        }}
-                        className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
-                        title="Enviar Recordatorio Amigable por WhatsApp"
-                      >
-                        <MessageCircle size={16} className="text-green-500 fill-green-500" />
-                        <span>AVISAR {listaTelefonos.length > 1 && '▼'}</span>
-                      </button>
-
-                      {openDropdownId === `vencer-${c.id}` && (
-                        <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[150px]">
-                          <p className="text-[9px] font-bold text-gray-400 px-3 py-1 uppercase border-b bg-gray-50">Elegir Número:</p>
-                          {listaTelefonos.map((tel, tIdx) => (
-                            <button
-                              key={tIdx}
-                              onClick={() => enviarRecordatorioAmigable(c, tel)}
-                              className="w-full text-left px-3 py-2 text-xs font-bold font-mono text-gray-700 hover:bg-green-50 transition-colors"
-                            >
-                              {tel}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => enviarRecordatorioAmigable(c)}
+                      className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                      title="Enviar Recordatorio Amigable por WhatsApp"
+                    >
+                      <MessageCircle size={16} className="text-green-500 fill-green-500" />
+                      <span>AVISAR</span>
+                    </button>
                   )}
 
-                  {/* ACCIONES CUANDO EL CLIENTE TIENE UN SALDO PENDIENTE */}
                   {tieneDeudaActiva && (
                     <>
                       {c.telefono && (
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (listaTelefonos.length > 1) {
-                                setOpenDropdownId(openDropdownId === `deuda-${c.id}` ? null : `deuda-${c.id}`);
-                              } else {
-                                enviarMensajeSaldoPendiente(c, faltante);
-                              }
-                            }}
-                            className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
-                            title="Enviar Recordatorio de Saldo Pendiente por WhatsApp"
-                          >
-                            <MessageCircle size={16} className="fill-white" />
-                            <span>NOTIFICAR DEUDA {listaTelefonos.length > 1 && '▼'}</span>
-                          </button>
-
-                          {openDropdownId === `deuda-${c.id}` && (
-                            <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 min-w-[150px]">
-                              <p className="text-[9px] font-bold text-gray-400 px-3 py-1 uppercase border-b bg-gray-50">Elegir Número:</p>
-                              {listaTelefonos.map((tel, tIdx) => (
-                                <button
-                                  key={tIdx}
-                                  onClick={() => enviarMensajeSaldoPendiente(c, faltante, tel)}
-                                  className="w-full text-left px-3 py-2 text-xs font-bold font-mono text-gray-700 hover:bg-green-50 transition-colors"
-                                >
-                                  {tel}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => enviarMensajeSaldoPendiente(c, faltante)}
+                          className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white shadow-sm rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                          title="Enviar Recordatorio de Saldo Pendiente por WhatsApp"
+                        >
+                          <MessageCircle size={16} className="fill-white" />
+                          <span>NOTIFICAR DEUDA</span>
+                        </button>
                       )}
 
                       <button
@@ -2771,7 +2802,7 @@ function SoporteView({ clientes, nodos, db }) {
                 <>
                   <option>Repartidor caído / desconectado</option>
                   <option>Cable 100 LAN0</option>
-                  <option>Obstrucción de frecuencia</option>
+                  <option>Obstrucción de frequency</option>
                   <option>Cambio de frecuencia</option>
                   <option>Rendimiento bajo</option>
                   <option>Reinicio por pérdida de energía</option>
