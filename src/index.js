@@ -757,7 +757,7 @@ export default function App() {
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" alt="G" />
           ENTRAR CON GOOGLE
         </button>
-        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal authorized</p>
+        <p className="text-center text-[9px] text-gray-400 mt-6 uppercase font-bold tracking-widest">Solo personal autorizado</p>
       </div>
     </div>
   );
@@ -1080,7 +1080,7 @@ function PagosView({ clientes, db }) {
     
     const numeroAUsar = numeroEspecifico || cliente.telefono;
     const numeroLimpio = numeroAUsar.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    const url = `https://wa.me/${numeroLinter}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
 
