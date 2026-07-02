@@ -613,7 +613,7 @@ export default function App() {
       let icon = "💻";
 
       if (snapshotExistente && snapshotExistente.exists()) {
-        const datosViejos = snapshotExistente.data();
+        const datos Viejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -1080,7 +1080,7 @@ function PagosView({ clientes, db }) {
     
     const numeroAUsar = numeroEspecifico || cliente.telefono;
     const numeroLimpio = numeroAUsar.replace(/[^\d]/g, '');
-    const url = `https://wa.me/${numeroLinter}?text=${encodeURIComponent(textoMensaje)}`;
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
 
