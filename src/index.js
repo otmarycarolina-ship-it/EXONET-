@@ -46,7 +46,8 @@ import {
   RefreshCw,
   Radio,
   Menu,
-  ChevronRight
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -662,7 +663,7 @@ export default function App() {
 
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
-          forzarDesconexionLocalCompleta();
+          forrarDesconexionLocalCompleta();
           return;
         }
 
@@ -997,6 +998,78 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
+// Componente de Botón de Recordatorio con Soporte de Menú Desplegable Integrado
+function BotonAvisar({ cliente, onAvisarDirecto }) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Divide los números por espacios o comas
+  const numeros = cliente.telefono ? cliente.telefono.split(/[\s,]+/).filter(Boolean) : [];
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  const handleSelectNumero = (numero) => {
+    setOpen(false);
+    // Clonamos al cliente cambiando temporalmente el número telefónico seleccionado
+    const clienteClonado = { ...cliente, telefono: numero };
+    onAvisarDirecto(clienteClonado);
+  };
+
+  if (numeros.length <= 1) {
+    return (
+      <button
+        onClick={() => onAvisarDirecto(cliente)}
+        className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+        title="Enviar Recordatorio Amigable por WhatsApp"
+      >
+        <MessageCircle size={16} className="text-green-500 fill-green-500" />
+        <span>AVISAR</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+        title="Elegir número para enviar recordatorio"
+      >
+        <MessageCircle size={16} className="text-green-500 fill-green-500" />
+        <span>AVISAR</span>
+        <ChevronDown size={14} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 z-[130] p-1.5 border border-green-100 animate-in fade-in zoom-in-95 duration-150">
+          <div className="px-2 py-1 text-[9px] font-black tracking-wider text-gray-400 uppercase border-b border-gray-100 mb-1">
+            Enviar a:
+          </div>
+          {numeros.map((num, i) => (
+            <button
+              key={i}
+              onClick={() => handleSelectNumero(num)}
+              className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-800 rounded-lg font-mono transition-colors block truncate"
+            >
+              📞 {num.trim()}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
@@ -1068,85 +1141,19 @@ function PagosView({ clientes, db }) {
     }
   };
 
-  // --- LOGICA REVISADA: MANEJO SEGURO DE MÚLTIPLES NÚMEROS DE TELÉFONO ---
   const enviarRecordatorioAmigable = (cliente) => {
     const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
-    
-    if (!cliente.telefono) return;
-    
-    // Divide los números por comas, espacios o barras diagonales
-    const numerosEncontrados = cliente.telefono.split(/[\s,]+/).map(n => n.replace(/[^\d]/g, '')).filter(n => n !== '');
-    
-    if (numerosEncontrados.length === 0) return;
-    
-    if (numerosEncontrados.length > 1) {
-      let promptMsg = `Se detectaron varios números para ${cliente.nombre}:\n`;
-      numerosEncontrados.forEach((num, index) => {
-        promptMsg += `${index + 1} - ${num}\n`;
-      });
-      promptMsg += `Escribe el número de la opción (1 o 2), o escribe "todos":`;
-      
-      const seleccion = prompt(promptMsg, "1");
-      if (seleccion === null) return; // Canceló
-      
-      if (seleccion.toLowerCase() === 'todos') {
-        numerosEncontrados.forEach(num => {
-          const url = `https://wa.me/${num}?text=${encodeURIComponent(textoMensaje)}`;
-          window.open(url, '_blank');
-        });
-      } else {
-        const index = parseInt(seleccion, 10) - 1;
-        if (numerosEncontrados[index]) {
-          const url = `https://wa.me/${numerosEncontrados[index]}?text=${encodeURIComponent(textoMensaje)}`;
-          window.open(url, '_blank');
-        } else {
-          alert("Selección inválida.");
-        }
-      }
-    } else {
-      // Un solo número registrado
-      const url = `https://wa.me/${numerosEncontrados[0]}?text=${encodeURIComponent(textoMensaje)}`;
-      window.open(url, '_blank');
-    }
+    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(url, '_blank');
   };
 
   const enviarMensajeSaldoPendiente = (cliente, faltante) => {
     const saldoFormateado = `$${faltante.toFixed(3)} COP`;
     const textoMensaje = `¡Hola, 👋🏻 ${cliente.nombre}! Espero que tengas un excelente día. Paso por aquí para comentarte que recibimos tu abono, pero aún queda un saldo pendiente para completar el valor de la mensualidad. Te agradeceríamos mucho si pudieras ponerte al día con tu pago.\n\n¡Muchas gracias por tu compromiso, quedamos atentos! El saldo pendiente es de *${saldoFormateado}*`;
-    
-    if (!cliente.telefono) return;
-    const numerosEncontrados = cliente.telefono.split(/[\s,]+/).map(n => n.replace(/[^\d]/g, '')).filter(n => n !== '');
-    
-    if (numerosEncontrados.length === 0) return;
-    
-    if (numerosEncontrados.length > 1) {
-      let promptMsg = `Se detectaron varios números para ${cliente.nombre}:\n`;
-      numerosEncontrados.forEach((num, index) => {
-        promptMsg += `${index + 1} - ${num}\n`;
-      });
-      promptMsg += `Escribe el número de la opción (1 o 2), o escribe "todos":`;
-      
-      const seleccion = prompt(promptMsg, "1");
-      if (seleccion === null) return;
-      
-      if (seleccion.toLowerCase() === 'todos') {
-        numerosEncontrados.forEach(num => {
-          const url = `https://wa.me/${num}?text=${encodeURIComponent(textoMensaje)}`;
-          window.open(url, '_blank');
-        });
-      } else {
-        const index = parseInt(seleccion, 10) - 1;
-        if (numerosEncontrados[index]) {
-          const url = `https://wa.me/${numerosEncontrados[index]}?text=${encodeURIComponent(textoMensaje)}`;
-          window.open(url, '_blank');
-        } else {
-          alert("Selección inválida.");
-        }
-      }
-    } else {
-      const url = `https://wa.me/${numerosEncontrados[0]}?text=${encodeURIComponent(textoMensaje)}`;
-      window.open(url, '_blank');
-    }
+    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(url, '_blank');
   };
 
   const generarImagenRecibo = (cliente, monto, referencia, fPago, fVenc, enBs) => {
@@ -1306,39 +1313,9 @@ function PagosView({ clientes, db }) {
     
     textoMensaje += `*📅 Detalles de Cobertura*\n• Fecha de pago: *${formatearFechaPantalla(modalForm.fechaPago || selectedCliente.fechaPago)}*\n• Próximo Vencimiento: *${formatearFechaPantalla(modalForm.fechaVencimiento || selectedCliente.fechaVencimiento)}*\n\n¡Gracias por mantener tu servicio al día! 😉`;
     
-    if (!selectedCliente.telefono) return;
-    const numerosEncontrados = selectedCliente.telefono.split(/[\s,]+/).map(n => n.replace(/[^\d]/g, '')).filter(n => n !== '');
-    
-    if (numerosEncontrados.length === 0) return;
-    
-    if (numerosEncontrados.length > 1) {
-      let promptMsg = `Enviar Recibo - Se detectaron varios números:\n`;
-      numerosEncontrados.forEach((num, index) => {
-        promptMsg += `${index + 1} - ${num}\n`;
-      });
-      promptMsg += `Escribe el número de la opción (1 o 2), o escribe "todos":`;
-      
-      const seleccion = prompt(promptMsg, "1");
-      if (seleccion === null) return;
-      
-      if (seleccion.toLowerCase() === 'todos') {
-        numerosEncontrados.forEach(num => {
-          const url = `https://wa.me/${num}?text=${encodeURIComponent(textoMensaje)}`;
-          window.open(url, '_blank');
-        });
-      } else {
-        const index = parseInt(seleccion, 10) - 1;
-        if (numerosEncontrados[index]) {
-          const url = `https://wa.me/${numerosEncontrados[index]}?text=${encodeURIComponent(textoMensaje)}`;
-          window.open(url, '_blank');
-        } else {
-          alert("Selección inválida.");
-        }
-      }
-    } else {
-      const url = `https://wa.me/${numerosEncontrados[0]}?text=${encodeURIComponent(textoMensaje)}`;
-      window.open(url, '_blank');
-    }
+    const numeroLimpio = selectedCliente.telefono.replace(/[^\d]/g, '');
+    const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
+    window.open(url, '_blank');
   };
 
   const handleClearPagoStatus = async (cliente) => {
@@ -1497,14 +1474,7 @@ function PagosView({ clientes, db }) {
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                   {proximo && c.telefono && (
-                    <button
-                      onClick={() => enviarRecordatorioAmigable(c)}
-                      className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
-                      title="Enviar Recordatorio Amigable por WhatsApp"
-                    >
-                      <MessageCircle size={16} className="text-green-500 fill-green-500" />
-                      <span>AVISAR</span>
-                    </button>
+                    <BotonAvisar cliente={c} onAvisarDirecto={enviarRecordatorioAmigable} />
                   )}
 
                   {tieneDeudaActiva && (
@@ -2291,7 +2261,7 @@ function ClientesView({ clientes, nodos, db }) {
                 )}
                 {c.fechaVencimiento && !c.exonerado && (
                   <span className="text-[9px] font-black text-red-600 bg-red-50 px-1 rounded inline-block mt-1">
-                    Vence: {formatearFechaPantalla(c.fechaVencimiento)}
+                    Vence: {formatearFechaPantaran(c.fechaVencimiento)}
                   </span>
                 )}
               </div>
@@ -2802,7 +2772,7 @@ function SoporteView({ clientes, nodos, db }) {
                 <>
                   <option>Repartidor caído / desconectado</option>
                   <option>Cable 100 LAN0</option>
-                  <option>Obstrucción de frequency</option>
+                  <option>Obstrucción de frecuencia</option>
                   <option>Cambio de frecuencia</option>
                   <option>Rendimiento bajo</option>
                   <option>Reinicio por pérdida de energía</option>
