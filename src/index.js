@@ -663,7 +663,7 @@ export default function App() {
 
         if (!todaviaExisto && !snap.metadata.fromCache) {
           document.removeEventListener("visibilitychange", manejarCambioVisibilidad);
-          forrarDesconexionLocalCompleta();
+          forzarDesconexionLocalCompleta();
           return;
         }
 
@@ -998,78 +998,6 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
-// Componente de Botón de Recordatorio con Soporte de Menú Desplegable Integrado
-function BotonAvisar({ cliente, onAvisarDirecto }) {
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Divide los números por espacios o comas
-  const numeros = cliente.telefono ? cliente.telefono.split(/[\s,]+/).filter(Boolean) : [];
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    }
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
-
-  const handleSelectNumero = (numero) => {
-    setOpen(false);
-    // Clonamos al cliente cambiando temporalmente el número telefónico seleccionado
-    const clienteClonado = { ...cliente, telefono: numero };
-    onAvisarDirecto(clienteClonado);
-  };
-
-  if (numeros.length <= 1) {
-    return (
-      <button
-        onClick={() => onAvisarDirecto(cliente)}
-        className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
-        title="Enviar Recordatorio Amigable por WhatsApp"
-      >
-        <MessageCircle size={16} className="text-green-500 fill-green-500" />
-        <span>AVISAR</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
-        title="Elegir número para enviar recordatorio"
-      >
-        <MessageCircle size={16} className="text-green-500 fill-green-500" />
-        <span>AVISAR</span>
-        <ChevronDown size={14} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 z-[130] p-1.5 border border-green-100 animate-in fade-in zoom-in-95 duration-150">
-          <div className="px-2 py-1 text-[9px] font-black tracking-wider text-gray-400 uppercase border-b border-gray-100 mb-1">
-            Enviar a:
-          </div>
-          {numeros.map((num, i) => (
-            <button
-              key={i}
-              onClick={() => handleSelectNumero(num)}
-              className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-800 rounded-lg font-mono transition-colors block truncate"
-            >
-              📞 {num.trim()}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function PagosView({ clientes, db }) {
   const [search, setSearch] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODOS');
@@ -1080,12 +1008,22 @@ function PagosView({ clientes, db }) {
   const [imageGenerated, setImageGenerated] = useState('');
   const [pagoEnBolivares, setPagoEnBolivares] = useState(false);
   
+  // Estado para controlar qué desplegable de números de aviso está abierto
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+  
   const [modalForm, setModalForm] = useState({
     montoPagado: '',
     referenciaPago: '',
     fechaPago: '',
     fechaVencimiento: ''
   });
+
+  // Cerrar menús desplegables si se hace clic fuera
+  useEffect(() => {
+    const handleOutsideClick = () => setOpenDropdownId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   const clientesDePago = clientes.filter(c => !c.exonerado);
 
@@ -1141,9 +1079,10 @@ function PagosView({ clientes, db }) {
     }
   };
 
-  const enviarRecordatorioAmigable = (cliente) => {
+  const enviarRecordatorioAmigable = (cliente, numeroEspecifico = null) => {
     const textoMensaje = `¡Hola! ${cliente.nombre} Te saludamos desde el área de atención para tu conexión de internet.⚡\n\nNos encanta acompañarte en tu día a día, por lo que queremos recordarte con un poquito de anticipación que tu fecha de pago se acerca. Queremos asegurarnos de que tu conexión siga activa y estable sin interrupciones. 💻✨\n\nSi tienes alguna duda, ¡aquí estamos para ayudarte!`;
-    const numeroLimpio = cliente.telefono.replace(/[^\d]/g, '');
+    const numDestino = numeroEspecifico || cliente.telefono;
+    const numeroLimpio = numDestino.replace(/[^\d]/g, '');
     const url = `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(textoMensaje)}`;
     window.open(url, '_blank');
   };
@@ -1409,6 +1348,9 @@ function PagosView({ clientes, db }) {
             const tieneDeudaActiva = !c.esBolivares && c.pagoCompletado && abono < costoTotal;
             const faltante = tieneDeudaActiva ? Math.max(0, costoTotal - abono) : 0;
 
+            // Dividir los teléfonos en un arreglo limpio
+            const numerosTelefono = c.telefono ? c.telefono.trim().split(/[\s,]+/).filter(Boolean) : [];
+
             return (
               <div key={c.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-green-50/30 transition-colors gap-4">
                 <div className="flex items-center gap-5">
@@ -1473,8 +1415,53 @@ function PagosView({ clientes, db }) {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                  {proximo && c.telefono && (
-                    <BotonAvisar cliente={c} onAvisarDirecto={enviarRecordatorioAmigable} />
+                  {proximo && numerosTelefono.length > 0 && (
+                    <div className="relative inline-block text-left">
+                      {numerosTelefono.length > 1 ? (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(openDropdownId === c.id ? null : c.id);
+                            }}
+                            className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1 text-xs font-black"
+                            title="Elegir número para enviar recordatorio amigable"
+                          >
+                            <MessageCircle size={16} className="text-green-500 fill-green-500" />
+                            <span>AVISAR</span>
+                            <ChevronDown size={14} />
+                          </button>
+                          
+                          {openDropdownId === c.id && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-2xl shadow-xl z-[120] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                              <div className="p-2 bg-gray-50 border-b text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">
+                                Elegir Número
+                              </div>
+                              <div className="p-1 space-y-0.5">
+                                {numerosTelefono.map((num, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => enviarRecordatorioAmigable(c, num)}
+                                    className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-green-50 hover:text-green-800 rounded-xl transition-colors font-mono flex items-center gap-2"
+                                  >
+                                    <MessageCircle size={14} className="text-green-500 fill-green-500" />
+                                    {num}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => enviarRecordatorioAmigable(c, numerosTelefono[0])}
+                          className="px-3 py-2.5 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-xl transition-all flex items-center justify-center gap-1.5 text-xs font-black"
+                        >
+                          <MessageCircle size={16} className="text-green-500 fill-green-500" />
+                          <span>AVISAR</span>
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {tieneDeudaActiva && (
@@ -2261,7 +2248,7 @@ function ClientesView({ clientes, nodos, db }) {
                 )}
                 {c.fechaVencimiento && !c.exonerado && (
                   <span className="text-[9px] font-black text-red-600 bg-red-50 px-1 rounded inline-block mt-1">
-                    Vence: {formatearFechaPantaran(c.fechaVencimiento)}
+                    Vence: {formatearFechaPantalla(c.fechaVencimiento)}
                   </span>
                 )}
               </div>
