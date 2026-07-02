@@ -613,7 +613,7 @@ export default function App() {
       let icon = "💻";
 
       if (snapshotExistente && snapshotExistente.exists()) {
-        const datos Viejos = snapshotExistente.data();
+        const datosViejos = snapshotExistente.data();
         label = datosViejos.label || label;
         desc = datosViejos.desc || desc;
         icon = datosViejos.icon || icon;
@@ -1936,8 +1936,8 @@ function FtthView({ clientes, db }) {
     
     if (tieneDeudaActiva) return 'SALDO PENDIENTE';
     
-    const estadoPago = obtenerEstadoCliente(cliente);
-    if (estadoPago === 'PENDIENTE') return 'SIN SERVICIO';
+    const fontPago = obtenerEstadoCliente(cliente);
+    if (fontPago === 'PENDIENTE') return 'SIN SERVICIO';
     return cliente.estadoFTTH || 'ACTIVO';
   };
 
@@ -2398,7 +2398,7 @@ function ClientesView({ clientes, nodos, db }) {
 
                 <div 
                   onClick={() => handleToggleCasilla('ftth')} 
-                  className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer select-none"
+                  className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100/50 cursor-pointer select-none"
                 >
                   {formData.ftth ? <CheckSquare className="text-blue-600" /> : <Square className="text-gray-300" />}
                   <span className="font-bold text-gray-700 text-sm">FTTH (Fibra Óptica)</span>
