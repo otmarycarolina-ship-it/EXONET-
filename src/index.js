@@ -136,6 +136,7 @@ const obtenerEstadoCliente = (cliente) => {
   const costoTotal = parseFloat(cliente.costo || 0);
   const abono = parseFloat(cliente.montoPagado || 0);
   
+  // AJUSTE: Si es un abono incompleto (con saldo restante), se queda como PENDIENTE de pago completo
   if (cliente.pagoCompletado && !cliente.esBolivares && abono < costoTotal) return 'PENDIENTE';
 
   if (!cliente.fechaVencimiento) return 'PENDIENTE';
@@ -2767,7 +2768,7 @@ function SoporteView({ clientes, nodos, db }) {
                 <>
                   <option>Repartidor caído / desconectado</option>
                   <option>Cable 100 LAN0</option>
-                  <option>Obstrucción de frecuencia</option>
+                  <option>Obstrucción de frequency</option>
                   <option>Cambio de frecuencia</option>
                   <option>Rendimiento bajo</option>
                   <option>Reinicio por pérdida de energía</option>
