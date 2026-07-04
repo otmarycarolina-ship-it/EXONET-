@@ -153,7 +153,9 @@ const esProximoAVencer = (cliente) => {
   if (cliente.pagoCompletado && !cliente.esBolivares && abono < costoTotal) return false;
 
   const hoyStr = obtenerFechaActualLocal();
-  if (hoyStr > cliente.fechaVencimiento) return false;
+  
+  // AJUSTE: Si hoy ya es el día de vencimiento (o posterior), ya no cuenta como "Próximo a vencer" sino que pasa a Vencidos.
+  if (hoyStr >= cliente.fechaVencimiento) return false;
   
   const hoy = new Date(hoyStr.replace(/-/g, '\/'));
   const vencimiento = new Date(cliente.fechaVencimiento.replace(/-/g, '\/'));
@@ -161,7 +163,7 @@ const esProximoAVencer = (cliente) => {
   const diferenciaTiempo = vencimiento.getTime() - hoy.getTime();
   const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 60 * 60 * 24));
   
-  return diferenciaDias >= 0 && diferenciaDias <= 3;
+  return diferenciaDias > 0 && diferenciaDias <= 3;
 };
 
 const handleGenerarRecibo = (cliente) => {
@@ -2755,7 +2757,7 @@ function SoporteView({ clientes, nodos, db }) {
             >
               {reportType === 'CLIENTE' ? (
                 <>
-                  <option>Sin internet</option>
+                  <option>Antena apagada</option>
                   <option>Lentitud</option>
                   <option>Antena apagada</option>
                   <option>LAN0: 10Mbps</option>
